@@ -2,13 +2,14 @@
 
 ## P0 — Required before large Monte Carlo
 
-### IM-001 Define `Mechanism` protocol
+### IM-001 Define `Mechanism` protocol — done
 Forward map, Jacobian, inverse map, validity, periodicity, serialization.
+See `docs/ADR-002-mechanism-protocol.md`.
 
-### IM-002 Implement unit gearbox
+### IM-002 Implement unit gearbox — done
 Identity map, identity Jacobian, unique inverse, limit tests.
 
-### IM-003 Implement fixed-ratio gearbox
+### IM-003 Implement fixed-ratio gearbox — done
 Vector ratios, inverse, Jacobian, invalid zero-ratio handling.
 
 ### IM-004 Implement four-bar forward kinematics
