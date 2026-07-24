@@ -1,0 +1,23 @@
+---
+description: Core architecture and scientific integrity rules
+alwaysApply: true
+---
+
+# Inequality Mechanisms project rules
+
+- This is scientific research software, not a product prototype.
+- Favor correctness, explicitness, and testability over clever abstractions.
+- Search state identity lives in input configuration space U.
+- Output configuration q and Cartesian state x are attached data, not node identity.
+- Preserve duplicate output preimages as distinct physical states.
+- Apply shared joint limits in output space Q.
+- Do not silently change experiment definitions or mathematical conventions.
+- Do not add dependencies without explaining why they are needed.
+- Core kinematics and search algorithms must not live only in notebooks.
+- Every implementation task must include tests.
+- Dijkstra and A* must use documented node-expansion semantics.
+- A* optimal cost must be validated against Dijkstra.
+- Use NumPy-style docstrings and Python type annotations.
+- Prefer small, composable modules.
+- Never modify generated results to make an experiment look better.
+- Update the relevant ADR when changing a foundational decision.

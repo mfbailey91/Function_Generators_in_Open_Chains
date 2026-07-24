@@ -1,0 +1,15 @@
+---
+description: Reproducibility rules for experiments
+globs:
+  - "src/**/experiments/**/*.py"
+  - "configs/**/*"
+  - "scripts/**/*"
+alwaysApply: false
+---
+
+- Experiment behavior must come from validated configuration.
+- Save the seed, configuration, mechanism parameters, code revision, and environment.
+- Preserve failed trials and failure reasons.
+- Trial-level output must remain tidy and machine readable.
+- Never overwrite an existing completed run.
+- Analysis code must not mutate raw results.

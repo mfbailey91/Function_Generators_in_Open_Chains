@@ -1,0 +1,17 @@
+---
+description: Testing requirements
+globs:
+  - "src/**/*.py"
+  - "tests/**/*.py"
+alwaysApply: false
+---
+
+- Use pytest.
+- Include nominal, boundary, invalid-input, and numerical-tolerance cases.
+- Use pytest.approx for floating-point comparisons.
+- For analytic Jacobians, compare against central finite differences.
+- Test periodic identities where applicable.
+- Tests must be deterministic unless explicitly testing randomized behavior.
+- Randomized tests must use an explicit seed.
+- Run the relevant test file after every implementation.
+- Run the full test suite before declaring an issue complete.
