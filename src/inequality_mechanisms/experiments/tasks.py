@@ -23,6 +23,43 @@ PreimagePolicy = Literal["lex_min_node_id", "random"]
 
 
 @dataclass(frozen=True, slots=True)
+class EndpointResidual:
+    """Requested vs realized discrete output endpoint (IM-036).
+
+    Attributes
+    ----------
+    requested_q, realized_q :
+        Shared / discrete output configurations in the trial chart.
+    residual_per_axis :
+        ``realized - requested`` after canonicalization (length ``dim``).
+    residual_norm :
+        ``d_Q(requested, realized)``.
+    n_continuous_candidates :
+        Continuous inverse preimages before lattice snap.
+    n_discrete_candidates :
+        Valid discrete snaps that passed the residual tolerance.
+    """
+
+    requested_q: tuple[float, ...]
+    realized_q: tuple[float, ...]
+    residual_per_axis: tuple[float, ...]
+    residual_norm: float
+    n_continuous_candidates: int
+    n_discrete_candidates: int
+
+    def to_dict(self) -> dict[str, Any]:
+        """Serialize for trial-level records."""
+        return {
+            "requested_q": list(self.requested_q),
+            "realized_q": list(self.realized_q),
+            "residual_per_axis": list(self.residual_per_axis),
+            "residual_norm": self.residual_norm,
+            "n_continuous_candidates": self.n_continuous_candidates,
+            "n_discrete_candidates": self.n_discrete_candidates,
+        }
+
+
+@dataclass(frozen=True, slots=True)
 class SelectedPreimages:
     """Discrete start/goal preimages for one mechanism on a paired task.
 
@@ -36,6 +73,8 @@ class SelectedPreimages:
         Lattice coordinates of those nodes.
     n_start_candidates, n_goal_candidates :
         Number of valid discrete preimage candidates before selection.
+    start_residual, goal_residual :
+        Optional matched-task residual records (IM-036).
     """
 
     mechanism_name: str
@@ -45,10 +84,12 @@ class SelectedPreimages:
     goal_u: tuple[float, ...]
     n_start_candidates: int
     n_goal_candidates: int
+    start_residual: EndpointResidual | None = None
+    goal_residual: EndpointResidual | None = None
 
     def to_dict(self) -> dict[str, Any]:
         """Serialize for trial-level records."""
-        return {
+        payload: dict[str, Any] = {
             "mechanism_name": self.mechanism_name,
             "start_node_id": self.start_node_id,
             "goal_node_id": self.goal_node_id,
@@ -57,6 +98,11 @@ class SelectedPreimages:
             "n_start_candidates": self.n_start_candidates,
             "n_goal_candidates": self.n_goal_candidates,
         }
+        if self.start_residual is not None:
+            payload["start_residual"] = self.start_residual.to_dict()
+        if self.goal_residual is not None:
+            payload["goal_residual"] = self.goal_residual.to_dict()
+        return payload
 
 
 @dataclass(frozen=True, slots=True)
@@ -68,9 +114,12 @@ class PairedTask:
     trial_index :
         Zero-based index within a generated batch.
     q_start, q_goal :
-        Shared output configurations (from the gearbox lattice nodes).
+        Shared output configurations (from the gearbox lattice nodes),
+        stored in the shared output chart.
     gearbox, fourbar :
         Selected discrete preimages on each constrained graph.
+    output_residual_tol :
+        Explicit Q residual tolerance used when accepting snaps.
     """
 
     trial_index: int
@@ -78,6 +127,7 @@ class PairedTask:
     q_goal: NDArray[np.floating]
     gearbox: SelectedPreimages
     fourbar: SelectedPreimages
+    output_residual_tol: float | None = None
 
     def to_dict(self) -> dict[str, Any]:
         """Serialize for trial-level records."""
@@ -87,6 +137,7 @@ class PairedTask:
             "q_goal": self.q_goal.tolist(),
             "gearbox": self.gearbox.to_dict(),
             "fourbar": self.fourbar.to_dict(),
+            "output_residual_tol": self.output_residual_tol,
         }
 
 
@@ -148,17 +199,41 @@ def default_snap_tol(grid: PeriodicGrid2D) -> float:
     return float(math.hypot(*grid.steps))
 
 
+def endpoint_residual(
+    graph: ConstrainedInputGraph,
+    requested_q: ArrayLike,
+    node_id: int,
+    *,
+    n_continuous: int,
+    n_discrete: int,
+) -> EndpointResidual:
+    """Build an IM-036 residual record for a discrete endpoint."""
+    space = graph.output_space
+    q_req = space.canonicalize(requested_q)
+    i0, i1 = graph.grid.indices_from_id(int(node_id))
+    q_real = graph.output_at(graph.grid.coordinates(i0, i1))
+    delta = space.displacement(q_req, q_real)
+    return EndpointResidual(
+        requested_q=tuple(float(x) for x in q_req),
+        realized_q=tuple(float(x) for x in q_real),
+        residual_per_axis=tuple(float(x) for x in delta),
+        residual_norm=float(np.linalg.norm(delta)),
+        n_continuous_candidates=int(n_continuous),
+        n_discrete_candidates=int(n_discrete),
+    )
+
+
 def discrete_preimage_candidates(
     graph: ConstrainedInputGraph,
     q: ArrayLike,
     *,
     snap_tol: float,
-) -> list[int]:
+) -> tuple[list[int], int]:
     """Return valid node ids that approximate preimages of ``q``.
 
     Continuous ``inverse_output(q)`` solutions are snapped to the lattice.
     A snapped node is kept when it is valid and
-    ``||g(u_node) - q||_2 <= snap_tol``.
+    ``d_Q(g(u_node), q) <= snap_tol`` in the shared output chart.
 
     Parameters
     ----------
@@ -171,8 +246,10 @@ def discrete_preimage_candidates(
 
     Returns
     -------
-    list of int
+    candidates :
         Distinct valid flat node ids, sorted ascending.
+    n_continuous :
+        Number of continuous inverse solutions considered.
     """
     if not math.isfinite(snap_tol) or snap_tol < 0.0:
         raise ValueError(f"snap_tol must be finite and >= 0, got {snap_tol}")
@@ -187,10 +264,10 @@ def discrete_preimage_candidates(
             continue
         node_id = graph.grid.node_id(i0, i1)
         u_node = graph.grid.coordinates(i0, i1)
-        q_node = mech.input_to_output(u_node)
-        if float(np.linalg.norm(q_node - q_arr)) <= snap_tol:
+        q_node = graph.output_at(u_node)
+        if graph.output_space.distance(q_node, q_arr) <= snap_tol:
             seen.add(node_id)
-    return sorted(seen)
+    return sorted(seen), len(continuous)
 
 
 def select_preimage(
@@ -228,6 +305,8 @@ def _selected_from_nodes(
     *,
     n_start: int,
     n_goal: int,
+    start_residual: EndpointResidual | None = None,
+    goal_residual: EndpointResidual | None = None,
 ) -> SelectedPreimages:
     return SelectedPreimages(
         mechanism_name=graph.mechanism.name,
@@ -237,6 +316,8 @@ def _selected_from_nodes(
         goal_u=_node_coords(graph, goal_id),
         n_start_candidates=n_start,
         n_goal_candidates=n_goal,
+        start_residual=start_residual,
+        goal_residual=goal_residual,
     )
 
 
@@ -269,7 +350,7 @@ def generate_paired_tasks(
     rng :
         NumPy generator (deterministic under a fixed seed).
     min_output_separation :
-        Reject pairs with ``||q_goal - q_start||_2 <`` this value.
+        Reject pairs with ``d_Q(q_goal, q_start) <`` this value.
     preimage_policy :
         How to choose among multiple valid four-bar (or gearbox) snaps.
     max_sample_attempts :
@@ -303,6 +384,9 @@ def generate_paired_tasks(
         raise ValueError("gearbox and fourbar limits.lower must match")
     if not np.allclose(gearbox_graph.limits.upper, fourbar_graph.limits.upper):
         raise ValueError("gearbox and fourbar limits.upper must match")
+    if gearbox_graph.output_space.dim != fourbar_graph.output_space.dim:
+        raise ValueError("gearbox and fourbar output spaces must have the same dim")
+    space = gearbox_graph.output_space
 
     gb_nodes = [n.node_id for n in gearbox_graph.iter_valid_nodes()]
     if len(gb_nodes) < 2:
@@ -322,17 +406,21 @@ def generate_paired_tasks(
         pair = rng.choice(gb_nodes, size=2, replace=False)
         start_gb = int(pair[0])
         goal_gb = int(pair[1])
-        q_start = gearbox_graph.mechanism.input_to_output(
-            _node_coords(gearbox_graph, start_gb)
+        q_start = space.canonicalize(
+            gearbox_graph.output_at(_node_coords(gearbox_graph, start_gb))
         )
-        q_goal = gearbox_graph.mechanism.input_to_output(
-            _node_coords(gearbox_graph, goal_gb)
+        q_goal = space.canonicalize(
+            gearbox_graph.output_at(_node_coords(gearbox_graph, goal_gb))
         )
-        if float(np.linalg.norm(q_goal - q_start)) < min_output_separation:
+        if space.distance(q_start, q_goal) < min_output_separation:
             continue
 
-        start_fb = discrete_preimage_candidates(fourbar_graph, q_start, snap_tol=tol)
-        goal_fb = discrete_preimage_candidates(fourbar_graph, q_goal, snap_tol=tol)
+        start_fb, n_cont_start = discrete_preimage_candidates(
+            fourbar_graph, q_start, snap_tol=tol
+        )
+        goal_fb, n_cont_goal = discrete_preimage_candidates(
+            fourbar_graph, q_goal, snap_tol=tol
+        )
         if not start_fb or not goal_fb:
             continue
         # Require distinct four-bar endpoints when possible; allow equal only
@@ -346,12 +434,49 @@ def generate_paired_tasks(
                 continue
             goal_sel = select_preimage(alt_goals, policy=preimage_policy, rng=rng)
 
+        fb_start_res = endpoint_residual(
+            fourbar_graph,
+            q_start,
+            start_sel,
+            n_continuous=n_cont_start,
+            n_discrete=len(start_fb),
+        )
+        fb_goal_res = endpoint_residual(
+            fourbar_graph,
+            q_goal,
+            goal_sel,
+            n_continuous=n_cont_goal,
+            n_discrete=len(goal_fb),
+        )
+        # Enforce residual tolerance on selected discrete endpoints.
+        if fb_start_res.residual_norm > tol or fb_goal_res.residual_norm > tol:
+            continue
+
+        gb_start_res = endpoint_residual(
+            gearbox_graph,
+            q_start,
+            start_gb,
+            n_continuous=1,
+            n_discrete=1,
+        )
+        gb_goal_res = endpoint_residual(
+            gearbox_graph,
+            q_goal,
+            goal_gb,
+            n_continuous=1,
+            n_discrete=1,
+        )
+        if gb_start_res.residual_norm > tol or gb_goal_res.residual_norm > tol:
+            continue
+
         gearbox_sel = _selected_from_nodes(
             gearbox_graph,
             start_gb,
             goal_gb,
             n_start=1,
             n_goal=1,
+            start_residual=gb_start_res,
+            goal_residual=gb_goal_res,
         )
         fourbar_sel = _selected_from_nodes(
             fourbar_graph,
@@ -359,6 +484,8 @@ def generate_paired_tasks(
             goal_sel,
             n_start=len(start_fb),
             n_goal=len(goal_fb),
+            start_residual=fb_start_res,
+            goal_residual=fb_goal_res,
         )
         tasks.append(
             PairedTask(
@@ -367,6 +494,7 @@ def generate_paired_tasks(
                 q_goal=np.asarray(q_goal, dtype=np.float64).copy(),
                 gearbox=gearbox_sel,
                 fourbar=fourbar_sel,
+                output_residual_tol=tol,
             )
         )
 

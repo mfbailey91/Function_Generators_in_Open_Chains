@@ -16,6 +16,7 @@ from numpy.typing import NDArray
 
 from inequality_mechanisms.mechanisms.fourbar import IndependentFourBars, PlanarFourBar
 from inequality_mechanisms.spaces.limits import OutputJointLimits
+from inequality_mechanisms.spaces.output_space import OutputSpace
 
 _TWO_PI = 2.0 * np.pi
 _DEFAULT_N_SAMPLES = 361
@@ -353,6 +354,11 @@ def limits_from_fourbar_follower_ranges(
         width = q_hi - q_lo
         if width <= 0.0:
             raise ValueError("follower range must have positive width")
+        if width >= _TWO_PI:
+            raise ValueError(
+                f"follower range span {width} must be < 2 pi for bounded "
+                "revolute output charts (ADR-011)"
+            )
         if width > 2.0 * float(eps):
             lower.append(q_lo + float(eps))
             upper.append(q_hi - float(eps))
@@ -360,3 +366,16 @@ def limits_from_fourbar_follower_ranges(
             lower.append(q_lo)
             upper.append(q_hi)
     return OutputJointLimits.box(lower=lower, upper=upper)
+
+
+def output_space_from_fourbar_follower_ranges(
+    fourbar: IndependentFourBars,
+    *,
+    n_samples: int = _DEFAULT_N_SAMPLES,
+    eps: float = _BOUND_EPS,
+) -> OutputSpace:
+    """Build the shared bounded-revolute Q chart from follower ranges."""
+    limits = limits_from_fourbar_follower_ranges(
+        fourbar, n_samples=n_samples, eps=eps
+    )
+    return OutputSpace.from_limits(limits)

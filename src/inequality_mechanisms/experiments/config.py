@@ -260,8 +260,9 @@ class TrialsConfig(BaseModel):
     snap_output_tol: float | None = Field(
         default=None,
         description=(
-            "Max ||g(u_snapped) - q|| allowed when snapping continuous "
-            "preimages to the lattice. None uses a grid-step heuristic."
+            "Explicit max d_Q(g(u_snapped), q) when snapping continuous "
+            "preimages (IM-036). None uses default_snap_tol; the realized "
+            "tolerance is stored on each PairedTask."
         ),
     )
     require_reachable: bool = Field(

@@ -21,11 +21,12 @@ def astar(
     *,
     edge_cost: Callable[[int, int], float] | None = None,
 ) -> SearchResult:
-    """Compute an optimal path with ``f = g + ||q_n - q_goal||_2``.
+    """Compute an optimal path with ``f = g + d_Q(q_n, q_goal)``.
 
-    The goal output ``q_goal = g(u_goal)`` is taken from the goal node so
-    ``h(goal) = 0``. With Version 1 output Euclidean edge costs the heuristic
-    is consistent, so the first expansion of the goal yields ``C*``.
+    The goal output ``q_goal = canonicalize(g(u_goal))`` is taken from the
+    goal node so ``h(goal) = 0``. With Version 1 output Euclidean edge costs
+    the heuristic is consistent, so the first expansion of the goal yields
+    ``C*``.
 
     Parameters
     ----------
@@ -35,19 +36,39 @@ def astar(
         Flat valid node ids (known preimages in Version 1 trials).
     edge_cost :
         Optional edge-weight override; default is output Euclidean cost.
+        Custom costs must not silently reuse the default output heuristic
+        (ADR-005 / IM-035): pass a compatible heuristic via
+        ``best_first_search`` or use Dijkstra / ``zero_heuristic``.
 
     Returns
     -------
     SearchResult
         Optimal path and instrumentation counters.
+
+    Raises
+    ------
+    ValueError
+        If a custom ``edge_cost`` is supplied (caller must use
+        ``best_first_search`` with an explicit compatible heuristic).
     """
+    if edge_cost is not None:
+        raise ValueError(
+            "astar() refuses a custom edge_cost with the default output "
+            "heuristic; use best_first_search(..., heuristic=...) with a "
+            "documented compatible heuristic, or dijkstra() / zero_heuristic"
+        )
     output_of = _cached_outputs(graph)
     q_goal = output_of(goal)
-    heuristic = output_euclidean_heuristic(graph.mechanism, q_goal, output_of)
+    heuristic = output_euclidean_heuristic(
+        graph.mechanism,
+        q_goal,
+        output_of,
+        output_space=graph.output_space,
+    )
     return best_first_search(
         graph,
         start,
         goal,
         heuristic,
-        edge_cost=edge_cost,
+        edge_cost=None,
     )

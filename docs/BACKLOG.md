@@ -70,6 +70,18 @@ Sample two independent §12.1 crank-rockers per Monte Carlo trial; shared Q
 limits come from those follower ranges and apply to both mechanisms.
 See `docs/ADR-009-mechanism-population.md`.
 
+## Sprint Two P0 — Output-space trust (see `docs/SPRINT_TWO_BACKLOG.md`)
+
+- IM-032 Ratify output-space semantics — done (ADR-011)
+- IM-033 Implement output-space abstraction — done
+- IM-034 Four-bar trial-consistent lifted coordinates — done
+- IM-035 Cost and heuristic compatibility — done (ADR-005)
+- IM-036 Matched-task residuals — done
+- IM-037 Edge-validation sensitivity study — done
+  (`scripts/edge_validation_sensitivity.py`)
+- IM-038 Regression and invariant test suite — done
+  (`tests/invariants/test_sprint_two_invariants.py`)
+
 ## P1 — Controlled science
 
 - IM-018 Equal valid-node-count ablation — done (ADR-010; config

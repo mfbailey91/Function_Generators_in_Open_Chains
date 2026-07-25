@@ -117,6 +117,7 @@ def reverse_dijkstra(
                 mech,
                 grid.coordinates(*u),
                 grid.coordinates(*v),
+                output_space=graph.output_space,
             )
 
     g_best: dict[int, float] = {goal: 0.0}

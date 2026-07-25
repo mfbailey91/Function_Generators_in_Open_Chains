@@ -13,6 +13,7 @@ from inequality_mechanisms.mechanisms.population import (
     follower_range,
     is_strict_crank_rocker,
     limits_from_fourbar_follower_ranges,
+    output_space_from_fourbar_follower_ranges,
     sample_crank_rocker,
     sample_independent_crank_rockers,
 )
@@ -29,6 +30,7 @@ __all__ = [
     "follower_range",
     "is_strict_crank_rocker",
     "limits_from_fourbar_follower_ranges",
+    "output_space_from_fourbar_follower_ranges",
     "register_mechanism_type",
     "sample_crank_rocker",
     "sample_independent_crank_rockers",

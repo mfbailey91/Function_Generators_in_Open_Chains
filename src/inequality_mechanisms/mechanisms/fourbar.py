@@ -219,6 +219,12 @@ class PlanarFourBar(Mechanism):
         return np.array([[ratio]], dtype=np.float64)
 
     def inverse_output(self, q: ArrayLike) -> list[NDArray[np.floating]]:
+        """Return crank preimages of a follower angle.
+
+        ``q`` may be a principal value or a lifted chart coordinate: the
+        Freudenstein solve is 2-pi-periodic in the follower angle, and
+        acceptance compares angles modulo 2-pi.
+        """
         q_vec = self._validate_output(q)
         qq = float(q_vec[0])
         cranks = crank_angles_at_follower(qq, self._k1, self._k2, self._k3)
@@ -238,6 +244,31 @@ class PlanarFourBar(Mechanism):
             seen.append(u_wrapped)
             preimages.append(np.array([u_wrapped], dtype=np.float64))
         return preimages
+
+    def lifted_follower_curve(
+        self,
+        u_samples: ArrayLike,
+        *,
+        q_min: float,
+        q_max: float,
+    ) -> NDArray[np.floating]:
+        """Evaluate the selected branch and lift into ``[q_min, q_max]``.
+
+        Pointwise Freudenstein solves are principal-valued; this method
+        applies the ADR-011 chart lift so the curve stays continuous across
+        the principal-angle seam and agrees with ``follower_curve(...,
+        unwrap=True)`` when that unwrapped image lies in the chart.
+        """
+        from inequality_mechanisms.spaces.output_space import lift_bounded_revolute
+
+        u_arr = np.asarray(u_samples, dtype=np.float64)
+        if u_arr.ndim != 1:
+            raise ValueError(f"u_samples must be 1-D, got shape {u_arr.shape}")
+        out = np.empty(u_arr.shape[0], dtype=np.float64)
+        for i, uu in enumerate(u_arr):
+            q_raw = float(self.input_to_output([uu])[0])
+            out[i] = lift_bounded_revolute(q_raw, q_min, q_max)
+        return out
 
     def follower_curve(
         self, u_samples: ArrayLike, *, unwrap: bool = True

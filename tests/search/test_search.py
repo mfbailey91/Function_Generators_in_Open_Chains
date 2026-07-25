@@ -21,7 +21,7 @@ from inequality_mechanisms.search import (
     reverse_dijkstra,
 )
 from inequality_mechanisms.search.core import _cached_outputs
-from inequality_mechanisms.spaces import OutputJointLimits
+from inequality_mechanisms.spaces import OutputJointLimits, OutputSpace
 
 _CR_LENGTHS = (1.0, 2.5, 2.0, 2.0)
 
@@ -219,7 +219,12 @@ class TestReverseDijkstra:
         goal = graph.grid.node_id(8, 7)
         ctg = reverse_dijkstra(graph, goal)
         output_of = _cached_outputs(graph)
-        h = output_euclidean_heuristic(graph.mechanism, output_of(goal), output_of)
+        h = output_euclidean_heuristic(
+            graph.mechanism,
+            output_of(goal),
+            output_of,
+            output_space=graph.output_space,
+        )
         for node_id, exact in ctg.costs.items():
             assert h(node_id) <= exact + 1e-12
 
@@ -265,8 +270,24 @@ class TestReverseDijkstra:
 class TestOutputEdgeCost:
     def test_unit_gearbox_matches_input_distance(self) -> None:
         mech = UnitGearbox(dim=2)
-        c = output_euclidean_cost(mech, [0.0, 0.0], [3.0, 4.0])
+        space = OutputSpace.from_limits(
+            OutputJointLimits.box(lower=[-10.0, -10.0], upper=[10.0, 10.0])
+        )
+        c = output_euclidean_cost(
+            mech, [0.0, 0.0], [3.0, 4.0], output_space=space
+        )
         assert c == pytest.approx(5.0)
+
+    def test_astar_rejects_custom_edge_cost(self) -> None:
+        graph = _unit_box_graph((4, 4), upper=4.0)
+        start = graph.grid.node_id(0, 0)
+        goal = graph.grid.node_id(2, 1)
+
+        def edge_cost(u: int, v: int) -> float:
+            return 1.0
+
+        with pytest.raises(ValueError, match="custom edge_cost"):
+            astar(graph, start, goal, edge_cost=edge_cost)
 
     def test_networkx_shortest_path_agrees(self) -> None:
         nx = pytest.importorskip("networkx")
@@ -278,7 +299,9 @@ class TestOutputEdgeCost:
         for u, v in list(g.edges()):
             cu = graph.grid.coordinates(*graph.grid.indices_from_id(u))
             cv = graph.grid.coordinates(*graph.grid.indices_from_id(v))
-            g.edges[u, v]["weight"] = output_euclidean_cost(graph.mechanism, cu, cv)
+            g.edges[u, v]["weight"] = output_euclidean_cost(
+                graph.mechanism, cu, cv, output_space=graph.output_space
+            )
         nx_cost = nx.shortest_path_length(g, start, goal, weight="weight")
         assert result.cost == pytest.approx(nx_cost)
         assert math.isfinite(result.cost)

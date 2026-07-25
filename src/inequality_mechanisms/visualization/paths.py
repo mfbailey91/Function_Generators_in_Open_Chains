@@ -57,13 +57,12 @@ def path_outputs(
     graph: ConstrainedInputGraph,
     path: Sequence[int],
 ) -> NDArray[np.floating]:
-    """Stack output joint coordinates along a path, shape ``(len(path), 2)``."""
-    mech = graph.mechanism
+    """Stack canonicalized output coordinates along a path, shape ``(L, 2)``."""
     out = np.empty((len(path), 2), dtype=np.float64)
     for i, node_id in enumerate(path):
         i0, i1 = graph.grid.indices_from_id(int(node_id))
         u = graph.grid.coordinates(i0, i1)
-        out[i] = mech.input_to_output(u)
+        out[i] = graph.output_at(u)
     return out
 
 
@@ -196,7 +195,7 @@ def plot_output_path(
             continue
         i0, i1 = graph.grid.indices_from_id(int(node_id))
         u = graph.grid.coordinates(i0, i1)
-        q = mech.input_to_output(u)
+        q = graph.output_at(u)
         qs.append([float(q[0]), float(q[1])])
         cs.append(float(cost))
     q_arr = np.asarray(qs, dtype=np.float64) if qs else np.empty((0, 2))
@@ -219,11 +218,11 @@ def plot_output_path(
         q_path = path_outputs(graph, path)
         ax.plot(q_path[:, 0], q_path[:, 1], color="C0", linewidth=2.0, label="A* path")
     i0_s, i1_s = graph.grid.indices_from_id(start)
-    q_start = mech.input_to_output(graph.grid.coordinates(i0_s, i1_s))
+    q_start = graph.output_at(graph.grid.coordinates(i0_s, i1_s))
     ax.scatter([q_start[0]], [q_start[1]], color="C0", s=60, zorder=5, label="start")
     if goal is not None:
         i0_g, i1_g = graph.grid.indices_from_id(goal)
-        q_goal = mech.input_to_output(graph.grid.coordinates(i0_g, i1_g))
+        q_goal = graph.output_at(graph.grid.coordinates(i0_g, i1_g))
         ax.scatter(
             [q_goal[0]], [q_goal[1]], color="C1", s=60, zorder=5, label="goal"
         )

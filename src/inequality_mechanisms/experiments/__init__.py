@@ -37,6 +37,7 @@ from inequality_mechanisms.experiments.setup import (
     build_paired_graphs_from_parts,
 )
 from inequality_mechanisms.experiments.tasks import (
+    EndpointResidual,
     PairedTask,
     SelectedPreimages,
     default_snap_tol,
@@ -49,6 +50,7 @@ from inequality_mechanisms.experiments.tasks import (
 __all__ = [
     "AlgorithmsConfig",
     "CostConfig",
+    "EndpointResidual",
     "ExperimentConfig",
     "ExperimentRun",
     "FourBarFixedSource",
