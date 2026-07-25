@@ -1,0 +1,79 @@
+# ADR-005 — Search Expansion Semantics and Tie-Breaking
+
+**Status:** Accepted
+
+## Context
+
+Version 1 reports node expansions as the primary planning metric. Dijkstra and
+A* must share one counting convention so paired gearbox / four-bar trials are
+comparable. Heap implementations that allow multiple entries per node must not
+count stale pops as expansions. A* must return the same optimal cost as
+Dijkstra when both use Version 1 output Euclidean edge weights.
+
+## Decision
+
+### Graph and cost
+
+- Search runs on `ConstrainedInputGraph` (input-space nodes; ADR-001, ADR-004).
+- Default edge weight is
+  \(c(a,b)=\|g(u_b)-g(u_a)\|_2\) (`output_euclidean_cost`).
+- Start and goal are known valid flat node ids (selected preimages).
+
+### Priority and tie-breaking
+
+- Open-set key is `(f, node_id)` with \(f=g+h\).
+- Dijkstra uses \(h\equiv 0\); A* uses
+  \(h(n)=\|q_n-q_{\mathrm{goal}}\|_2\) with \(q_{\mathrm{goal}}=g(u_{\mathrm{goal}})\).
+- When `f` ties, the smaller flat `node_id` is expanded first (deterministic).
+
+### Expansion and stale entries
+
+A node is **expanded** when it is removed from the open heap at its
+best-known `g` and its outgoing valid edges are examined.
+
+A pop is **stale** (not an expansion) when:
+
+1. its recorded `g` is strictly greater than the best-known `g` for that node,
+   or
+2. the node was already expanded (duplicate best-`g` heap entry).
+
+Stale pops increment `n_stale` only.
+
+`n_generated` counts open-heap pushes, including the start node.
+
+### Optimality
+
+With nonnegative edge weights, Dijkstra returns \(C^*\). The output Euclidean
+heuristic is consistent for Version 1 edge costs (triangle inequality in
+\(\mathcal Q\)), so A* returns the same \(C^*\). Project tests assert
+cost equality on shared graphs.
+
+### Reverse Dijkstra (exact cost-to-go)
+
+Reverse Dijkstra grows from the goal using reverse edge weights
+\(c(v,u)\) so that every reachable node \(n\) is labeled with exact
+\(C^*(n,\mathrm{goal})\). Expansion and stale-entry counting match forward
+Dijkstra. The resulting map validates heuristics: admissible \(h\) must
+satisfy \(h(n)\le C^*(n,\mathrm{goal})\) on every labeled node, and
+\(C^*(\mathrm{start},\mathrm{goal})\) must equal forward Dijkstra cost.
+
+### Failure behavior
+
+| Condition | Behavior |
+| --- | --- |
+| Start/goal out of range or invalid | `ValueError` |
+| No path | `SearchResult(found=False, cost=inf, path=())` |
+| Negative / non-finite edge or heuristic | `ValueError` |
+
+## Consequences
+
+Benefits:
+
+- expansion counts are comparable across algorithms and mechanisms;
+- A* cost can be validated against Dijkstra;
+- tie-breaking removes nondeterministic path choice under equal `f`.
+
+Costs:
+
+- multiple heap entries use more memory than decrease-key;
+- finite-sample edge validation (ADR-004) remains a separate approximation.

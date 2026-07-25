@@ -39,9 +39,21 @@ ruff format --check .
 mypy src
 ```
 
+## Reproduce the pilot (IM-017)
+
+```bash
+python scripts/reproduce_pilot.py --config configs/pilot.v1.yaml
+```
+
+Writes a new immutable run under `results/<run_id>/` with trial JSONL, a
+summary table, and paired raw / normalized / log-ratio expansion plots.
+See [docs/ADR-008-pilot-reproduction.md](docs/ADR-008-pilot-reproduction.md).
+
 ## Documentation
 
 - [docs/PROJECT_PLAN.md](docs/PROJECT_PLAN.md) — scope, architecture, milestones
 - [docs/BACKLOG.md](docs/BACKLOG.md) — implementation issues
 - [docs/ADR-001-search-in-input-space.md](docs/ADR-001-search-in-input-space.md) —
   search state identity lives in input configuration space
+- [docs/ADR-008-pilot-reproduction.md](docs/ADR-008-pilot-reproduction.md) —
+  pilot trial schema and expansion figures

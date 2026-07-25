@@ -12,51 +12,68 @@ Identity map, identity Jacobian, unique inverse, limit tests.
 ### IM-003 Implement fixed-ratio gearbox — done
 Vector ratios, inverse, Jacobian, invalid zero-ratio handling.
 
-### IM-004 Implement four-bar forward kinematics
+### IM-004 Implement four-bar forward kinematics — done
 Assembly validation, selected branch, periodic consistency.
+See `docs/ADR-003-fourbar-conventions.md`.
 
-### IM-005 Implement branch tracking
+### IM-005 Implement branch tracking — done
 Continuous follower curve without artificial branch jumps.
 
-### IM-006 Validate four-bar Jacobian
+### IM-006 Validate four-bar Jacobian — done
 Analytic/implicit derivative agrees with finite differences.
 
-### IM-007 Implement output preimage lookup
+### IM-007 Implement output preimage lookup — done
 Return all valid input states for a target follower angle.
 
-### IM-008 Build periodic 2D input graph
+### IM-008 Build periodic 2D input graph — done
 Four-connectivity, optional axis wrapping, deterministic indexing.
 
-### IM-009 Apply shared output joint limits
+### IM-009 Apply shared output joint limits — done
 Same output limits for gearbox and four-bar.
+See `docs/ADR-004-shared-output-limits.md`.
 
-### IM-010 Validate graph edges
+### IM-010 Validate graph edges — done
 Reject edges whose interior crosses invalid states.
+See `docs/ADR-004-shared-output-limits.md`.
 
-### IM-011 Implement Dijkstra
+### IM-011 Implement Dijkstra — done
 Optimal path, documented expansion semantics, stale-entry handling.
+See `docs/ADR-005-search-semantics.md`.
 
-### IM-012 Implement A*
+### IM-012 Implement A* — done
 Output-space Euclidean heuristic and deterministic tie-breaking.
+See `docs/ADR-005-search-semantics.md`.
 
-### IM-013 Add reverse Dijkstra
+### IM-013 Add reverse Dijkstra — done
 Exact cost-to-go for heuristic validation.
+See `docs/ADR-005-search-semantics.md`.
 
-### IM-014 Define config schema
+### IM-014 Define config schema — done
 Mechanisms, graph, limits, costs, algorithms, seed, and trials.
+See `docs/ADR-006-experiment-config.md`.
 
-### IM-015 Implement paired task generator
+### IM-015 Implement paired task generator — done
 Matched output endpoints and stored selected preimages.
+See `docs/ADR-006-experiment-config.md`.
 
-### IM-016 Implement experiment registry
+### IM-016 Implement experiment registry — done
 Run ID, config, seed, revision, environment, and outputs.
+See `docs/ADR-007-experiment-registry.md`.
 
-### IM-017 Reproduce pilot
+### IM-017 Reproduce pilot — done
 Paired raw and normalized expansion plots.
+See `docs/ADR-008-pilot-reproduction.md`.
+CLI: `python scripts/reproduce_pilot.py --config configs/pilot.v1.yaml`.
+
+### IM-031 Per-trial crank-rocker population — done
+Sample two independent §12.1 crank-rockers per Monte Carlo trial; shared Q
+limits come from those follower ranges and apply to both mechanisms.
+See `docs/ADR-009-mechanism-population.md`.
 
 ## P1 — Controlled science
 
-- IM-018 Equal valid-node-count ablation
+- IM-018 Equal valid-node-count ablation — done (ADR-010; config
+  `graph.match_valid_nodes`; `configs/pilot.equal_nodes.v1.yaml`)
 - IM-019 Monotonic-branch ablation
 - IM-020 Periodic-boundary ablation
 - IM-021 Input-cost versus output-cost ablation

@@ -1,5 +1,4 @@
 """Abstract Mechanism interface and serialization registry.
-
 See ``docs/ADR-002-mechanism-protocol.md`` for shapes and failure behavior.
 """
 
@@ -92,7 +91,8 @@ class Mechanism(ABC):
     output angles remain distinct physical states (ADR-001).
 
     ``valid_input`` checks assembly / kinematic domain only; shared output joint
-    limits are applied elsewhere (IM-009).
+    limits are applied by ``OutputJointLimits`` / ``ConstrainedInputGraph``
+    (IM-009, ADR-004).
     """
 
     #: Registry key written by ``to_dict`` / read by ``from_dict``.

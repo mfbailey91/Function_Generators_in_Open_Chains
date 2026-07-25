@@ -1,0 +1,328 @@
+"""Node and edge validity for mechanism graphs under shared output limits.
+
+Node identity remains an input configuration. Validity combines mechanism
+assembly (``valid_input``) with shared output joint limits in Q. Edges are
+checked along the short input-space segment between endpoints, including
+periodic wrapping when an axis is periodic.
+"""
+
+from __future__ import annotations
+
+from collections.abc import Iterator
+from typing import Any
+
+import numpy as np
+from numpy.typing import ArrayLike, NDArray
+
+from inequality_mechanisms.graphs.grid import GridNode, PeriodicGrid2D
+from inequality_mechanisms.mechanisms.base import Mechanism
+from inequality_mechanisms.spaces.limits import OutputJointLimits
+
+_TWO_PI = 2.0 * np.pi
+_DEFAULT_EDGE_SAMPLES = 17
+
+
+def interpolate_input_segment(
+    u_a: ArrayLike,
+    u_b: ArrayLike,
+    s: float,
+    *,
+    periodic_axes: tuple[bool, ...],
+    period: float = _TWO_PI,
+) -> NDArray[np.floating]:
+    """Interpolate along the short input path from ``u_a`` to ``u_b``.
+
+    Parameters
+    ----------
+    u_a, u_b :
+        Endpoint configurations, shape ``(n,)``.
+    s :
+        Interpolation parameter in ``[0, 1]``.
+    periodic_axes :
+        Per-axis flags; ``True`` selects the shortest wrapped displacement
+        on that axis (period ``period``).
+    period :
+        Wrap period for periodic axes (default ``2 * pi``).
+
+    Returns
+    -------
+    ndarray
+        Configuration ``u(s)``, shape ``(n,)``.
+
+    Raises
+    ------
+    ValueError
+        If shapes disagree, ``s`` is outside ``[0, 1]``, or values are
+        non-finite.
+    """
+    a = np.asarray(u_a, dtype=np.float64)
+    b = np.asarray(u_b, dtype=np.float64)
+    if a.ndim != 1 or b.ndim != 1:
+        raise ValueError("u_a and u_b must be 1-D")
+    if a.shape != b.shape:
+        raise ValueError(f"u_a and u_b shape mismatch: {a.shape} vs {b.shape}")
+    if len(periodic_axes) != a.shape[0]:
+        raise ValueError(
+            f"periodic_axes must have length {a.shape[0]}, got {len(periodic_axes)}"
+        )
+    if not np.all(np.isfinite(a)) or not np.all(np.isfinite(b)):
+        raise ValueError("u_a and u_b must contain only finite values")
+    if not np.isfinite(s) or s < 0.0 or s > 1.0:
+        raise ValueError(f"s must lie in [0, 1], got {s}")
+    if not np.isfinite(period) or period <= 0.0:
+        raise ValueError(f"period must be finite and positive, got {period}")
+
+    delta = b - a
+    half = 0.5 * period
+    for i, wrap in enumerate(periodic_axes):
+        if wrap:
+            delta[i] = (delta[i] + half) % period - half
+    return a + float(s) * delta
+
+
+def configuration_is_valid(
+    mechanism: Mechanism,
+    limits: OutputJointLimits,
+    u: ArrayLike,
+) -> bool:
+    """Return whether ``u`` assembles and maps into the shared output limits.
+
+    Parameters
+    ----------
+    mechanism :
+        Mechanism providing assembly checks and the forward map.
+    limits :
+        Shared output joint limits (same object for gearbox and four-bar).
+    u :
+        Input configuration, shape ``(mechanism.input_dim,)``.
+
+    Returns
+    -------
+    bool
+        ``True`` if ``valid_input(u)`` and ``g(u)`` lies in ``limits``.
+
+    Raises
+    ------
+    ValueError
+        If ``limits.dim`` does not match ``mechanism.output_dim``, or if
+        ``u`` has the wrong shape / is non-finite.
+    """
+    if limits.dim != mechanism.output_dim:
+        raise ValueError(
+            f"limits.dim ({limits.dim}) must equal mechanism.output_dim "
+            f"({mechanism.output_dim})"
+        )
+    if not mechanism.valid_input(u):
+        return False
+    q = mechanism.input_to_output(u)
+    return limits.contains(q)
+
+
+def edge_is_valid(
+    mechanism: Mechanism,
+    limits: OutputJointLimits,
+    u_a: ArrayLike,
+    u_b: ArrayLike,
+    *,
+    n_samples: int = _DEFAULT_EDGE_SAMPLES,
+    periodic_axes: tuple[bool, ...] | None = None,
+) -> bool:
+    """Return whether the short input segment between endpoints stays valid.
+
+    Samples ``n_samples`` configurations inclusive of both endpoints. Endpoint
+    checks alone are insufficient: a nonlinear mechanism map can leave the
+    limit box or assembly domain in the open segment.
+
+    Parameters
+    ----------
+    mechanism :
+        Mechanism used for assembly and forward map.
+    limits :
+        Shared output joint limits.
+    u_a, u_b :
+        Endpoint input configurations.
+    n_samples :
+        Number of sample points along the segment, including endpoints.
+        Must be ``>= 2``.
+    periodic_axes :
+        Override for short-path wrapping. Defaults to
+        ``mechanism.periodic_axes()``.
+
+    Returns
+    -------
+    bool
+        ``True`` if every sample is a valid configuration.
+
+    Raises
+    ------
+    ValueError
+        On dimension mismatch, non-finite inputs, or ``n_samples < 2``.
+    """
+    if n_samples < 2:
+        raise ValueError(f"n_samples must be >= 2, got {n_samples}")
+    axes = mechanism.periodic_axes() if periodic_axes is None else periodic_axes
+    for k in range(n_samples):
+        s = k / (n_samples - 1)
+        u = interpolate_input_segment(u_a, u_b, s, periodic_axes=axes)
+        if not configuration_is_valid(mechanism, limits, u):
+            return False
+    return True
+
+
+class ConstrainedInputGraph:
+    """Four-connected input grid filtered by assembly and output limits.
+
+    Nodes whose input fails assembly or whose output leaves the shared limit
+    box are removed. Lattice edges are retained only when the short continuous
+    segment between endpoints stays valid (IM-010).
+
+    Parameters
+    ----------
+    grid :
+        Underlying periodic (or open) 2-D lattice.
+    mechanism :
+        Mechanism with ``input_dim == 2``.
+    limits :
+        Shared output joint limits with ``dim == mechanism.output_dim``.
+    edge_samples :
+        Sample count for edge-interior validation (including endpoints).
+    """
+
+    def __init__(
+        self,
+        grid: PeriodicGrid2D,
+        mechanism: Mechanism,
+        limits: OutputJointLimits,
+        *,
+        edge_samples: int = _DEFAULT_EDGE_SAMPLES,
+    ) -> None:
+        if mechanism.input_dim != 2:
+            raise ValueError(
+                f"ConstrainedInputGraph requires input_dim == 2, "
+                f"got {mechanism.input_dim}"
+            )
+        if limits.dim != mechanism.output_dim:
+            raise ValueError(
+                f"limits.dim ({limits.dim}) must equal mechanism.output_dim "
+                f"({mechanism.output_dim})"
+            )
+        if edge_samples < 2:
+            raise ValueError(f"edge_samples must be >= 2, got {edge_samples}")
+        self._grid = grid
+        self._mechanism = mechanism
+        self._limits = limits
+        self._edge_samples = int(edge_samples)
+        self._periodic = mechanism.periodic_axes()
+        self._node_valid = np.zeros(grid.node_count, dtype=bool)
+        for node in grid.iter_nodes():
+            self._node_valid[node.node_id] = configuration_is_valid(
+                mechanism, limits, node.coordinates
+            )
+
+    @property
+    def grid(self) -> PeriodicGrid2D:
+        """Underlying lattice (unfiltered)."""
+        return self._grid
+
+    @property
+    def mechanism(self) -> Mechanism:
+        """Mechanism supplying assembly and forward map."""
+        return self._mechanism
+
+    @property
+    def limits(self) -> OutputJointLimits:
+        """Shared output joint limits."""
+        return self._limits
+
+    @property
+    def edge_samples(self) -> int:
+        """Sample count used for edge-interior checks."""
+        return self._edge_samples
+
+    @property
+    def valid_node_count(self) -> int:
+        """Number of lattice nodes that pass configuration validity."""
+        return int(np.count_nonzero(self._node_valid))
+
+    def node_is_valid(self, i0: int, i1: int) -> bool:
+        """Return whether lattice coordinates identify a valid node."""
+        return bool(self._node_valid[self._grid.node_id(i0, i1)])
+
+    def node_is_valid_id(self, node_id: int) -> bool:
+        """Return whether a flat node id is valid."""
+        if node_id < 0 or node_id >= self._grid.node_count:
+            raise ValueError(f"node_id out of range: {node_id}")
+        return bool(self._node_valid[node_id])
+
+    def iter_valid_nodes(self) -> Iterator[GridNode]:
+        """Iterate valid nodes in deterministic lattice order."""
+        for node in self._grid.iter_nodes():
+            if self._node_valid[node.node_id]:
+                yield node
+
+    def edge_is_valid(self, i0: int, i1: int, j0: int, j1: int) -> bool:
+        """Return whether the lattice edge between two index pairs is valid."""
+        a = self._grid.node(i0, i1)
+        b = self._grid.node(j0, j1)
+        if not (self._node_valid[a.node_id] and self._node_valid[b.node_id]):
+            return False
+        return edge_is_valid(
+            self._mechanism,
+            self._limits,
+            a.coordinates,
+            b.coordinates,
+            n_samples=self._edge_samples,
+            periodic_axes=self._periodic,
+        )
+
+    def neighbors(self, i0: int, i1: int) -> list[tuple[int, int]]:
+        """Valid four-connected neighbors of a lattice node.
+
+        Returns an empty list when ``(i0, i1)`` itself is invalid. Order matches
+        ``PeriodicGrid2D.neighbors``.
+        """
+        if not self.node_is_valid(i0, i1):
+            return []
+        result: list[tuple[int, int]] = []
+        for j0, j1 in self._grid.neighbors(i0, i1):
+            if self.edge_is_valid(i0, i1, j0, j1):
+                result.append((j0, j1))
+        return result
+
+    def iter_edges(self) -> Iterator[tuple[int, int]]:
+        """Iterate undirected valid edges as sorted flat ``(node_id_a, node_id_b)``.
+
+        Each undirected edge appears once with ``a < b``.
+        """
+        seen: set[tuple[int, int]] = set()
+        for node in self.iter_valid_nodes():
+            i0, i1 = node.indices
+            a = node.node_id
+            for j0, j1 in self.neighbors(i0, i1):
+                b = self._grid.node_id(j0, j1)
+                edge = (a, b) if a < b else (b, a)
+                if edge not in seen:
+                    seen.add(edge)
+                    yield edge
+
+    def to_networkx(self) -> Any:
+        """Build an undirected ``networkx.Graph`` of valid nodes and edges.
+
+        Requires the optional ``networkx`` development dependency.
+        """
+        try:
+            import networkx as nx  # type: ignore[import-untyped]
+        except ImportError as exc:  # pragma: no cover
+            raise ImportError(
+                "networkx is required for ConstrainedInputGraph.to_networkx(); "
+                "install with pip install 'inequality-mechanisms[dev]'"
+            ) from exc
+        g = nx.Graph()
+        for node in self.iter_valid_nodes():
+            g.add_node(
+                node.node_id,
+                indices=node.indices,
+                coordinates=node.coordinates,
+            )
+        g.add_edges_from(self.iter_edges())
+        return g

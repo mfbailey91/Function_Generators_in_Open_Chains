@@ -1,0 +1,44 @@
+# Dense reachable pilot (IM-017 / ADR-009): per-trial crank-rocker population
+
+seed: 0
+
+mechanisms:
+  gearbox:
+    type: unit_gearbox
+    dim: 2
+    periodic: [true, true]
+    name: unit_gearbox
+  fourbar:
+    mode: population
+    n_bars: 2
+    d: 1.0
+    length_low: 0.2
+    length_high: 2.0
+    grashof_margin: 0.05
+    branch: 1
+    min_follower_range: 0.5
+    min_abs_transmission_ratio: 0.05
+    max_abs_transmission_ratio: 20.0
+    n_crank_samples: 361
+    max_draw_attempts: 100000
+    periodic: true
+    name_prefix: crank_rocker
+
+graph:
+  shape: [16, 16]
+  wrap: [true, true]
+  edge_samples: 17
+
+cost:
+  type: output_euclidean
+
+algorithms:
+  names: [dijkstra, astar]
+  validate_heuristic: false
+
+trials:
+  n_trials: 250
+  min_output_separation: 0.2
+  preimage_policy: lex_min_node_id
+  max_sample_attempts: 200000
+  require_reachable: true

@@ -6,7 +6,8 @@ A gearbox applies an independent constant ratio on each coordinate:
 
 with Jacobian ``diag(r)``. A unit gearbox is the special case ``r = 1``.
 Assembly is always valid: gearboxes have no linkage singularity. Shared
-output joint limits are applied later (IM-009), not in ``valid_input``.
+output joint limits are applied by ``OutputJointLimits`` (IM-009 / ADR-004),
+not in ``valid_input``.
 """
 
 from __future__ import annotations

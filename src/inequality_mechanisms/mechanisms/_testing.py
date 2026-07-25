@@ -48,9 +48,7 @@ class IdentityMechanism(Mechanism):
         if periodic is None:
             periodic = tuple(False for _ in range(dim))
         elif len(periodic) != dim:
-            raise ValueError(
-                f"periodic must have length {dim}, got {len(periodic)}"
-            )
+            raise ValueError(f"periodic must have length {dim}, got {len(periodic)}")
         self._dim = dim
         self._domain_half_width = domain_half_width
         self._periodic = tuple(bool(p) for p in periodic)
