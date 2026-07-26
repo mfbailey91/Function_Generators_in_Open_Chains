@@ -30,6 +30,11 @@ The `figures/` directory must remain beside it for images to render.
 
 - [notes/IM-043-input-to-output-audit.md](notes/IM-043-input-to-output-audit.md) — Sprint 3 call-site audit (IM-043)
 
+## Diagnostics canvas
+
+Regenerate with `python scripts/generate_diagnostics_canvas.py --out diagnostics`, then open `diagnostics/index.html`.
+Paired numerical assertions live in `tests/diagnostics/`.
+
 Recommended editors:
 - Obsidian
 - Typora

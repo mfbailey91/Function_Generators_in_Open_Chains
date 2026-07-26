@@ -36,6 +36,7 @@ _GRAPH_FACING_DIRS = (
 _ALLOWED_INPUT_TO_OUTPUT_FILES = {
     _SRC_ROOT / "graphs" / "validation.py",  # raw_output + configuration_is_valid
     _SRC_ROOT / "graphs" / "costs.py",  # graph-free output_euclidean_cost
+    _SRC_ROOT / "graphs" / "edge_trace.py",  # shared validation/microscope trace
 }
 
 

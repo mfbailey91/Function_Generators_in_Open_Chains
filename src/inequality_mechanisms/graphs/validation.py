@@ -149,6 +149,9 @@ def edge_is_valid(
     checks alone are insufficient: a nonlinear mechanism map can leave the
     limit box or assembly domain in the open segment.
 
+    Decisions are delegated to :func:`inequality_mechanisms.graphs.edge_trace.build_edge_trace`
+    so the edge microscope shares the same sample logic (IM-046).
+
     Parameters
     ----------
     mechanism :
@@ -164,7 +167,7 @@ def edge_is_valid(
         Override for short-path wrapping. Defaults to
         ``mechanism.periodic_axes()``.
     output_space :
-        Shared output chart; forwarded to ``configuration_is_valid``.
+        Shared output chart; forwarded to the shared edge-trace builder.
 
     Returns
     -------
@@ -176,17 +179,17 @@ def edge_is_valid(
     ValueError
         On dimension mismatch, non-finite inputs, or ``n_samples < 2``.
     """
-    if n_samples < 2:
-        raise ValueError(f"n_samples must be >= 2, got {n_samples}")
-    axes = mechanism.periodic_axes() if periodic_axes is None else periodic_axes
-    for k in range(n_samples):
-        s = k / (n_samples - 1)
-        u = interpolate_input_segment(u_a, u_b, s, periodic_axes=axes)
-        if not configuration_is_valid(
-            mechanism, limits, u, output_space=output_space
-        ):
-            return False
-    return True
+    from inequality_mechanisms.graphs.edge_trace import build_edge_trace
+
+    return build_edge_trace(
+        mechanism,
+        limits,
+        u_a,
+        u_b,
+        n_samples=n_samples,
+        periodic_axes=periodic_axes,
+        output_space=output_space,
+    ).is_valid
 
 
 class ConstrainedInputGraph:
@@ -311,6 +314,70 @@ class ConstrainedInputGraph:
             Nonnegative Euclidean displacement in the shared chart.
         """
         return self._output_space.distance(self.raw_output(u_from), self.raw_output(u_to))
+
+    def inspect_output(self, u: ArrayLike):
+        """Return raw/canonical diagnostics without affecting search (IM-045).
+
+        Parameters
+        ----------
+        u :
+            Input configuration, shape ``(input_dim,)``.
+
+        Returns
+        -------
+        OutputMappingDiagnostic
+            Assembly flag and per-axis mapping records.
+        """
+        u_arr = np.asarray(u, dtype=np.float64)
+        assembly = bool(self._mechanism.valid_input(u_arr))
+        if not assembly:
+            from inequality_mechanisms.diagnostics.mapping import (
+                AxisMappingDiagnostic,
+                OutputMappingDiagnostic,
+            )
+
+            axes = tuple(
+                AxisMappingDiagnostic(
+                    raw=float("nan"),
+                    canonical=None,
+                    winding=None,
+                    within_bounds=False,
+                    crossed_native_seam=False,
+                )
+                for _ in range(self._output_space.dim)
+            )
+            return OutputMappingDiagnostic(
+                u=tuple(float(x) for x in u_arr),
+                assembly_valid=False,
+                axes=axes,
+            )
+        raw = self.raw_output(u_arr)
+        from inequality_mechanisms.diagnostics.mapping import (
+            OutputMappingDiagnostic,
+            inspect_raw_output,
+        )
+
+        return OutputMappingDiagnostic(
+            u=tuple(float(x) for x in u_arr),
+            assembly_valid=True,
+            axes=inspect_raw_output(raw, self._output_space),
+        )
+
+    def edge_trace(self, i0: int, i1: int, j0: int, j1: int):
+        """Return the shared validation trace for a lattice edge (IM-046)."""
+        from inequality_mechanisms.graphs.edge_trace import build_edge_trace
+
+        a = self._grid.node(i0, i1)
+        b = self._grid.node(j0, j1)
+        return build_edge_trace(
+            self._mechanism,
+            self._limits,
+            a.coordinates,
+            b.coordinates,
+            n_samples=self._edge_samples,
+            periodic_axes=self._periodic,
+            output_space=self._output_space,
+        )
 
     @property
     def valid_node_count(self) -> int:

@@ -20,6 +20,7 @@ def dijkstra(
     goal: int,
     *,
     edge_cost: Callable[[int, int], float] | None = None,
+    record_expanded: bool = False,
 ) -> SearchResult:
     """Compute an optimal path by accumulated edge cost only.
 
@@ -31,6 +32,8 @@ def dijkstra(
         Flat valid node ids.
     edge_cost :
         Optional edge-weight override; default is output Euclidean cost.
+    record_expanded :
+        Forwarded to ``best_first_search`` for diagnostic expanded-node masks.
 
     Returns
     -------
@@ -43,4 +46,5 @@ def dijkstra(
         goal,
         zero_heuristic,
         edge_cost=edge_cost,
+        record_expanded=record_expanded,
     )

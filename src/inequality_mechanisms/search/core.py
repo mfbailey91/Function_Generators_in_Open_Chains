@@ -35,6 +35,7 @@ def best_first_search(
     heuristic: Heuristic,
     *,
     edge_cost: Callable[[int, int], float] | None = None,
+    record_expanded: bool = False,
 ) -> SearchResult:
     """Run instrumented best-first search on a constrained input graph.
 
@@ -55,6 +56,9 @@ def best_first_search(
     edge_cost :
         Optional ``(u_id, v_id) -> float`` override. Defaults to Version 1
         output Euclidean displacement.
+    record_expanded :
+        When ``True``, populate ``SearchResult.expanded_nodes`` in expansion
+        order (diagnostic views). Default keeps the tuple empty.
 
     Returns
     -------
@@ -101,6 +105,7 @@ def best_first_search(
     n_expanded = 0
     n_stale = 0
     closed: set[int] = set()
+    expanded_order: list[int] = []
 
     while open_heap:
         f_u, u, g_u = heapq.heappop(open_heap)
@@ -117,6 +122,8 @@ def best_first_search(
         # Expansion: pop at best-known g and examine outgoing edges.
         n_expanded += 1
         closed.add(u)
+        if record_expanded:
+            expanded_order.append(u)
 
         if u == goal:
             path = _reconstruct_path(came_from, goal)
@@ -127,6 +134,7 @@ def best_first_search(
                 n_expanded=n_expanded,
                 n_generated=n_generated,
                 n_stale=n_stale,
+                expanded_nodes=tuple(expanded_order) if record_expanded else (),
             )
 
         i0, i1 = graph.grid.indices_from_id(u)
@@ -159,6 +167,7 @@ def best_first_search(
         n_expanded=n_expanded,
         n_generated=n_generated,
         n_stale=n_stale,
+        expanded_nodes=tuple(expanded_order) if record_expanded else (),
     )
 
 

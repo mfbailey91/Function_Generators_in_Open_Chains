@@ -98,8 +98,10 @@ ownership gaps, diagnostics, nested edge sensitivity, and open ablations.
 
 ### P1 — Instrumentation and controlled science
 
-- IM-045 Output inspection diagnostics (S3-06)
-- IM-046 Minimal edge microscope (S3-07)
+- IM-045 Output inspection diagnostics (S3-06) — done
+  (`ConstrainedInputGraph.inspect_output`, `diagnostics/`)
+- IM-046 Minimal edge microscope (S3-07) — done
+  (`graphs/edge_trace.py`, shared with validator; canvas bundle)
 - IM-047 Nested edge-sampling sensitivity (S3-08; strengthens IM-037)
 - IM-019 Monotonic-branch ablation (S3-09)
 - IM-020 Periodic-boundary ablation (S3-09)
