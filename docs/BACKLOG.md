@@ -82,13 +82,31 @@ See `docs/ADR-009-mechanism-population.md`.
 - IM-038 Regression and invariant test suite — done
   (`tests/invariants/test_sprint_two_invariants.py`)
 
-## P1 — Controlled science
+## Sprint 3 — Ownership and controlled science (see `docs/SPRINT_3.md`)
+
+Sprint Two P0 delivered ADR-011 and `OutputSpace`. Sprint 3 closes graph
+ownership gaps, diagnostics, nested edge sensitivity, and open ablations.
+
+### P0 — Ownership and residual correctness
+
+- IM-042 Graph as canonical output boundary (S3-03)
+- IM-043 Call-site audit of `input_to_output()` (S3-04)
+- IM-044 Residual ownership / nesting regression tests (S3-05; extends IM-038)
+- S3-01 / S3-02 confirm IM-032 / IM-033; amend ADR-011 only if needed
+
+### P1 — Instrumentation and controlled science
+
+- IM-045 Output inspection diagnostics (S3-06)
+- IM-046 Minimal edge microscope (S3-07)
+- IM-047 Nested edge-sampling sensitivity (S3-08; strengthens IM-037)
+- IM-019 Monotonic-branch ablation (S3-09)
+- IM-020 Periodic-boundary ablation (S3-09)
+- IM-021 Input-cost versus output-cost ablation (S3-09)
+
+## Earlier P1 — Controlled science (remaining outside Sprint 3 core)
 
 - IM-018 Equal valid-node-count ablation — done (ADR-010; config
   `graph.match_valid_nodes`; `configs/pilot.equal_nodes.v1.yaml`)
-- IM-019 Monotonic-branch ablation
-- IM-020 Periodic-boundary ablation
-- IM-021 Input-cost versus output-cost ablation
 - IM-022 Grid-resolution sweep
 - IM-023 Mechanism descriptor extraction
 - IM-024 Paired bootstrap confidence intervals

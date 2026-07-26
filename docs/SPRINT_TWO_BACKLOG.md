@@ -1,5 +1,9 @@
 # Sprint Two Backlog
 
+> **Status:** Sprint Two P0 (IM-032–038) is done. Remaining controlled-science
+> items IM-019–021 and strengthened edge sensitivity continue under
+> [SPRINT_3.md](SPRINT_3.md) (IM-042–047).
+
 ## Objective
 
 Harden the mathematical and software definition of output configuration space
