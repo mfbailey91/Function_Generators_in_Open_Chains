@@ -89,6 +89,7 @@ def best_first_search(
                 mech,
                 grid.coordinates(*u),
                 grid.coordinates(*v),
+                output_space=graph.output_space,
             )
 
     g_best: dict[int, float] = {start: 0.0}
@@ -167,17 +168,15 @@ def best_first_search(
 def _cached_outputs(
     graph: ConstrainedInputGraph,
 ) -> Callable[[int], NDArray[np.floating]]:
-    """Lazily cache ``g(u)`` by flat node id."""
+    """Lazily cache canonicalized ``g(u)`` by flat node id."""
     cache: dict[int, NDArray[np.floating]] = {}
-    mech = graph.mechanism
-    grid = graph.grid
 
     def output_of(node_id: int) -> NDArray[np.floating]:
         cached = cache.get(node_id)
         if cached is not None:
             return cached
-        coords = grid.coordinates(*grid.indices_from_id(node_id))
-        q = mech.input_to_output(coords)
+        coords = graph.grid.coordinates(*graph.grid.indices_from_id(node_id))
+        q = graph.output_at(coords)
         cache[node_id] = q
         return q
 

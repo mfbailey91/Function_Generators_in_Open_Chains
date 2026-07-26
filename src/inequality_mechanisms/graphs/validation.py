@@ -17,6 +17,7 @@ from numpy.typing import ArrayLike, NDArray
 from inequality_mechanisms.graphs.grid import GridNode, PeriodicGrid2D
 from inequality_mechanisms.mechanisms.base import Mechanism
 from inequality_mechanisms.spaces.limits import OutputJointLimits
+from inequality_mechanisms.spaces.output_space import OutputSpace
 
 _TWO_PI = 2.0 * np.pi
 _DEFAULT_EDGE_SAMPLES = 17
@@ -84,6 +85,8 @@ def configuration_is_valid(
     mechanism: Mechanism,
     limits: OutputJointLimits,
     u: ArrayLike,
+    *,
+    output_space: OutputSpace | None = None,
 ) -> bool:
     """Return whether ``u`` assembles and maps into the shared output limits.
 
@@ -95,11 +98,15 @@ def configuration_is_valid(
         Shared output joint limits (same object for gearbox and four-bar).
     u :
         Input configuration, shape ``(mechanism.input_dim,)``.
+    output_space :
+        Shared output chart (ADR-011). Defaults to a bounded-revolute space
+        built from ``limits``.
 
     Returns
     -------
     bool
-        ``True`` if ``valid_input(u)`` and ``g(u)`` lies in ``limits``.
+        ``True`` if ``valid_input(u)`` and canonicalized ``g(u)`` lies in
+        the shared chart / limit box.
 
     Raises
     ------
@@ -112,10 +119,16 @@ def configuration_is_valid(
             f"limits.dim ({limits.dim}) must equal mechanism.output_dim "
             f"({mechanism.output_dim})"
         )
+    space = OutputSpace.from_limits(limits) if output_space is None else output_space
+    if space.dim != mechanism.output_dim:
+        raise ValueError(
+            f"output_space.dim ({space.dim}) must equal mechanism.output_dim "
+            f"({mechanism.output_dim})"
+        )
     if not mechanism.valid_input(u):
         return False
     q = mechanism.input_to_output(u)
-    return limits.contains(q)
+    return space.contains(q)
 
 
 def edge_is_valid(
@@ -126,6 +139,7 @@ def edge_is_valid(
     *,
     n_samples: int = _DEFAULT_EDGE_SAMPLES,
     periodic_axes: tuple[bool, ...] | None = None,
+    output_space: OutputSpace | None = None,
 ) -> bool:
     """Return whether the short input segment between endpoints stays valid.
 
@@ -147,6 +161,8 @@ def edge_is_valid(
     periodic_axes :
         Override for short-path wrapping. Defaults to
         ``mechanism.periodic_axes()``.
+    output_space :
+        Shared output chart; forwarded to ``configuration_is_valid``.
 
     Returns
     -------
@@ -164,7 +180,9 @@ def edge_is_valid(
     for k in range(n_samples):
         s = k / (n_samples - 1)
         u = interpolate_input_segment(u_a, u_b, s, periodic_axes=axes)
-        if not configuration_is_valid(mechanism, limits, u):
+        if not configuration_is_valid(
+            mechanism, limits, u, output_space=output_space
+        ):
             return False
     return True
 
@@ -186,6 +204,9 @@ class ConstrainedInputGraph:
         Shared output joint limits with ``dim == mechanism.output_dim``.
     edge_samples :
         Sample count for edge-interior validation (including endpoints).
+    output_space :
+        Shared output chart (ADR-011). Defaults to bounded revolute axes
+        matching ``limits``.
     """
 
     def __init__(
@@ -195,6 +216,7 @@ class ConstrainedInputGraph:
         limits: OutputJointLimits,
         *,
         edge_samples: int = _DEFAULT_EDGE_SAMPLES,
+        output_space: OutputSpace | None = None,
     ) -> None:
         if mechanism.input_dim != 2:
             raise ValueError(
@@ -208,15 +230,25 @@ class ConstrainedInputGraph:
             )
         if edge_samples < 2:
             raise ValueError(f"edge_samples must be >= 2, got {edge_samples}")
+        space = OutputSpace.from_limits(limits) if output_space is None else output_space
+        if space.dim != mechanism.output_dim:
+            raise ValueError(
+                f"output_space.dim ({space.dim}) must equal mechanism.output_dim "
+                f"({mechanism.output_dim})"
+            )
         self._grid = grid
         self._mechanism = mechanism
         self._limits = limits
+        self._output_space = space
         self._edge_samples = int(edge_samples)
         self._periodic = mechanism.periodic_axes()
         self._node_valid = np.zeros(grid.node_count, dtype=bool)
         for node in grid.iter_nodes():
             self._node_valid[node.node_id] = configuration_is_valid(
-                mechanism, limits, node.coordinates
+                mechanism,
+                limits,
+                node.coordinates,
+                output_space=space,
             )
 
     @property
@@ -235,9 +267,18 @@ class ConstrainedInputGraph:
         return self._limits
 
     @property
+    def output_space(self) -> OutputSpace:
+        """Shared output configuration chart (ADR-011)."""
+        return self._output_space
+
+    @property
     def edge_samples(self) -> int:
         """Sample count used for edge-interior checks."""
         return self._edge_samples
+
+    def output_at(self, u: ArrayLike) -> NDArray[np.floating]:
+        """Return canonicalized ``g(u)`` in the shared output chart."""
+        return self._output_space.canonicalize(self._mechanism.input_to_output(u))
 
     @property
     def valid_node_count(self) -> int:
@@ -273,6 +314,7 @@ class ConstrainedInputGraph:
             b.coordinates,
             n_samples=self._edge_samples,
             periodic_axes=self._periodic,
+            output_space=self._output_space,
         )
 
     def neighbors(self, i0: int, i1: int) -> list[tuple[int, int]]:
@@ -304,6 +346,31 @@ class ConstrainedInputGraph:
                 if edge not in seen:
                     seen.add(edge)
                     yield edge
+
+    def valid_edge_count(self) -> int:
+        """Number of undirected valid edges."""
+        return sum(1 for _ in self.iter_edges())
+
+    def connected_component_count(self) -> int:
+        """Number of connected components among valid nodes (undirected)."""
+        remaining = {n.node_id for n in self.iter_valid_nodes()}
+        if not remaining:
+            return 0
+        components = 0
+        while remaining:
+            components += 1
+            seed = next(iter(remaining))
+            stack = [seed]
+            remaining.remove(seed)
+            while stack:
+                u = stack.pop()
+                i0, i1 = self._grid.indices_from_id(u)
+                for j0, j1 in self.neighbors(i0, i1):
+                    v = self._grid.node_id(j0, j1)
+                    if v in remaining:
+                        remaining.remove(v)
+                        stack.append(v)
+        return components
 
     def to_networkx(self) -> Any:
         """Build an undirected ``networkx.Graph`` of valid nodes and edges.

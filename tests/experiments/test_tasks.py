@@ -115,15 +115,18 @@ class TestGeneratePairedTasks:
             preimage_policy="lex_min_node_id",
         )
         task = tasks[0]
-        start_cands = discrete_preimage_candidates(
+        start_cands, _ = discrete_preimage_candidates(
             fb, task.q_start, snap_tol=default_snap_tol(fb.grid)
         )
-        goal_cands = discrete_preimage_candidates(
+        goal_cands, _ = discrete_preimage_candidates(
             fb, task.q_goal, snap_tol=default_snap_tol(fb.grid)
         )
         assert task.fourbar.start_node_id == min(start_cands)
         # Goal may skip the start node when they collide.
         assert task.fourbar.goal_node_id in goal_cands
+        assert task.fourbar.start_residual is not None
+        assert task.output_residual_tol is not None
+        assert task.fourbar.start_residual.residual_norm <= task.output_residual_tol + 1e-12
 
     def test_mismatched_limits_rejected(self) -> None:
         gb, fb = _paired_graphs()

@@ -14,8 +14,10 @@ Endpoint-only edge checks can create false connectivity when a nonlinear map lea
 
 - Represent limits as a closed axis-aligned box `OutputJointLimits` in
   `inequality_mechanisms.spaces.limits`.
+- Output coordinates are interpreted in the shared bounded lifted chart
+  (ADR-011). Limit membership uses canonicalized \(\mathcal Q\) values.
 - A configuration \(u\) is **node-valid** iff `mechanism.valid_input(u)` and
-  \(g(u)\) lies in the limit box.
+  \(\operatorname{canonicalize}(g(u))\) lies in the limit box.
 - The same `OutputJointLimits` instance is applied to gearbox and four-bar
   graphs in a paired trial.
 - For population Monte Carlo (ADR-009), that shared box is the sampled

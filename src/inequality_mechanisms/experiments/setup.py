@@ -9,6 +9,7 @@ from inequality_mechanisms.graphs.grid import PeriodicGrid2D
 from inequality_mechanisms.graphs.validation import ConstrainedInputGraph
 from inequality_mechanisms.mechanisms.base import Mechanism
 from inequality_mechanisms.spaces.limits import OutputJointLimits
+from inequality_mechanisms.spaces.output_space import OutputSpace
 
 
 @dataclass(frozen=True, slots=True)
@@ -23,6 +24,8 @@ class PairedGraphs:
         Per-mechanism U lattices (may differ under equal-node mode).
     limits :
         Shared output joint limits (ADR-004).
+    output_space :
+        Shared output chart (ADR-011); matches ``limits`` for Version 1.
     gearbox, fourbar :
         Filtered graphs for each mechanism.
     gearbox_mechanism, fourbar_mechanism :
@@ -40,12 +43,15 @@ class PairedGraphs:
     gearbox_grid: PeriodicGrid2D | None = None
     fourbar_grid: PeriodicGrid2D | None = None
     match_meta: dict | None = None
+    output_space: OutputSpace | None = None
 
     def __post_init__(self) -> None:
         if self.gearbox_grid is None:
             object.__setattr__(self, "gearbox_grid", self.grid)
         if self.fourbar_grid is None:
             object.__setattr__(self, "fourbar_grid", self.grid)
+        if self.output_space is None:
+            object.__setattr__(self, "output_space", self.gearbox.output_space)
 
 
 def build_paired_graphs_from_parts(
@@ -64,17 +70,20 @@ def build_paired_graphs_from_parts(
     mode). Equal-node mode passes a refined gearbox lattice separately.
     """
     gb_grid = grid if gearbox_grid is None else gearbox_grid
+    space = OutputSpace.from_limits(limits)
     gearbox = ConstrainedInputGraph(
         gb_grid,
         gearbox_mechanism,
         limits,
         edge_samples=edge_samples,
+        output_space=space,
     )
     fourbar = ConstrainedInputGraph(
         grid,
         fourbar_mechanism,
         limits,
         edge_samples=edge_samples,
+        output_space=space,
     )
     return PairedGraphs(
         grid=grid,
@@ -86,6 +95,7 @@ def build_paired_graphs_from_parts(
         gearbox_grid=gb_grid,
         fourbar_grid=grid,
         match_meta=match_meta,
+        output_space=space,
     )
 
 

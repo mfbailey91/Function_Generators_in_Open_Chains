@@ -70,13 +70,43 @@ Sample two independent §12.1 crank-rockers per Monte Carlo trial; shared Q
 limits come from those follower ranges and apply to both mechanisms.
 See `docs/ADR-009-mechanism-population.md`.
 
-## P1 — Controlled science
+## Sprint Two P0 — Output-space trust (see `docs/SPRINT_TWO_BACKLOG.md`)
+
+- IM-032 Ratify output-space semantics — done (ADR-011)
+- IM-033 Implement output-space abstraction — done
+- IM-034 Four-bar trial-consistent lifted coordinates — done
+- IM-035 Cost and heuristic compatibility — done (ADR-005)
+- IM-036 Matched-task residuals — done
+- IM-037 Edge-validation sensitivity study — done
+  (`scripts/edge_validation_sensitivity.py`)
+- IM-038 Regression and invariant test suite — done
+  (`tests/invariants/test_sprint_two_invariants.py`)
+
+## Sprint 3 — Ownership and controlled science (see `docs/SPRINT_3.md`)
+
+Sprint Two P0 delivered ADR-011 and `OutputSpace`. Sprint 3 closes graph
+ownership gaps, diagnostics, nested edge sensitivity, and open ablations.
+
+### P0 — Ownership and residual correctness
+
+- IM-042 Graph as canonical output boundary (S3-03)
+- IM-043 Call-site audit of `input_to_output()` (S3-04)
+- IM-044 Residual ownership / nesting regression tests (S3-05; extends IM-038)
+- S3-01 / S3-02 confirm IM-032 / IM-033; amend ADR-011 only if needed
+
+### P1 — Instrumentation and controlled science
+
+- IM-045 Output inspection diagnostics (S3-06)
+- IM-046 Minimal edge microscope (S3-07)
+- IM-047 Nested edge-sampling sensitivity (S3-08; strengthens IM-037)
+- IM-019 Monotonic-branch ablation (S3-09)
+- IM-020 Periodic-boundary ablation (S3-09)
+- IM-021 Input-cost versus output-cost ablation (S3-09)
+
+## Earlier P1 — Controlled science (remaining outside Sprint 3 core)
 
 - IM-018 Equal valid-node-count ablation — done (ADR-010; config
   `graph.match_valid_nodes`; `configs/pilot.equal_nodes.v1.yaml`)
-- IM-019 Monotonic-branch ablation
-- IM-020 Periodic-boundary ablation
-- IM-021 Input-cost versus output-cost ablation
 - IM-022 Grid-resolution sweep
 - IM-023 Mechanism descriptor extraction
 - IM-024 Paired bootstrap confidence intervals

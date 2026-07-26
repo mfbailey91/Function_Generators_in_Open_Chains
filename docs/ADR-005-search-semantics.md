@@ -10,20 +10,38 @@ comparable. Heap implementations that allow multiple entries per node must not
 count stale pops as expansions. A* must return the same optimal cost as
 Dijkstra when both use Version 1 output Euclidean edge weights.
 
+Output coordinates live in the shared chart \(\mathcal Q\) (ADR-011). Raw
+principal-angle subtraction is not a valid edge or heuristic metric.
+
 ## Decision
 
 ### Graph and cost
 
 - Search runs on `ConstrainedInputGraph` (input-space nodes; ADR-001, ADR-004).
 - Default edge weight is
-  \(c(a,b)=\|g(u_b)-g(u_a)\|_2\) (`output_euclidean_cost`).
+  \(c(a,b)=d_{\mathcal Q}\bigl(g(u_a),g(u_b)\bigr)\)
+  (`output_euclidean_cost` with the graph's `OutputSpace`).
 - Start and goal are known valid flat node ids (selected preimages).
+
+### Cost / heuristic compatibility (IM-035)
+
+A* may use exactly one of:
+
+1. the matching admissible output-space heuristic
+   \(h(n)=d_{\mathcal Q}(q_n,q_{\mathrm{goal}})\) with Version 1 default costs;
+2. a user-supplied heuristic documented for a custom cost, passed through
+   `best_first_search`; or
+3. a zero heuristic (Dijkstra / `zero_heuristic`).
+
+`astar()` refuses a custom `edge_cost` paired with the default output
+heuristic. Custom metrics must call `best_first_search` with an explicit
+compatible heuristic, or use `dijkstra()`.
 
 ### Priority and tie-breaking
 
 - Open-set key is `(f, node_id)` with \(f=g+h\).
-- Dijkstra uses \(h\equiv 0\); A* uses
-  \(h(n)=\|q_n-q_{\mathrm{goal}}\|_2\) with \(q_{\mathrm{goal}}=g(u_{\mathrm{goal}})\).
+- Dijkstra uses \(h\equiv 0\); default A* uses the output-space Euclidean
+  heuristic above with \(q_{\mathrm{goal}}=\operatorname{canonicalize}(g(u_{\mathrm{goal}}))\).
 - When `f` ties, the smaller flat `node_id` is expanded first (deterministic).
 
 ### Expansion and stale entries
@@ -43,10 +61,10 @@ Stale pops increment `n_stale` only.
 
 ### Optimality
 
-With nonnegative edge weights, Dijkstra returns \(C^*\). The output Euclidean
-heuristic is consistent for Version 1 edge costs (triangle inequality in
-\(\mathcal Q\)), so A* returns the same \(C^*\). Project tests assert
-cost equality on shared graphs.
+With nonnegative edge weights, Dijkstra returns \(C^*\). The output-space
+Euclidean heuristic is consistent for Version 1 edge costs (triangle
+inequality in \(\mathcal Q\)), so A* returns the same \(C^*\). Project tests
+assert cost equality on shared graphs.
 
 ### Reverse Dijkstra (exact cost-to-go)
 
@@ -64,6 +82,7 @@ satisfy \(h(n)\le C^*(n,\mathrm{goal})\) on every labeled node, and
 | Start/goal out of range or invalid | `ValueError` |
 | No path | `SearchResult(found=False, cost=inf, path=())` |
 | Negative / non-finite edge or heuristic | `ValueError` |
+| `astar(..., edge_cost=custom)` | `ValueError` (IM-035) |
 
 ## Consequences
 
@@ -71,7 +90,8 @@ Benefits:
 
 - expansion counts are comparable across algorithms and mechanisms;
 - A* cost can be validated against Dijkstra;
-- tie-breaking removes nondeterministic path choice under equal `f`.
+- tie-breaking removes nondeterministic path choice under equal `f`;
+- custom metrics cannot silently reuse an unrelated heuristic.
 
 Costs:
 

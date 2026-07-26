@@ -80,6 +80,34 @@ _SEARCHERS: dict[str, Callable[..., SearchResult]] = {
 }
 
 
+def _residual_summary_csv(rows: list[dict[str, Any]]) -> str:
+    """Build a CSV of matched-task residual norms from trial JSONL rows."""
+    lines = [
+        "trial_index,mechanism,endpoint,residual_norm,"
+        "n_continuous,n_discrete,tol"
+    ]
+    seen: set[tuple[int, str]] = set()
+    for row in rows:
+        key = (int(row["trial_index"]), str(row["mechanism"]))
+        if key in seen:
+            continue
+        seen.add(key)
+        pre = row.get("preimages") or {}
+        tol = row.get("output_residual_tol")
+        for endpoint, field in (("start", "start_residual"), ("goal", "goal_residual")):
+            res = pre.get(field)
+            if not isinstance(res, dict):
+                continue
+            lines.append(
+                f"{row['trial_index']},{row['mechanism']},{endpoint},"
+                f"{res.get('residual_norm')},"
+                f"{res.get('n_continuous_candidates')},"
+                f"{res.get('n_discrete_candidates')},"
+                f"{tol}"
+            )
+    return "\n".join(lines) + "\n"
+
+
 def _finite_cost(cost: float) -> float | None:
     if math.isfinite(cost):
         return float(cost)
@@ -94,7 +122,9 @@ def _validate_heuristic_admissible(
     ctg = reverse_dijkstra(graph, goal)
     output_of = _cached_outputs(graph)
     q_goal = output_of(goal)
-    h = output_euclidean_heuristic(graph.mechanism, q_goal, output_of)
+    h = output_euclidean_heuristic(
+        graph.mechanism, q_goal, output_of, output_space=graph.output_space
+    )
     for node_id, exact in ctg.costs.items():
         if not math.isfinite(exact):
             continue
@@ -247,6 +277,7 @@ def _search_record(
         "q_goal": trial.q_goal.tolist(),
         "preimages": preimages.to_dict(),
         "n_valid_nodes": n_valid,
+        "output_residual_tol": trial.output_residual_tol,
         "found": False,
         "n_expanded": None,
         "n_generated": None,
@@ -454,6 +485,7 @@ def _try_one_paired_task(
         q_goal=candidate.q_goal,
         gearbox=candidate.gearbox,
         fourbar=candidate.fourbar,
+        output_residual_tol=candidate.output_residual_tol,
     )
 
 
@@ -601,6 +633,7 @@ def run_pilot(
                     q_goal=probe.q_goal,
                     gearbox=probe.gearbox,
                     fourbar=probe.fourbar,
+                    output_residual_tol=probe.output_residual_tol,
                 )
                 _write_path_sample(
                     run,
@@ -630,6 +663,11 @@ def run_pilot(
         summary["n_sample_attempts"] = sample_attempts
         run.write_json("summary", summary)
         run.write_text("summary_table", summary_table_csv(summary), suffix=".csv")
+        run.write_text(
+            "residual_summary",
+            _residual_summary_csv(rows),
+            suffix=".csv",
+        )
 
         _write_plots(
             run,
