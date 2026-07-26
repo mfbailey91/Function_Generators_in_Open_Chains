@@ -127,8 +127,10 @@ def configuration_is_valid(
         )
     if not mechanism.valid_input(u):
         return False
-    q = mechanism.input_to_output(u)
-    return space.contains(q)
+    # Construction helper (IM-042 / IM-043): no ConstrainedInputGraph yet.
+    # Graph-facing code must use ConstrainedInputGraph.raw_output / output.
+    q_raw = mechanism.input_to_output(u)
+    return space.contains(q_raw)
 
 
 def edge_is_valid(
@@ -276,9 +278,39 @@ class ConstrainedInputGraph:
         """Sample count used for edge-interior checks."""
         return self._edge_samples
 
+    def raw_output(self, u: ArrayLike) -> NDArray[np.floating]:
+        """Return raw mechanism output ``g(u)`` (not chart-canonicalized).
+
+        Prefer :meth:`output` for validity, costs, heuristics, tasks, and
+        plots. This method exists for diagnostics and for composing the
+        graph-owned canonicalize path (IM-042).
+        """
+        return np.asarray(self._mechanism.input_to_output(u), dtype=np.float64)
+
+    def output(self, u: ArrayLike) -> NDArray[np.floating]:
+        """Return canonicalized ``g(u)`` in the shared output chart (IM-042)."""
+        return self._output_space.canonicalize(self.raw_output(u))
+
     def output_at(self, u: ArrayLike) -> NDArray[np.floating]:
-        """Return canonicalized ``g(u)`` in the shared output chart."""
-        return self._output_space.canonicalize(self._mechanism.input_to_output(u))
+        """Alias for :meth:`output` (retained for existing call sites)."""
+        return self.output(u)
+
+    def output_displacement(
+        self, u_from: ArrayLike, u_to: ArrayLike
+    ) -> float:
+        """Return ``d_Q(g(u_from), g(u_to))`` via the graph output boundary.
+
+        Parameters
+        ----------
+        u_from, u_to :
+            Input configurations, shape ``(input_dim,)``.
+
+        Returns
+        -------
+        float
+            Nonnegative Euclidean displacement in the shared chart.
+        """
+        return self._output_space.distance(self.raw_output(u_from), self.raw_output(u_to))
 
     @property
     def valid_node_count(self) -> int:

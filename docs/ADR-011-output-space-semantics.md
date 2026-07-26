@@ -93,6 +93,9 @@ d_{\mathcal Q}\bigl(g(u_a),g(u_b)\bigr).
 | `Mechanism` | Raw map \(q_{\mathrm{raw}}=g_m(u)\), assembly, Jacobian, inverse in raw or chart-compatible form |
 | `OutputSpace` | Per-axis topology, canonicalize, displacement, distance, contains, serialization |
 | `OutputJointLimits` | Closed box bounds; membership is evaluated on **canonicalized** coordinates |
+| `ConstrainedInputGraph` | Graph-facing boundary (IM-042): `raw_output`, `output`, `output_displacement`. Downstream validity consumers, edge costs, heuristics, tasks, residuals, and plots that operate on a constructed graph must use this path rather than calling `mechanism.input_to_output()` directly. |
+
+Construction helpers (`configuration_is_valid`) and graph-free unit-test helpers may call the raw map only when no graph instance exists; those call sites must be explicitly labeled. See `docs/notes/IM-043-input-to-output-audit.md`.
 
 Version 1 implements only bounded revolute axes. The software interface must
 permit future mixtures of bounded revolute, periodic revolute, and prismatic

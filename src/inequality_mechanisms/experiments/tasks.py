@@ -211,7 +211,7 @@ def endpoint_residual(
     space = graph.output_space
     q_req = space.canonicalize(requested_q)
     i0, i1 = graph.grid.indices_from_id(int(node_id))
-    q_real = graph.output_at(graph.grid.coordinates(i0, i1))
+    q_real = graph.output(graph.grid.coordinates(i0, i1))
     delta = space.displacement(q_req, q_real)
     return EndpointResidual(
         requested_q=tuple(float(x) for x in q_req),
@@ -264,7 +264,7 @@ def discrete_preimage_candidates(
             continue
         node_id = graph.grid.node_id(i0, i1)
         u_node = graph.grid.coordinates(i0, i1)
-        q_node = graph.output_at(u_node)
+        q_node = graph.output(u_node)
         if graph.output_space.distance(q_node, q_arr) <= snap_tol:
             seen.add(node_id)
     return sorted(seen), len(continuous)
@@ -407,10 +407,10 @@ def generate_paired_tasks(
         start_gb = int(pair[0])
         goal_gb = int(pair[1])
         q_start = space.canonicalize(
-            gearbox_graph.output_at(_node_coords(gearbox_graph, start_gb))
+            gearbox_graph.output(_node_coords(gearbox_graph, start_gb))
         )
         q_goal = space.canonicalize(
-            gearbox_graph.output_at(_node_coords(gearbox_graph, goal_gb))
+            gearbox_graph.output(_node_coords(gearbox_graph, goal_gb))
         )
         if space.distance(q_start, q_goal) < min_output_separation:
             continue

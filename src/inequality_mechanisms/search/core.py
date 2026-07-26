@@ -13,7 +13,6 @@ from collections.abc import Callable
 import numpy as np
 from numpy.typing import NDArray
 
-from inequality_mechanisms.graphs.costs import output_euclidean_cost
 from inequality_mechanisms.graphs.validation import ConstrainedInputGraph
 from inequality_mechanisms.search.heuristics import Heuristic
 from inequality_mechanisms.search.result import SearchResult
@@ -79,17 +78,15 @@ def best_first_search(
 
     cost_fn = edge_cost
     if cost_fn is None:
-        mech = graph.mechanism
         grid = graph.grid
 
         def cost_fn(u_id: int, v_id: int) -> float:
             u = grid.indices_from_id(u_id)
             v = grid.indices_from_id(v_id)
-            return output_euclidean_cost(
-                mech,
+            # IM-042: graph owns raw → canonical conversion for edge costs.
+            return graph.output_displacement(
                 grid.coordinates(*u),
                 grid.coordinates(*v),
-                output_space=graph.output_space,
             )
 
     g_best: dict[int, float] = {start: 0.0}
@@ -176,7 +173,7 @@ def _cached_outputs(
         if cached is not None:
             return cached
         coords = graph.grid.coordinates(*graph.grid.indices_from_id(node_id))
-        q = graph.output_at(coords)
+        q = graph.output(coords)
         cache[node_id] = q
         return q
 

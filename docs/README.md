@@ -24,7 +24,11 @@ The `figures/` directory must remain beside it for images to render.
 | [ADR-008](ADR-008-pilot-reproduction.md) | Pilot reproduction |
 | [ADR-009](ADR-009-mechanism-population.md) | Crank-rocker population |
 | [ADR-010](ADR-010-equal-valid-nodes.md) | Equal valid-node mode |
-| [ADR-011](ADR-011-output-space-semantics.md) | Bounded lifted \(\mathcal Q\) (Sprint Two) |
+| [ADR-011](ADR-011-output-space-semantics.md) | Bounded lifted \(\mathcal Q\) (Sprint Two / graph ownership) |
+
+## Sprint notes
+
+- [notes/IM-043-input-to-output-audit.md](notes/IM-043-input-to-output-audit.md) — Sprint 3 call-site audit (IM-043)
 
 Recommended editors:
 - Obsidian

@@ -1,6 +1,9 @@
 """Input-side graph construction and validation."""
 
-from inequality_mechanisms.graphs.costs import output_euclidean_cost
+from inequality_mechanisms.graphs.costs import (
+    graph_output_euclidean_cost,
+    output_euclidean_cost,
+)
 from inequality_mechanisms.graphs.grid import GridNode, PeriodicGrid2D
 from inequality_mechanisms.graphs.validation import (
     ConstrainedInputGraph,
@@ -15,6 +18,7 @@ __all__ = [
     "PeriodicGrid2D",
     "configuration_is_valid",
     "edge_is_valid",
+    "graph_output_euclidean_cost",
     "interpolate_input_segment",
     "output_euclidean_cost",
 ]
