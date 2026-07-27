@@ -52,6 +52,10 @@ See [docs/ADR-008-pilot-reproduction.md](docs/ADR-008-pilot-reproduction.md).
 Equal valid-node ablation: `configs/pilot.equal_nodes.v1.yaml` (ADR-010).
 For a smaller canvas-oriented Monte Carlo, use
 `configs/pilot.canvas.v1.yaml` (20 equal-node trials).
+Cost ablations (Sprint Four P0): `configs/pilot.cost_uniform.v1.yaml` and
+`configs/pilot.cost_input.v1.yaml` (same physical graph, different edge
+metric). Change `cost.type` in any config to `uniform`, `input_euclidean`,
+or `output_euclidean`.
 
 ### Monte Carlo canvas
 
@@ -63,8 +67,9 @@ MPLBACKEND=Agg PYTHONPATH=src python scripts/generate_monte_carlo_canvas.py --la
 ```
 
 Open `results/<run_id>/index.html`. The canvas is a derived viewer over
-summary stats, expansion PNGs, path samples, and provenance; regenerating it
-does not rewrite trial JSONL.
+summary stats, expansion PNGs, path samples, provenance, and Sprint Four
+fields (`cost_type`, path lengths \(L_U/L_Q/L_X\), `result_schema_version`)
+when present; regenerating it does not rewrite trial JSONL.
 
 ## Documentation
 

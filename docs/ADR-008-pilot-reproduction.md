@@ -25,18 +25,29 @@ One record per `(trial_index, mechanism, algorithm)` with at least:
 
 | Field | Role |
 | --- | --- |
+| `result_schema_version` | Trial schema version (Sprint Four P0: `"4.0.0"`) |
 | `found` | Whether a finite-cost path was returned |
-| `n_expanded`, `n_generated`, `n_stale`, `n_path_edges`, `cost` | Search instrumentation (ADR-005) |
+| `n_expanded`, `n_generated`, `n_stale`, `n_path_edges` | Search instrumentation (ADR-005) |
+| `cost_type`, `heuristic_type` | Resolved planning objective (S4-01 / S4-02) |
+| `optimal_cost` | \(C^*\) under the selected edge metric |
+| `cost` | Alias of `optimal_cost` (backward compatible) |
+| `path_length_u`, `path_length_q`, `path_length_x` | Path lengths in \(\mathcal U\), \(\mathcal Q\), \(\mathcal X\) (S4-03) |
 | `n_valid_nodes` | Denominator for normalized expansion |
 | `rho_expanded` | `N_expanded / N_valid_nodes` when `found`, else `null` |
 | `failure_reason` | e.g. `unreachable`, or heuristic validation message |
+| `heuristic_validation`, `heuristic_quality` | Optional reverse-search diagnostics when enabled (S4-04) |
 | `preimages`, `q_start`, `q_goal` | Task identity |
 | `fourbar_mode` | `fixed` or `population` |
 | `fourbar_lengths` | Per-axis `(a,b,c,d)` for the trial’s four-bar |
 | `limits` | Shared `{lower, upper}` used for that trial (follower ranges in population mode) |
 
+Under each cost type, solved paths satisfy (within numerical tolerance):
+`uniform` ⇒ \(C^*=N_{\mathrm{edges}}\); `input_euclidean` ⇒ \(C^*=L_U\);
+`output_euclidean` ⇒ \(C^*=L_Q\).
+
 Unreachable searches are **preserved** as rows with `found=false`; they are
-excluded from expansion plot series.
+excluded from expansion plot series. Cost and heuristic names remain present
+on failed rows.
 
 ### Normalized expansion
 

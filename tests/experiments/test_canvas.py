@@ -60,9 +60,12 @@ def _completed_synthetic_run(tmp_path: Path) -> Path:
         "n_discarded_unreachable": 0,
         "n_sample_attempts": 2,
         "seed": 7,
+        "cost_type": "output_euclidean",
+        "result_schema_version": "4.0.0",
         "graph_meta": {
             "fourbar_mode": "population",
             "match_valid_nodes": True,
+            "cost_type": "output_euclidean",
         },
         "by_group": {
             "dijkstra|gearbox": {
@@ -99,6 +102,25 @@ def _completed_synthetic_run(tmp_path: Path) -> Path:
         "section,algorithm,mechanism,median_n_expanded\n"
         "group,dijkstra,gearbox,10.0\n",
         suffix=".csv",
+    )
+    run.append_jsonl(
+        "trials",
+        [
+            {
+                "result_schema_version": "4.0.0",
+                "trial_index": 0,
+                "mechanism": "gearbox",
+                "algorithm": "dijkstra",
+                "cost_type": "output_euclidean",
+                "heuristic_type": "zero",
+                "found": True,
+                "optimal_cost": 1.5,
+                "n_path_edges": 3,
+                "path_length_u": 1.2,
+                "path_length_q": 1.5,
+                "path_length_x": 2.0,
+            }
+        ],
     )
 
     for name in (
@@ -138,6 +160,20 @@ class TestMonteCarloCanvas:
         assert "match_valid_nodes" in html_text
         assert "seed: 7" in html_text or ">7</dd>" in html_text
         assert "trial_0000" in html_text
+        assert "result_schema_version" in html_text
+        assert "4.0.0" in html_text
+        assert "output_euclidean" in html_text
+        assert "mean L_U" in html_text
+        assert "Path metrics" in html_text
+
+    def test_canvas_tolerates_missing_path_metrics(self, tmp_path: Path) -> None:
+        cfg = _tiny_config()
+        run = create_run(cfg, results_root=tmp_path, run_id="legacy_canvas")
+        run.mark_running()
+        run.write_json("summary", {"by_group": {}, "paired_log_ratios": {}})
+        run.mark_completed()
+        html_text = render_monte_carlo_canvas_html(collect_canvas_payload(run))
+        assert "No Sprint Four path-metric fields" in html_text
 
     def test_write_canvas_and_regenerate(self, tmp_path: Path) -> None:
         run_path = _completed_synthetic_run(tmp_path)

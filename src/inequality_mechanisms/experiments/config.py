@@ -18,7 +18,7 @@ from inequality_mechanisms.mechanisms.population import CrankRockerPopulationSpe
 from inequality_mechanisms.spaces.limits import OutputJointLimits
 
 AlgorithmName = Literal["dijkstra", "astar"]
-CostType = Literal["output_euclidean"]
+CostType = Literal["uniform", "input_euclidean", "output_euclidean"]
 PreimagePolicy = Literal["lex_min_node_id", "random"]
 FourBarMode = Literal["fixed", "population"]
 

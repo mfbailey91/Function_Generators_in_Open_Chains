@@ -149,6 +149,8 @@ def collect_canvas_payload(run: ExperimentRun) -> dict[str, Any]:
             continue
         figures.append({"name": name, "src": rel, "caption": caption})
 
+    path_metrics = _path_metric_summary(run)
+
     return {
         "run_id": run.run_id,
         "status": run.status,
@@ -171,6 +173,62 @@ def collect_canvas_payload(run: ExperimentRun) -> dict[str, Any]:
         "config_yaml": config_text,
         "figures": figures,
         "path_samples": _path_sample_figures(run),
+        "path_metrics": path_metrics,
+        "cost_type": summary.get("cost_type"),
+        "result_schema_version": summary.get("result_schema_version"),
+    }
+
+
+def _path_metric_summary(run: ExperimentRun) -> dict[str, Any]:
+    """Aggregate path lengths from trial JSONL when Sprint Four fields exist."""
+    if "trials" not in run.outputs:
+        return {}
+    try:
+        rows = run.read_jsonl("trials")
+    except Exception:
+        return {}
+    found = [
+        r
+        for r in rows
+        if isinstance(r, dict)
+        and r.get("found")
+        and r.get("path_length_u") is not None
+    ]
+    if not found:
+        for r in rows:
+            if isinstance(r, dict) and r.get("cost_type") is not None:
+                return {
+                    "n_found_with_lengths": 0,
+                    "cost_type": r.get("cost_type"),
+                    "heuristic_types": sorted(
+                        {
+                            str(x.get("heuristic_type"))
+                            for x in rows
+                            if isinstance(x, dict) and x.get("heuristic_type")
+                        }
+                    ),
+                    "result_schema_version": r.get("result_schema_version"),
+                }
+        return {}
+
+    def _mean(key: str) -> float | None:
+        vals = [float(r[key]) for r in found if r.get(key) is not None]
+        if not vals:
+            return None
+        return float(sum(vals) / len(vals))
+
+    return {
+        "n_found_with_lengths": len(found),
+        "cost_type": found[0].get("cost_type"),
+        "heuristic_types": sorted(
+            {str(r.get("heuristic_type")) for r in found if r.get("heuristic_type")}
+        ),
+        "result_schema_version": found[0].get("result_schema_version"),
+        "mean_optimal_cost": _mean("optimal_cost"),
+        "mean_path_length_u": _mean("path_length_u"),
+        "mean_path_length_q": _mean("path_length_q"),
+        "mean_path_length_x": _mean("path_length_x"),
+        "mean_n_path_edges": _mean("n_path_edges"),
     }
 
 
@@ -270,6 +328,25 @@ def render_monte_carlo_canvas_html(payload: dict[str, Any]) -> str:
     n_discarded = summary.get("n_discarded_unreachable", "—")
     n_attempts = summary.get("n_sample_attempts", "—")
     graph_meta = summary.get("graph_meta") if isinstance(summary.get("graph_meta"), dict) else {}
+    path_metrics = (
+        payload.get("path_metrics")
+        if isinstance(payload.get("path_metrics"), dict)
+        else {}
+    )
+    cost_type = (
+        payload.get("cost_type")
+        or path_metrics.get("cost_type")
+        or graph_meta.get("cost_type")
+        or "—"
+    )
+    schema_version = (
+        payload.get("result_schema_version")
+        or path_metrics.get("result_schema_version")
+        or summary.get("result_schema_version")
+        or "—"
+    )
+    heuristic_types = path_metrics.get("heuristic_types") or []
+    heuristic_label = ", ".join(str(h) for h in heuristic_types) if heuristic_types else "—"
 
     figures = payload.get("figures") if isinstance(payload.get("figures"), list) else []
     path_samples = (
@@ -280,6 +357,26 @@ def render_monte_carlo_canvas_html(payload: dict[str, Any]) -> str:
     config_yaml = str(payload.get("config_yaml") or "")
     summary_csv = str(payload.get("summary_table_csv") or "")
     summary_json = json.dumps(summary, indent=2, sort_keys=True)
+
+    path_metrics_rows = ""
+    if path_metrics:
+        path_metrics_rows = (
+            "<tr>"
+            f"<td>{html.escape(str(cost_type))}</td>"
+            f"<td>{html.escape(heuristic_label)}</td>"
+            f"<td>{_fmt_num(path_metrics.get('n_found_with_lengths'))}</td>"
+            f"<td>{_fmt_num(path_metrics.get('mean_optimal_cost'))}</td>"
+            f"<td>{_fmt_num(path_metrics.get('mean_n_path_edges'))}</td>"
+            f"<td>{_fmt_num(path_metrics.get('mean_path_length_u'))}</td>"
+            f"<td>{_fmt_num(path_metrics.get('mean_path_length_q'))}</td>"
+            f"<td>{_fmt_num(path_metrics.get('mean_path_length_x'))}</td>"
+            "</tr>"
+        )
+    else:
+        path_metrics_rows = (
+            "<tr><td colspan='8'>No Sprint Four path-metric fields in this run "
+            "(older schema or missing trials.jsonl).</td></tr>"
+        )
 
     return f"""<!DOCTYPE html>
 <html lang="en">
@@ -397,6 +494,8 @@ def render_monte_carlo_canvas_html(payload: dict[str, Any]) -> str:
     <span class="chip">run {run_id}</span>
     <span class="chip">seed {seed}</span>
     <span class="chip">{status}</span>
+    <span class="chip">cost {html.escape(str(cost_type))}</span>
+    <span class="chip">schema {html.escape(str(schema_version))}</span>
     <span class="chip">trials {html.escape(str(n_trials))}</span>
     <span class="chip">git {html.escape(str(git_describe))} ({dirty_label})</span>
   </div>
@@ -404,6 +503,7 @@ def render_monte_carlo_canvas_html(payload: dict[str, Any]) -> str:
 <nav>
   <a href="#provenance">Provenance</a>
   <a href="#summary">Summary</a>
+  <a href="#path-metrics">Path metrics</a>
   <a href="#expansions">Expansions</a>
   <a href="#paths">Path samples</a>
   <a href="#config">Config</a>
@@ -417,6 +517,9 @@ def render_monte_carlo_canvas_html(payload: dict[str, Any]) -> str:
       <dt>run_id</dt><dd>{run_id}</dd>
       <dt>seed</dt><dd>{seed}</dd>
       <dt>status</dt><dd>{status}</dd>
+      <dt>result_schema_version</dt><dd>{html.escape(str(schema_version))}</dd>
+      <dt>cost_type</dt><dd>{html.escape(str(cost_type))}</dd>
+      <dt>heuristic_types</dt><dd>{html.escape(heuristic_label)}</dd>
       <dt>created_at</dt><dd>{html.escape(str(manifest.get("created_at") or "—"))}</dd>
       <dt>completed_at</dt><dd>{html.escape(str(manifest.get("completed_at") or "—"))}</dd>
       <dt>git_commit</dt><dd>{html.escape(str(git_commit))}</dd>
@@ -452,6 +555,26 @@ def render_monte_carlo_canvas_html(payload: dict[str, Any]) -> str:
       </thead>
       <tbody>
 {_paired_ratio_rows(summary)}
+      </tbody>
+    </table>
+  </section>
+
+  <section id="path-metrics">
+    <h2>Path metrics (Sprint Four)</h2>
+    <p class="muted">
+      Mean path lengths over found trials when <code>path_length_*</code> fields
+      are present in trial JSONL (schema 4.0.0+).
+    </p>
+    <table>
+      <thead>
+        <tr>
+          <th>cost_type</th><th>heuristics</th><th>n_found</th>
+          <th>mean C*</th><th>mean N_edges</th>
+          <th>mean L_U</th><th>mean L_Q</th><th>mean L_X</th>
+        </tr>
+      </thead>
+      <tbody>
+{path_metrics_rows}
       </tbody>
     </table>
   </section>

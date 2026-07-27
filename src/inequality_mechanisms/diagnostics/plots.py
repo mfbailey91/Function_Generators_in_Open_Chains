@@ -13,6 +13,7 @@ import numpy as np
 from numpy.typing import ArrayLike, NDArray
 
 from inequality_mechanisms.diagnostics.mapping import mapping_curve
+from inequality_mechanisms.graphs.costs import input_euclidean_cost, uniform_edge_cost
 from inequality_mechanisms.graphs.edge_trace import EdgeTrace, build_edge_trace
 from inequality_mechanisms.graphs.grid import PeriodicGrid2D
 from inequality_mechanisms.graphs.validation import ConstrainedInputGraph
@@ -364,33 +365,6 @@ def plot_task_preimages(
     ax.legend(loc="best", fontsize=8)
     fig.tight_layout()
     return _save(fig, path_out, plt)
-
-
-def uniform_edge_cost(_u: int, _v: int) -> float:
-    """Unit edge weight for ablation basins."""
-    return 1.0
-
-
-def input_euclidean_cost(graph: ConstrainedInputGraph) -> Callable[[int, int], float]:
-    """Build lattice edge cost from short input displacement."""
-
-    def cost(u_id: int, v_id: int) -> float:
-        ua = np.asarray(
-            graph.grid.coordinates(*graph.grid.indices_from_id(u_id)),
-            dtype=np.float64,
-        )
-        ub = np.asarray(
-            graph.grid.coordinates(*graph.grid.indices_from_id(v_id)),
-            dtype=np.float64,
-        )
-        # Short periodic displacement on wrap axes.
-        delta = ub - ua
-        for i, wrap in enumerate(graph.mechanism.periodic_axes()):
-            if wrap:
-                delta[i] = (delta[i] + np.pi) % (2 * np.pi) - np.pi
-        return float(np.linalg.norm(delta))
-
-    return cost
 
 
 def basin_metrics(

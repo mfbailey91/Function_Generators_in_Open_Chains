@@ -24,6 +24,7 @@ from inequality_mechanisms.experiments.canvas import (
     write_monte_carlo_canvas,
 )
 from inequality_mechanisms.experiments.pilot import run_pilot
+from inequality_mechanisms.experiments.schema import RESULT_SCHEMA_VERSION
 from inequality_mechanisms.experiments.registry import (
     ExperimentRun,
     RunRegistryError,
@@ -66,6 +67,7 @@ __all__ = [
     "MechanismPairConfig",
     "PairedGraphs",
     "PairedTask",
+    "RESULT_SCHEMA_VERSION",
     "RunRegistryError",
     "SelectedPreimages",
     "TrialsConfig",
