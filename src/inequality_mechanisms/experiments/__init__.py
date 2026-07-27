@@ -17,6 +17,12 @@ from inequality_mechanisms.experiments.equal_nodes import (
     gearbox_grid_over_limits,
     match_gearbox_to_fourbar_valid_count,
 )
+from inequality_mechanisms.experiments.canvas import (
+    collect_canvas_payload,
+    render_monte_carlo_canvas_html,
+    resolve_run_for_canvas,
+    write_monte_carlo_canvas,
+)
 from inequality_mechanisms.experiments.pilot import run_pilot
 from inequality_mechanisms.experiments.registry import (
     ExperimentRun,
@@ -67,6 +73,7 @@ __all__ = [
     "build_paired_graphs_from_parts",
     "capture_environment",
     "capture_revision",
+    "collect_canvas_payload",
     "create_run",
     "default_results_root",
     "default_snap_tol",
@@ -81,7 +88,10 @@ __all__ = [
     "load_run",
     "match_gearbox_to_fourbar_valid_count",
     "nearest_grid_indices",
+    "render_monte_carlo_canvas_html",
+    "resolve_run_for_canvas",
     "run_pilot",
     "select_preimage",
     "validate_run_id",
+    "write_monte_carlo_canvas",
 ]

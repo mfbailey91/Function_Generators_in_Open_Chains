@@ -42,12 +42,29 @@ mypy src
 ## Reproduce the pilot (IM-017)
 
 ```bash
-python scripts/reproduce_pilot.py --config configs/pilot.v1.yaml
+MPLBACKEND=Agg PYTHONPATH=src python scripts/reproduce_pilot.py --config configs/pilot.v1.yaml
 ```
 
 Writes a new immutable run under `results/<run_id>/` with trial JSONL, a
 summary table, and paired raw / normalized / log-ratio expansion plots.
 See [docs/ADR-008-pilot-reproduction.md](docs/ADR-008-pilot-reproduction.md).
+
+Equal valid-node ablation: `configs/pilot.equal_nodes.v1.yaml` (ADR-010).
+For a smaller canvas-oriented Monte Carlo, use
+`configs/pilot.canvas.v1.yaml` (20 equal-node trials).
+
+### Monte Carlo canvas
+
+After a completed run (or regenerating if `index.html` is missing):
+
+```bash
+MPLBACKEND=Agg PYTHONPATH=src python scripts/generate_monte_carlo_canvas.py --latest
+# or: ... --run results/<run_id>
+```
+
+Open `results/<run_id>/index.html`. The canvas is a derived viewer over
+summary stats, expansion PNGs, path samples, and provenance; regenerating it
+does not rewrite trial JSONL.
 
 ## Documentation
 

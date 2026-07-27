@@ -24,6 +24,7 @@ from inequality_mechanisms.experiments.config import (
     ExperimentConfig,
     FourBarPopulationSource,
 )
+from inequality_mechanisms.experiments.canvas import write_monte_carlo_canvas
 from inequality_mechanisms.experiments.equal_nodes import (
     match_gearbox_to_fourbar_valid_count,
 )
@@ -675,6 +676,8 @@ def run_pilot(
             figures_dir=None if figures_dir is None else Path(figures_dir),
         )
         run.mark_completed()
+        # Derived viewer; regenerable via scripts/generate_monte_carlo_canvas.py.
+        write_monte_carlo_canvas(run)
     except Exception as exc:
         run.mark_failed(f"{type(exc).__name__}: {exc}")
         raise
