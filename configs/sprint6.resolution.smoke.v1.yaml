@@ -1,0 +1,69 @@
+# Sprint Six resolution / hierarchical Monte Carlo smoke.
+
+seed: 1
+
+mechanisms:
+  gearbox:
+    type: equivalent_gearbox
+    matching_rule: total_variation
+    n_samples: 181
+    periodic: [true, true]
+    name: tv_matched_gearbox
+  fourbar:
+    mode: population
+    n_bars: 2
+    d: 1.0
+    length_low: 0.4
+    length_high: 1.8
+    grashof_margin: 0.05
+    branch: 1
+    min_follower_range: 0.4
+    min_abs_transmission_ratio: 0.05
+    max_abs_transmission_ratio: 20.0
+    n_crank_samples: 181
+    max_draw_attempts: 50000
+    periodic: true
+    name_prefix: crank_rocker
+
+graph:
+  shape: [8, 8]
+  wrap: [true, true]
+  edge_samples: 5
+
+cost:
+  type: output_euclidean
+  types: [output_euclidean]
+
+algorithms:
+  names: [dijkstra]
+  validate_heuristic: false
+
+trials:
+  n_trials: 4
+  min_output_separation: 0.05
+  preimage_policy: lex_min_node_id
+  max_sample_attempts: 8000
+  require_reachable: false
+  n_path_samples: 0
+
+sprint6:
+  matching_n_samples: 181
+  verify_equivalence: false
+  resolution_shapes: [8, 12]
+  max_relative_effect_change: 0.5
+  require_sign_stability: false
+  require_component_stability: false
+  require_task_feasibility_stability: false
+  n_mechanisms: 3
+  tasks_per_mechanism: 2
+  min_accepted_tasks_per_mechanism: 1
+  mechanism_batch_size: 1
+  initial_mechanisms: 2
+  target_ci_half_width: 1.0
+  min_mechanisms: 2
+  max_mechanisms: 20
+  hierarchical_bootstrap_samples: 30
+  hierarchical_bootstrap_seed: 0
+  hierarchical_bootstrap_confidence: 0.95
+  confirmation_n_mechanisms: 2
+  grid_anisotropy_acknowledged: true

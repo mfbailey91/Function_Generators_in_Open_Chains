@@ -74,6 +74,23 @@ class TestRunPilot:
         summary = run.read_json("summary")
         assert summary["n_rows"] == 12
         assert "by_group" in summary
+        assert summary["result_schema_version"] == "4.0.0"
+        assert summary["cost_type"] == "output_euclidean"
+
+        for row in rows:
+            assert row["result_schema_version"] == "4.0.0"
+            assert row["cost_type"] == "output_euclidean"
+            assert row["heuristic_type"] in ("zero", "output_euclidean")
+            assert "optimal_cost" in row
+            if row["found"]:
+                assert row["path_length_u"] is not None
+                assert row["path_length_q"] is not None
+                assert row["path_length_x"] is not None
+                assert row["cost"] == row["optimal_cost"]
+
+        canvas = run.path / "index.html"
+        assert canvas.is_file()
+        assert "4.0.0" in canvas.read_text(encoding="utf-8")
 
         for name in (
             "expansions_raw",
@@ -86,6 +103,48 @@ class TestRunPilot:
 
         table_path = run.resolve_output("summary_table")
         assert table_path.read_text(encoding="utf-8").startswith("section,")
+
+    @pytest.mark.parametrize("cost_type", ["uniform", "input_euclidean"])
+    def test_alternate_costs_record_schema(self, tmp_path: Path, cost_type: str) -> None:
+        cfg = _pilot_config(
+            cost={"type": cost_type},
+            trials={
+                "n_trials": 1,
+                "min_output_separation": 0.05,
+                "preimage_policy": "lex_min_node_id",
+                "max_sample_attempts": 5000,
+                "n_path_samples": 0,
+            },
+        )
+        run = run_pilot(cfg, results_root=tmp_path, run_id=f"cost_{cost_type}")
+        rows = run.read_jsonl("trials")
+        assert rows
+        for row in rows:
+            assert row["cost_type"] == cost_type
+            if row["algorithm"] == "dijkstra":
+                assert row["heuristic_type"] == "zero"
+            else:
+                assert row["heuristic_type"] in (
+                    "uniform_step",
+                    "input_euclidean",
+                    "output_euclidean",
+                )
+            if row["found"]:
+                assert row["optimal_cost"] == row["cost"]
+                assert row["path_length_u"] is not None
+
+        # Dijkstra and A* agree on C* for the same objective.
+        by_key: dict[tuple[int, str], dict[str, dict]] = {}
+        for row in rows:
+            key = (int(row["trial_index"]), str(row["mechanism"]))
+            by_key.setdefault(key, {})[str(row["algorithm"])] = row
+        for pair in by_key.values():
+            d = pair.get("dijkstra")
+            a = pair.get("astar")
+            if d and a and d["found"] and a["found"]:
+                assert a["optimal_cost"] == pytest.approx(
+                    d["optimal_cost"], rel=0.0, abs=1e-9
+                )
 
     def test_determinism_same_seed(self, tmp_path: Path) -> None:
         cfg = _pilot_config(seed=11)

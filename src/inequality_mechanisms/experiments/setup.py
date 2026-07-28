@@ -140,8 +140,8 @@ def build_paired_graphs(config: ExperimentConfig) -> PairedGraphs:
         wrap=graph_cfg.wrap,
     )
     limits = config.limits.to_limits()
-    gearbox_mech = config.mechanisms.build_gearbox()
     fourbar_mech = config.mechanisms.build_fourbar()
+    gearbox_mech = config.mechanisms.build_gearbox(fourbar_mech)
     return build_paired_graphs_from_parts(
         grid=grid,
         limits=limits,

@@ -7,6 +7,7 @@ The `figures/` directory must remain beside it for images to render.
 
 - [PROJECT_PLAN.md](PROJECT_PLAN.md) — Version 1 software milestones
 - [BACKLOG.md](BACKLOG.md) — issue tracker
+- [SPRINT_FOUR_BACKLOG.md](SPRINT_FOUR_BACKLOG.md) — Sprint Four: search geometry attribution (P0 in progress; P1/P2 follow-up)
 - [SPRINT_3.md](SPRINT_3.md) — Sprint 3: graph ownership, diagnostics, nested sensitivity, ablations
 - [SPRINT_TWO_BACKLOG.md](SPRINT_TWO_BACKLOG.md) — Sprint Two controlled-science backlog (P0 done)
 
@@ -24,7 +25,24 @@ The `figures/` directory must remain beside it for images to render.
 | [ADR-008](ADR-008-pilot-reproduction.md) | Pilot reproduction |
 | [ADR-009](ADR-009-mechanism-population.md) | Crank-rocker population |
 | [ADR-010](ADR-010-equal-valid-nodes.md) | Equal valid-node mode |
-| [ADR-011](ADR-011-output-space-semantics.md) | Bounded lifted \(\mathcal Q\) (Sprint Two) |
+| [ADR-011](ADR-011-output-space-semantics.md) | Bounded lifted \(\mathcal Q\) (Sprint Two / graph ownership) |
+
+## Sprint notes
+
+- [notes/SPRINT_FOUR_P0_STATUS.md](notes/SPRINT_FOUR_P0_STATUS.md) — Sprint Four P0 vs P1+ follow-up
+- [notes/IM-043-input-to-output-audit.md](notes/IM-043-input-to-output-audit.md) — Sprint 3 call-site audit (IM-043)
+
+## Diagnostics canvas
+
+Regenerate with `python scripts/generate_diagnostics_canvas.py --out diagnostics`, then open `diagnostics/index.html`.
+Paired numerical assertions live in `tests/diagnostics/`.
+
+## Monte Carlo canvas
+
+Small practical run: `configs/pilot.canvas.v1.yaml` (20 equal-node trials).
+Reproduce with `scripts/reproduce_pilot.py`; open `results/<run_id>/index.html`
+(or regenerate via `scripts/generate_monte_carlo_canvas.py --latest`).
+See also `artifacts/monte_carlo/README.md` for a checked local canvas run.
 
 Recommended editors:
 - Obsidian

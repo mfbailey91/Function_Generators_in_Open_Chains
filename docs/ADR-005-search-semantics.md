@@ -20,10 +20,12 @@ principal-angle subtraction is not a valid edge or heuristic metric.
 - Search runs on `ConstrainedInputGraph` (input-space nodes; ADR-001, ADR-004).
 - Default edge weight is
   \(c(a,b)=d_{\mathcal Q}\bigl(g(u_a),g(u_b)\bigr)\)
-  (`output_euclidean_cost` with the graph's `OutputSpace`).
+  via `ConstrainedInputGraph.output_displacement` (IM-042; ADR-011 ownership).
+  The graph-free helper `output_euclidean_cost` remains for unit tests without
+  a graph instance.
 - Start and goal are known valid flat node ids (selected preimages).
 
-### Cost / heuristic compatibility (IM-035)
+### Cost / heuristic compatibility (IM-035 / S4-02)
 
 A* may use exactly one of:
 
@@ -36,6 +38,18 @@ A* may use exactly one of:
 `astar()` refuses a custom `edge_cost` paired with the default output
 heuristic. Custom metrics must call `best_first_search` with an explicit
 compatible heuristic, or use `dijkstra()`.
+
+Sprint Four formalizes this as `PlanningObjective` via
+`resolve_planning_objective(graph, goal, cost_name, heuristic_name=None)`:
+
+| Edge cost | Default A* heuristic | Also allowed |
+| --- | --- | --- |
+| `uniform` | wrapped lattice Manhattan (`uniform_step`) | `zero` |
+| `input_euclidean` | wrapped `d_U(u_n, u_goal)` | `zero` |
+| `output_euclidean` | `d_Q(q_n, q_goal)` | `zero` |
+
+Incompatible pairs raise `ValueError`. Experiment runners must resolve the
+objective from configuration and record both `cost_type` and `heuristic_type`.
 
 ### Priority and tie-breaking
 

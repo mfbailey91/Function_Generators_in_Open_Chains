@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Monte Carlo Canvas — seed0_20260727T164134Z_2b532590</title>
+<style>
+  :root {
+    --bg: #0f1419;
+    --panel: #1a222c;
+    --ink: #e8eef4;
+    --muted: #9aabba;
+    --accent: #5eb1ff;
+    --line: #2a3542;
+    --ok: #8fd19e;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: "IBM Plex Sans", "Segoe UI", sans-serif;
+    background: radial-gradient(1200px 600px at 10% -10%, #1c3048, var(--bg));
+    color: var(--ink);
+    line-height: 1.45;
+  }
+  header {
+    padding: 2rem 2rem 1rem;
+    border-bottom: 1px solid var(--line);
+  }
+  header h1 {
+    margin: 0 0 0.35rem;
+    font-family: "IBM Plex Serif", Georgia, serif;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+  }
+  header p { margin: 0; color: var(--muted); max-width: 52rem; }
+  nav {
+    display: flex; flex-wrap: wrap; gap: 0.5rem;
+    padding: 0.75rem 2rem;
+    position: sticky; top: 0;
+    background: rgba(15,20,25,0.92);
+    backdrop-filter: blur(8px);
+    border-bottom: 1px solid var(--line);
+    z-index: 2;
+  }
+  nav a {
+    color: var(--accent); text-decoration: none;
+    font-size: 0.85rem; padding: 0.25rem 0.55rem;
+    border: 1px solid var(--line); border-radius: 4px;
+  }
+  nav a:hover { border-color: var(--accent); }
+  main { padding: 1.25rem 2rem 3rem; display: grid; gap: 1.5rem; }
+  section {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 1rem 1.1rem 1.25rem;
+  }
+  section h2 { margin: 0 0 0.35rem; font-size: 1.15rem; }
+  .muted { color: var(--muted); font-size: 0.85rem; margin: 0 0 0.75rem; }
+  .ok { color: var(--ok); }
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 0.85rem;
+  }
+  figure { margin: 0; }
+  figure img {
+    width: 100%; height: auto; display: block;
+    border-radius: 6px; background: #0b1015;
+    border: 1px solid var(--line);
+  }
+  figcaption { color: var(--muted); font-size: 0.8rem; margin-top: 0.35rem; }
+  table {
+    width: 100%; border-collapse: collapse; font-size: 0.85rem;
+  }
+  th, td {
+    text-align: left; padding: 0.4rem 0.55rem;
+    border-bottom: 1px solid var(--line);
+  }
+  th { color: var(--muted); font-weight: 500; }
+  pre {
+    overflow: auto; background: #0b1015; border-radius: 6px;
+    padding: 0.75rem; font-size: 0.75rem; color: #c5d4e0;
+    border: 1px solid var(--line); max-height: 22rem;
+  }
+  .flow {
+    display: flex; flex-wrap: wrap; gap: 0.4rem; align-items: center;
+    margin: 0.75rem 0 0; font-size: 0.85rem; color: var(--muted);
+  }
+  .chip {
+    background: #243040; color: var(--ink);
+    padding: 0.2rem 0.5rem; border-radius: 999px;
+  }
+  dl.kv {
+    display: grid;
+    grid-template-columns: max-content 1fr;
+    gap: 0.25rem 1rem;
+    margin: 0;
+    font-size: 0.85rem;
+  }
+  dl.kv dt { color: var(--muted); }
+  dl.kv dd { margin: 0; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Monte Carlo Canvas</h1>
+  <p>
+    Derived viewer over a completed paired gearbox / four-bar pilot run.
+    Expansion plots and summary stats come from registry artifacts; this HTML
+    can be regenerated without rewriting trial records.
+  </p>
+  <div class="flow">
+    <span class="chip">run seed0_20260727T164134Z_2b532590</span>
+    <span class="chip">seed 0</span>
+    <span class="chip">completed</span>
+    <span class="chip">cost output_euclidean</span>
+    <span class="chip">schema 4.0.0</span>
+    <span class="chip">trials 20</span>
+    <span class="chip">git 1e388c7 (clean)</span>
+  </div>
+</header>
+<nav>
+  <a href="#provenance">Provenance</a>
+  <a href="#summary">Summary</a>
+  <a href="#path-metrics">Path metrics</a>
+  <a href="#expansions">Expansions</a>
+  <a href="#paths">Path samples</a>
+  <a href="#config">Config</a>
+  <a href="#raw">Raw summary</a>
+</nav>
+<main>
+  <section id="provenance">
+    <h2>Provenance</h2>
+    <p class="muted ok">Pass: seed, frozen config, and revision are recorded with the run (ADR-007).</p>
+    <dl class="kv">
+      <dt>run_id</dt><dd>seed0_20260727T164134Z_2b532590</dd>
+      <dt>seed</dt><dd>0</dd>
+      <dt>status</dt><dd>completed</dd>
+      <dt>result_schema_version</dt><dd>4.0.0</dd>
+      <dt>cost_type</dt><dd>output_euclidean</dd>
+      <dt>heuristic_types</dt><dd>output_euclidean, zero</dd>
+      <dt>created_at</dt><dd>2026-07-27T16:41:35Z</dd>
+      <dt>completed_at</dt><dd>2026-07-27T18:25:55Z</dd>
+      <dt>git_commit</dt><dd>1e388c78618df7d54c5452f2eb973e0430f2a8c9</dd>
+      <dt>git_describe</dt><dd>1e388c7</dd>
+      <dt>git_dirty</dt><dd>clean</dd>
+      <dt>package_version</dt><dd>0.1.0</dd>
+      <dt>platform</dt><dd>macOS-15.7.4-arm64-arm-64bit-Mach-O</dd>
+      <dt>fourbar_mode</dt><dd>population</dd>
+      <dt>match_valid_nodes</dt><dd>True</dd>
+      <dt>n_discarded_unreachable</dt><dd>1</dd>
+      <dt>n_sample_attempts</dt><dd>21</dd>
+    </dl>
+  </section>
+
+  <section id="summary">
+    <h2>Key summary stats</h2>
+    <p class="muted">Per-(algorithm, mechanism) medians and mean ρ from <code>outputs/summary.json</code>.</p>
+    <table>
+      <thead>
+        <tr>
+          <th>algorithm</th><th>mechanism</th><th>found</th>
+          <th>median N_expanded</th><th>mean ρ</th><th>unreachable</th>
+        </tr>
+      </thead>
+      <tbody>
+<tr><td>astar</td><td>fourbar</td><td>20/20</td><td>43</td><td>0.2556</td><td>0</td></tr>
+<tr><td>astar</td><td>gearbox</td><td>20/20</td><td>27.5</td><td>0.175</td><td>0</td></tr>
+<tr><td>dijkstra</td><td>fourbar</td><td>20/20</td><td>123.5</td><td>0.5345</td><td>0</td></tr>
+<tr><td>dijkstra</td><td>gearbox</td><td>20/20</td><td>142</td><td>0.5485</td><td>0</td></tr>
+      </tbody>
+    </table>
+    <h2 style="margin-top:1.25rem;font-size:1.05rem">Paired log-ratios</h2>
+    <table>
+      <thead>
+        <tr><th>algorithm</th><th>n_pairs</th><th>median</th><th>mean</th></tr>
+      </thead>
+      <tbody>
+<tr><td>astar</td><td>20</td><td>0.2575</td><td>0.0838</td></tr>
+<tr><td>dijkstra</td><td>20</td><td>-0.0572</td><td>-0.159</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="path-metrics">
+    <h2>Path metrics (Sprint Four)</h2>
+    <p class="muted">
+      Mean path lengths over found trials when <code>path_length_*</code> fields
+      are present in trial JSONL (schema 4.0.0+).
+    </p>
+    <table>
+      <thead>
+        <tr>
+          <th>cost_type</th><th>heuristics</th><th>n_found</th>
+          <th>mean C*</th><th>mean N_edges</th>
+          <th>mean L_U</th><th>mean L_Q</th><th>mean L_X</th>
+        </tr>
+      </thead>
+      <tbody>
+<tr><td>output_euclidean</td><td>output_euclidean, zero</td><td>80</td><td>1.0326</td><td>10.45</td><td>2.1932</td><td>1.0326</td><td>0.9985</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section id="expansions">
+    <h2>Expansion comparisons</h2>
+    <p class="muted">Raw counts, normalized ρ = N_expanded / N_valid, and paired log-ratios.</p>
+<div class="grid">
+<figure><img src="outputs/expansions_raw.png" alt="Raw expansions"/><figcaption>Raw expansions</figcaption></figure>
+<figure><img src="outputs/expansions_normalized.png" alt="Normalized expansions (ρ)"/><figcaption>Normalized expansions (ρ)</figcaption></figure>
+<figure><img src="outputs/expansions_ratio.png" alt="Paired log-ratio log(N₄ʀ / N_gear)"/><figcaption>Paired log-ratio log(N₄ʀ / N_gear)</figcaption></figure>
+</div>
+  </section>
+
+  <section id="paths">
+    <h2>Path samples</h2>
+    <p class="muted">Optional U / Q / Cartesian path PNGs for early kept trials.</p>
+<div class="grid">
+<figure><img src="outputs/paths/trial_0000/fourbar_cartesian.png" alt="trial_0000 / fourbar_cartesian"/><figcaption>trial_0000 / fourbar_cartesian</figcaption></figure>
+<figure><img src="outputs/paths/trial_0000/fourbar_input.png" alt="trial_0000 / fourbar_input"/><figcaption>trial_0000 / fourbar_input</figcaption></figure>
+<figure><img src="outputs/paths/trial_0000/fourbar_output.png" alt="trial_0000 / fourbar_output"/><figcaption>trial_0000 / fourbar_output</figcaption></figure>
+<figure><img src="outputs/paths/trial_0000/gearbox_cartesian.png" alt="trial_0000 / gearbox_cartesian"/><figcaption>trial_0000 / gearbox_cartesian</figcaption></figure>
+<figure><img src="outputs/paths/trial_0000/gearbox_input.png" alt="trial_0000 / gearbox_input"/><figcaption>trial_0000 / gearbox_input</figcaption></figure>
+<figure><img src="outputs/paths/trial_0000/gearbox_output.png" alt="trial_0000 / gearbox_output"/><figcaption>trial_0000 / gearbox_output</figcaption></figure>
+<figure><img src="outputs/paths/trial_0001/fourbar_cartesian.png" alt="trial_0001 / fourbar_cartesian"/><figcaption>trial_0001 / fourbar_cartesian</figcaption></figure>
+<figure><img src="outputs/paths/trial_0001/fourbar_input.png" alt="trial_0001 / fourbar_input"/><figcaption>trial_0001 / fourbar_input</figcaption></figure>
+<figure><img src="outputs/paths/trial_0001/fourbar_output.png" alt="trial_0001 / fourbar_output"/><figcaption>trial_0001 / fourbar_output</figcaption></figure>
+<figure><img src="outputs/paths/trial_0001/gearbox_cartesian.png" alt="trial_0001 / gearbox_cartesian"/><figcaption>trial_0001 / gearbox_cartesian</figcaption></figure>
+<figure><img src="outputs/paths/trial_0001/gearbox_input.png" alt="trial_0001 / gearbox_input"/><figcaption>trial_0001 / gearbox_input</figcaption></figure>
+<figure><img src="outputs/paths/trial_0001/gearbox_output.png" alt="trial_0001 / gearbox_output"/><figcaption>trial_0001 / gearbox_output</figcaption></figure>
+</div>
+  </section>
+
+  <section id="config">
+    <h2>Frozen config.yaml</h2>
+    <pre>seed: 0
+mechanisms:
+  gearbox:
+    type: unit_gearbox
+    dim: 2
+    periodic:
+    - true
+    - true
+    name: unit_gearbox
+  fourbar:
+    mode: population
+    n_bars: 2
+    d: 1.0
+    length_low: 0.2
+    length_high: 2.0
+    grashof_margin: 0.05
+    branch: 1
+    min_follower_range: 0.5
+    min_abs_transmission_ratio: 0.05
+    max_abs_transmission_ratio: 20.0
+    n_crank_samples: 361
+    max_draw_attempts: 100000
+    periodic: true
+    name_prefix: crank_rocker
+graph:
+  shape:
+  - 16
+  - 16
+  ranges: null
+  wrap:
+  - true
+  - true
+  edge_samples: 9
+  match_valid_nodes: true
+  match_relative_tol: 0.1
+  match_shape_hi: 64
+limits: null
+cost:
+  type: output_euclidean
+algorithms:
+  names:
+  - dijkstra
+  - astar
+  validate_heuristic: false
+trials:
+  n_trials: 20
+  min_output_separation: 0.2
+  preimage_policy: lex_min_node_id
+  max_sample_attempts: 50000
+  snap_output_tol: null
+  require_reachable: true
+  n_path_samples: 2
+</pre>
+  </section>
+
+  <section id="raw">
+    <h2>summary.json</h2>
+    <pre>{
+  &quot;by_group&quot;: {
+    &quot;astar|fourbar&quot;: {
+      &quot;algorithm&quot;: &quot;astar&quot;,
+      &quot;mean_rho_expanded&quot;: 0.25555989583333333,
+      &quot;mechanism&quot;: &quot;fourbar&quot;,
+      &quot;median_n_expanded&quot;: 43.0,
+      &quot;n_found&quot;: 20,
+      &quot;n_trials&quot;: 20,
+      &quot;n_unreachable&quot;: 0
+    },
+    &quot;astar|gearbox&quot;: {
+      &quot;algorithm&quot;: &quot;astar&quot;,
+      &quot;mean_rho_expanded&quot;: 0.174984375,
+      &quot;mechanism&quot;: &quot;gearbox&quot;,
+      &quot;median_n_expanded&quot;: 27.5,
+      &quot;n_found&quot;: 20,
+      &quot;n_trials&quot;: 20,
+      &quot;n_unreachable&quot;: 0
+    },
+    &quot;dijkstra|fourbar&quot;: {
+      &quot;algorithm&quot;: &quot;dijkstra&quot;,
+      &quot;mean_rho_expanded&quot;: 0.5344921874999999,
+      &quot;mechanism&quot;: &quot;fourbar&quot;,
+      &quot;median_n_expanded&quot;: 123.5,
+      &quot;n_found&quot;: 20,
+      &quot;n_trials&quot;: 20,
+      &quot;n_unreachable&quot;: 0
+    },
+    &quot;dijkstra|gearbox&quot;: {
+      &quot;algorithm&quot;: &quot;dijkstra&quot;,
+      &quot;mean_rho_expanded&quot;: 0.5484809027777777,
+      &quot;mechanism&quot;: &quot;gearbox&quot;,
+      &quot;median_n_expanded&quot;: 142.0,
+      &quot;n_found&quot;: 20,
+      &quot;n_trials&quot;: 20,
+      &quot;n_unreachable&quot;: 0
+    }
+  },
+  &quot;cost_type&quot;: &quot;output_euclidean&quot;,
+  &quot;graph_meta&quot;: {
+    &quot;cost_type&quot;: &quot;output_euclidean&quot;,
+    &quot;fourbar_mode&quot;: &quot;population&quot;,
+    &quot;grid_shape&quot;: [
+      16,
+      16
+    ],
+    &quot;match_relative_tol&quot;: 0.1,
+    &quot;match_valid_nodes&quot;: true,
+    &quot;require_reachable&quot;: true
+  },
+  &quot;n_discarded_task_sample&quot;: 0,
+  &quot;n_discarded_unreachable&quot;: 1,
+  &quot;n_found&quot;: 80,
+  &quot;n_rows&quot;: 80,
+  &quot;n_sample_attempts&quot;: 21,
+  &quot;n_trials_config&quot;: 20,
+  &quot;n_unreachable&quot;: 0,
+  &quot;paired_log_ratios&quot;: {
+    &quot;astar&quot;: {
+      &quot;algorithm&quot;: &quot;astar&quot;,
+      &quot;mean&quot;: 0.08376339077537519,
+      &quot;median&quot;: 0.2574814950159761,
+      &quot;n_pairs&quot;: 20
+    },
+    &quot;dijkstra&quot;: {
+      &quot;algorithm&quot;: &quot;dijkstra&quot;,
+      &quot;mean&quot;: -0.15899965971727686,
+      &quot;median&quot;: -0.05723609800454107,
+      &quot;n_pairs&quot;: 20
+    }
+  },
+  &quot;result_schema_version&quot;: &quot;4.0.0&quot;,
+  &quot;seed&quot;: 0
+}</pre>
+    <h2 style="margin-top:1rem;font-size:1.05rem">summary_table</h2>
+    <pre>section,algorithm,mechanism,n_trials,n_found,n_unreachable,median_n_expanded,mean_rho_expanded,paired_log_ratio_median,paired_log_ratio_n_pairs
+group,astar,fourbar,20,20,0,43.0,0.25555989583333333,,
+group,astar,gearbox,20,20,0,27.5,0.174984375,,
+group,dijkstra,fourbar,20,20,0,123.5,0.5344921874999999,,
+group,dijkstra,gearbox,20,20,0,142.0,0.5484809027777777,,
+paired_ratio,astar,fourbar/gearbox,,,,,,0.2574814950159761,20
+paired_ratio,dijkstra,fourbar/gearbox,,,,,,-0.05723609800454107,20
+</pre>
+  </section>
+</main>
+</body>
+</html>

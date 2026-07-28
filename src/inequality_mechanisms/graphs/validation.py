@@ -127,8 +127,10 @@ def configuration_is_valid(
         )
     if not mechanism.valid_input(u):
         return False
-    q = mechanism.input_to_output(u)
-    return space.contains(q)
+    # Construction helper (IM-042 / IM-043): no ConstrainedInputGraph yet.
+    # Graph-facing code must use ConstrainedInputGraph.raw_output / output.
+    q_raw = mechanism.input_to_output(u)
+    return space.contains(q_raw)
 
 
 def edge_is_valid(
@@ -147,6 +149,9 @@ def edge_is_valid(
     checks alone are insufficient: a nonlinear mechanism map can leave the
     limit box or assembly domain in the open segment.
 
+    Decisions are delegated to :func:`inequality_mechanisms.graphs.edge_trace.build_edge_trace`
+    so the edge microscope shares the same sample logic (IM-046).
+
     Parameters
     ----------
     mechanism :
@@ -162,7 +167,7 @@ def edge_is_valid(
         Override for short-path wrapping. Defaults to
         ``mechanism.periodic_axes()``.
     output_space :
-        Shared output chart; forwarded to ``configuration_is_valid``.
+        Shared output chart; forwarded to the shared edge-trace builder.
 
     Returns
     -------
@@ -174,17 +179,17 @@ def edge_is_valid(
     ValueError
         On dimension mismatch, non-finite inputs, or ``n_samples < 2``.
     """
-    if n_samples < 2:
-        raise ValueError(f"n_samples must be >= 2, got {n_samples}")
-    axes = mechanism.periodic_axes() if periodic_axes is None else periodic_axes
-    for k in range(n_samples):
-        s = k / (n_samples - 1)
-        u = interpolate_input_segment(u_a, u_b, s, periodic_axes=axes)
-        if not configuration_is_valid(
-            mechanism, limits, u, output_space=output_space
-        ):
-            return False
-    return True
+    from inequality_mechanisms.graphs.edge_trace import build_edge_trace
+
+    return build_edge_trace(
+        mechanism,
+        limits,
+        u_a,
+        u_b,
+        n_samples=n_samples,
+        periodic_axes=periodic_axes,
+        output_space=output_space,
+    ).is_valid
 
 
 class ConstrainedInputGraph:
@@ -276,9 +281,103 @@ class ConstrainedInputGraph:
         """Sample count used for edge-interior checks."""
         return self._edge_samples
 
+    def raw_output(self, u: ArrayLike) -> NDArray[np.floating]:
+        """Return raw mechanism output ``g(u)`` (not chart-canonicalized).
+
+        Prefer :meth:`output` for validity, costs, heuristics, tasks, and
+        plots. This method exists for diagnostics and for composing the
+        graph-owned canonicalize path (IM-042).
+        """
+        return np.asarray(self._mechanism.input_to_output(u), dtype=np.float64)
+
+    def output(self, u: ArrayLike) -> NDArray[np.floating]:
+        """Return canonicalized ``g(u)`` in the shared output chart (IM-042)."""
+        return self._output_space.canonicalize(self.raw_output(u))
+
     def output_at(self, u: ArrayLike) -> NDArray[np.floating]:
-        """Return canonicalized ``g(u)`` in the shared output chart."""
-        return self._output_space.canonicalize(self._mechanism.input_to_output(u))
+        """Alias for :meth:`output` (retained for existing call sites)."""
+        return self.output(u)
+
+    def output_displacement(
+        self, u_from: ArrayLike, u_to: ArrayLike
+    ) -> float:
+        """Return ``d_Q(g(u_from), g(u_to))`` via the graph output boundary.
+
+        Parameters
+        ----------
+        u_from, u_to :
+            Input configurations, shape ``(input_dim,)``.
+
+        Returns
+        -------
+        float
+            Nonnegative Euclidean displacement in the shared chart.
+        """
+        return self._output_space.distance(self.raw_output(u_from), self.raw_output(u_to))
+
+    def inspect_output(self, u: ArrayLike):
+        """Return raw/canonical diagnostics without affecting search (IM-045).
+
+        Parameters
+        ----------
+        u :
+            Input configuration, shape ``(input_dim,)``.
+
+        Returns
+        -------
+        OutputMappingDiagnostic
+            Assembly flag and per-axis mapping records.
+        """
+        u_arr = np.asarray(u, dtype=np.float64)
+        assembly = bool(self._mechanism.valid_input(u_arr))
+        if not assembly:
+            from inequality_mechanisms.diagnostics.mapping import (
+                AxisMappingDiagnostic,
+                OutputMappingDiagnostic,
+            )
+
+            axes = tuple(
+                AxisMappingDiagnostic(
+                    raw=float("nan"),
+                    canonical=None,
+                    winding=None,
+                    within_bounds=False,
+                    crossed_native_seam=False,
+                )
+                for _ in range(self._output_space.dim)
+            )
+            return OutputMappingDiagnostic(
+                u=tuple(float(x) for x in u_arr),
+                assembly_valid=False,
+                axes=axes,
+            )
+        raw = self.raw_output(u_arr)
+        from inequality_mechanisms.diagnostics.mapping import (
+            OutputMappingDiagnostic,
+            inspect_raw_output,
+        )
+
+        return OutputMappingDiagnostic(
+            u=tuple(float(x) for x in u_arr),
+            assembly_valid=True,
+            axes=inspect_raw_output(raw, self._output_space),
+        )
+
+    def edge_trace(self, i0: int, i1: int, j0: int, j1: int):
+        """Return the shared validation trace for a lattice edge (IM-046)."""
+        from inequality_mechanisms.graphs.edge_trace import build_edge_trace
+
+        a = self._grid.node(i0, i1)
+        b = self._grid.node(j0, j1)
+        return build_edge_trace(
+            self._mechanism,
+            self._limits,
+            a.coordinates,
+            b.coordinates,
+            n_samples=self._edge_samples,
+            periodic_axes=self._periodic,
+            output_space=self._output_space,
+        )
 
     @property
     def valid_node_count(self) -> int:

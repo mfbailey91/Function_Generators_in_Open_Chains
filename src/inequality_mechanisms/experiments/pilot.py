@@ -13,7 +13,6 @@ from __future__ import annotations
 
 import math
 import shutil
-from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
@@ -24,6 +23,7 @@ from inequality_mechanisms.experiments.config import (
     ExperimentConfig,
     FourBarPopulationSource,
 )
+from inequality_mechanisms.experiments.canvas import write_monte_carlo_canvas
 from inequality_mechanisms.experiments.equal_nodes import (
     match_gearbox_to_fourbar_valid_count,
 )
@@ -32,6 +32,7 @@ from inequality_mechanisms.experiments.registry import (
     create_run,
     default_results_root,
 )
+from inequality_mechanisms.experiments.schema import RESULT_SCHEMA_VERSION
 from inequality_mechanisms.experiments.setup import (
     PairedGraphs,
     build_paired_graphs,
@@ -55,11 +56,18 @@ from inequality_mechanisms.metrics.expansions import (
     summarize_trials,
     summary_table_csv,
 )
+from inequality_mechanisms.metrics.path_metrics import compute_path_metrics
 from inequality_mechanisms.search.astar import astar
-from inequality_mechanisms.search.core import _cached_outputs
-from inequality_mechanisms.search.cost_to_go import reverse_dijkstra
+from inequality_mechanisms.search.core import best_first_search
 from inequality_mechanisms.search.dijkstra import dijkstra
-from inequality_mechanisms.search.heuristics import output_euclidean_heuristic
+from inequality_mechanisms.search.heuristic_quality import (
+    heuristic_quality_report,
+    validate_heuristic_admissible,
+)
+from inequality_mechanisms.search.objectives import (
+    PlanningObjective,
+    resolve_planning_objective,
+)
 from inequality_mechanisms.search.result import SearchResult
 from inequality_mechanisms.visualization.expansions import (
     plot_normalized_expansions,
@@ -74,10 +82,19 @@ from inequality_mechanisms.visualization.paths import (
     plot_output_path,
 )
 
-_SEARCHERS: dict[str, Callable[..., SearchResult]] = {
-    "dijkstra": dijkstra,
-    "astar": astar,
-}
+
+def _write_table_artifact(run: ExperimentRun, name: str, text: str) -> Path:
+    """Write a tabular artifact as ``.csv``, falling back to ``.txt``.
+
+    Some agent/sandbox environments block ``*.csv`` writes via ignore rules
+    even when the run directory itself is writable. Prefer CSV when possible;
+    otherwise preserve the same CSV-formatted text under ``.txt`` so the run
+    can still complete without discarding trial results.
+    """
+    try:
+        return run.write_text(name, text, suffix=".csv")
+    except PermissionError:
+        return run.write_text(name, text, suffix=".txt")
 
 
 def _residual_summary_csv(rows: list[dict[str, Any]]) -> str:
@@ -111,26 +128,6 @@ def _residual_summary_csv(rows: list[dict[str, Any]]) -> str:
 def _finite_cost(cost: float) -> float | None:
     if math.isfinite(cost):
         return float(cost)
-    return None
-
-
-def _validate_heuristic_admissible(
-    graph: ConstrainedInputGraph,
-    goal: int,
-) -> str | None:
-    """Return a failure reason if Euclidean ``h`` exceeds exact cost-to-go."""
-    ctg = reverse_dijkstra(graph, goal)
-    output_of = _cached_outputs(graph)
-    q_goal = output_of(goal)
-    h = output_euclidean_heuristic(
-        graph.mechanism, q_goal, output_of, output_space=graph.output_space
-    )
-    for node_id, exact in ctg.costs.items():
-        if not math.isfinite(exact):
-            continue
-        hv = float(h(node_id))
-        if hv > exact + 1e-9:
-            return f"heuristic inadmissible at node {node_id}: h={hv} > C*={exact}"
     return None
 
 
@@ -169,6 +166,43 @@ def _annotate_trial_meta(
             record["match_meta"] = paired.match_meta
 
 
+def _run_search(
+    graph: ConstrainedInputGraph,
+    start: int,
+    goal: int,
+    algorithm: str,
+    objective: PlanningObjective,
+    *,
+    record_expanded: bool = False,
+) -> SearchResult:
+    """Run Dijkstra or A* under a resolved planning objective."""
+    if algorithm == "dijkstra":
+        return dijkstra(
+            graph,
+            start,
+            goal,
+            edge_cost=objective.edge_cost,
+            record_expanded=record_expanded,
+        )
+    if algorithm == "astar":
+        # Preserve IM-035: never call astar() with a custom edge_cost.
+        if (
+            objective.cost_name == "output_euclidean"
+            and objective.heuristic_name == "output_euclidean"
+            and not record_expanded
+        ):
+            return astar(graph, start, goal)
+        return best_first_search(
+            graph,
+            start,
+            goal,
+            objective.heuristic,
+            edge_cost=objective.edge_cost,
+            record_expanded=record_expanded,
+        )
+    raise ValueError(f"unknown algorithm: {algorithm!r}")
+
+
 def _write_path_sample(
     run: ExperimentRun,
     *,
@@ -176,18 +210,28 @@ def _write_path_sample(
     paired: PairedGraphs,
     task: PairedTask,
     algorithm: str = "astar",
+    cost_type: str = "output_euclidean",
 ) -> None:
     """Write U / Q / Cartesian PNGs for one kept trial."""
-    searcher = _SEARCHERS[algorithm]
-    gb_res = searcher(
+    gb_obj = resolve_planning_objective(
+        paired.gearbox, task.gearbox.goal_node_id, cost_type
+    )
+    fb_obj = resolve_planning_objective(
+        paired.fourbar, task.fourbar.goal_node_id, cost_type
+    )
+    gb_res = _run_search(
         paired.gearbox,
         task.gearbox.start_node_id,
         task.gearbox.goal_node_id,
+        algorithm,
+        gb_obj,
     )
-    fb_res = searcher(
+    fb_res = _run_search(
         paired.fourbar,
         task.fourbar.start_node_id,
         task.fourbar.goal_node_id,
+        algorithm,
+        fb_obj,
     )
     if not (gb_res.found and fb_res.found):
         return
@@ -260,19 +304,34 @@ def _search_record(
     algorithm: str,
     graph: ConstrainedInputGraph,
     preimages: SelectedPreimages,
+    cost_type: str,
     validate_heuristic: bool,
 ) -> dict[str, Any]:
     """Run one search and return a tidy trial JSONL record."""
     if mechanism not in ("gearbox", "fourbar"):
         raise ValueError(f"unknown mechanism key: {mechanism!r}")
-    if algorithm not in _SEARCHERS:
+    if algorithm not in ("dijkstra", "astar"):
         raise ValueError(f"unknown algorithm: {algorithm!r}")
 
     n_valid = graph.valid_node_count
+    objective = resolve_planning_objective(
+        graph,
+        preimages.goal_node_id,
+        cost_type,
+        heuristic_name="zero" if algorithm == "dijkstra" else None,
+    )
+    # Dijkstra always records zero heuristic; A* records the compatible default.
+    recorded_heuristic = (
+        "zero" if algorithm == "dijkstra" else objective.heuristic_name
+    )
+
     record: dict[str, Any] = {
+        "result_schema_version": RESULT_SCHEMA_VERSION,
         "trial_index": trial.trial_index,
         "mechanism": mechanism,
         "algorithm": algorithm,
+        "cost_type": objective.cost_name,
+        "heuristic_type": recorded_heuristic,
         "q_start": trial.q_start.tolist(),
         "q_goal": trial.q_goal.tolist(),
         "preimages": preimages.to_dict(),
@@ -283,33 +342,70 @@ def _search_record(
         "n_generated": None,
         "n_stale": None,
         "n_path_edges": None,
+        "path_length_u": None,
+        "path_length_q": None,
+        "path_length_x": None,
+        "optimal_cost": None,
         "cost": None,
         "rho_expanded": None,
         "failure_reason": None,
         "heuristic_validation": None,
+        "heuristic_quality": None,
     }
 
-    searcher = _SEARCHERS[algorithm]
-    result = searcher(
+    result = _run_search(
         graph,
         preimages.start_node_id,
         preimages.goal_node_id,
+        algorithm,
+        objective,
+        record_expanded=bool(validate_heuristic and algorithm == "astar"),
     )
 
     if validate_heuristic and algorithm == "astar":
-        reason = _validate_heuristic_admissible(graph, preimages.goal_node_id)
+        reason = validate_heuristic_admissible(
+            graph,
+            preimages.goal_node_id,
+            objective.heuristic,
+            edge_cost=objective.edge_cost,
+        )
         record["heuristic_validation"] = "ok" if reason is None else "failed"
         if reason is not None:
             record["failure_reason"] = reason
+        else:
+            hq = heuristic_quality_report(
+                graph,
+                preimages.goal_node_id,
+                objective.heuristic,
+                edge_cost=objective.edge_cost,
+                cost_name=objective.cost_name,
+                heuristic_name=objective.heuristic_name,
+                path=result.path if result.found else None,
+                expanded_nodes=result.expanded_nodes or None,
+                max_sample_nodes=256,
+                sample_seed=int(trial.trial_index),
+            )
+            record["heuristic_quality"] = hq.to_dict()
 
     record["n_expanded"] = int(result.n_expanded)
     record["n_generated"] = int(result.n_generated)
     record["n_stale"] = int(result.n_stale)
     record["n_path_edges"] = int(result.n_path_edges)
-    record["cost"] = _finite_cost(result.cost)
+    opt = _finite_cost(result.cost)
+    record["optimal_cost"] = opt
+    record["cost"] = opt  # backward-compatible alias of optimal_cost
 
     if result.found:
         record["found"] = True
+        metrics = compute_path_metrics(
+            graph,
+            result.path,
+            optimal_cost=float(result.cost),
+        )
+        record["n_path_edges"] = int(metrics.n_path_edges)
+        record["path_length_u"] = float(metrics.path_length_u)
+        record["path_length_q"] = float(metrics.path_length_q)
+        record["path_length_x"] = float(metrics.path_length_x)
         if n_valid > 0:
             record["rho_expanded"] = normalized_expansion(result.n_expanded, n_valid)
     else:
@@ -358,6 +454,7 @@ def _records_for_task(
     paired: PairedGraphs,
     *,
     algorithms: list[str],
+    cost_type: str,
     validate_h: bool,
 ) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
@@ -373,6 +470,7 @@ def _records_for_task(
                     algorithm=algorithm,
                     graph=graph,
                     preimages=preimages,
+                    cost_type=cost_type,
                     validate_heuristic=validate_h,
                 )
             )
@@ -420,7 +518,7 @@ def _build_population_trial_graphs(
         fourbar,
         n_samples=int(spec.n_crank_samples),
     )
-    gearbox = config.mechanisms.build_gearbox()
+    gearbox = config.mechanisms.build_gearbox(fourbar)
     edge_samples = int(config.graph.edge_samples)
 
     if not config.graph.match_valid_nodes:
@@ -540,6 +638,7 @@ def run_pilot(
         fourbar_mode = config.mechanisms.fourbar_mode
         rng = np.random.default_rng(config.seed)
         algorithms = list(config.algorithms.names)
+        cost_type = str(config.cost.type)
         validate_h = bool(config.algorithms.validate_heuristic)
         require_reachable = bool(config.trials.require_reachable)
         n_target = int(config.trials.n_trials)
@@ -556,6 +655,7 @@ def run_pilot(
                 "fourbar_valid_nodes": fixed_paired.fourbar.valid_node_count,
                 "grid_shape": list(config.graph.shape),
                 "require_reachable": require_reachable,
+                "cost_type": cost_type,
             }
         else:
             if graphs is not None:
@@ -569,6 +669,7 @@ def run_pilot(
                 "require_reachable": require_reachable,
                 "match_valid_nodes": bool(config.graph.match_valid_nodes),
                 "match_relative_tol": float(config.graph.match_relative_tol),
+                "cost_type": cost_type,
             }
         run.write_json("graph_meta", graph_meta)
 
@@ -612,6 +713,7 @@ def run_pilot(
                 probe,
                 paired,
                 algorithms=algorithms,
+                cost_type=cost_type,
                 validate_h=validate_h,
             )
             if require_reachable and not _pair_found(trial_rows, algorithm=reach_algo):
@@ -641,6 +743,7 @@ def run_pilot(
                     paired=paired,
                     task=kept_task,
                     algorithm=path_algo,
+                    cost_type=cost_type,
                 )
             kept += 1
             if kept % 50 == 0 or kept == n_target:
@@ -654,6 +757,21 @@ def run_pilot(
 
         run.append_jsonl("trials", rows)
 
+        hq_rows = [
+            {
+                "trial_index": r.get("trial_index"),
+                "mechanism": r.get("mechanism"),
+                "algorithm": r.get("algorithm"),
+                "cost_type": r.get("cost_type"),
+                "heuristic_type": r.get("heuristic_type"),
+                "heuristic_quality": r.get("heuristic_quality"),
+            }
+            for r in rows
+            if r.get("heuristic_quality") is not None
+        ]
+        if hq_rows:
+            run.write_json("heuristic_quality", {"reports": hq_rows})
+
         summary = summarize_trials(rows)
         summary["graph_meta"] = graph_meta
         summary["seed"] = int(config.seed)
@@ -661,13 +779,11 @@ def run_pilot(
         summary["n_discarded_unreachable"] = n_discarded_unreachable
         summary["n_discarded_task_sample"] = n_discarded_task_sample
         summary["n_sample_attempts"] = sample_attempts
+        summary["result_schema_version"] = RESULT_SCHEMA_VERSION
+        summary["cost_type"] = cost_type
         run.write_json("summary", summary)
-        run.write_text("summary_table", summary_table_csv(summary), suffix=".csv")
-        run.write_text(
-            "residual_summary",
-            _residual_summary_csv(rows),
-            suffix=".csv",
-        )
+        _write_table_artifact(run, "summary_table", summary_table_csv(summary))
+        _write_table_artifact(run, "residual_summary", _residual_summary_csv(rows))
 
         _write_plots(
             run,
@@ -675,6 +791,8 @@ def run_pilot(
             figures_dir=None if figures_dir is None else Path(figures_dir),
         )
         run.mark_completed()
+        # Derived viewer; regenerable via scripts/generate_monte_carlo_canvas.py.
+        write_monte_carlo_canvas(run)
     except Exception as exc:
         run.mark_failed(f"{type(exc).__name__}: {exc}")
         raise

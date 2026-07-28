@@ -112,7 +112,7 @@ class TestFourBarLiftedCoordinates:
             grid, mech, limits, edge_samples=5, output_space=space
         )
         for node in list(graph.iter_valid_nodes())[:20]:
-            q = graph.output_at(node.coordinates)
+            q = graph.output(node.coordinates)
             assert space.contains(q)
             raw = mech.input_to_output(node.coordinates)
             assert q == pytest.approx(space.canonicalize(raw))

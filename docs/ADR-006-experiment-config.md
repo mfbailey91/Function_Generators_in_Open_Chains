@@ -24,7 +24,10 @@ Experiment configs are pydantic models in
 | `mechanisms.fourbar` | Discriminated source: `mode: fixed` (mechanism dict) or `mode: population` (ADR-009 sampler fields). Legacy bare mechanism dicts coerce to `fixed`. |
 | `graph` | Shared `PeriodicGrid2D` shape, optional ranges, wrap, `edge_samples`. Optional `match_valid_nodes` (IM-018 / ADR-010) refines a separate gearbox lattice over the Q box. |
 | `limits` | Absolute shared output box (`lower`, `upper`) — **required for fixed mode; forbidden for population mode** (ADR-004 / ADR-009). |
-| `cost` | Edge-cost family; Version 1 allows only `output_euclidean`. |
+| `cost` | Edge-cost family: `type` selects a single cost (`uniform`, `input_euclidean`, or `output_euclidean`). Optional `types` lists multiple costs for Sprint Four factorial runs (S4-06). |
+| `sprint4` | Optional Sprint Four P1 knobs: landscape trial count/costs, bootstrap samples/seed/confidence, gain thresholds. |
+| `path_quality` | Optional Sprint Five knobs: `revisit_exclusion_steps`, `revisit_threshold_q`, `revisit_threshold_x`, `n_representative_cards` (S5-05 / S5-06). |
+| `sprint6` | Optional Sprint Six knobs: matching samples, resolution shapes/selection criteria, hierarchical Monte Carlo batching and CI targets (ADR-012 / ADR-013). |
 | `algorithms` | Forward solvers (`dijkstra`, `astar`) and optional `validate_heuristic` (reverse Dijkstra). |
 | `trials` | `n_trials`, `min_output_separation`, `preimage_policy`, sampling caps, snap tolerance, `require_reachable`. |
 
@@ -64,6 +67,7 @@ Benefits:
 Costs:
 
 - adding a cost family or algorithm requires a schema (and usually an ADR) update;
+- cost ablations share one physical input graph; only the edge metric changes (S4-01);
 - native pilot mode assumes the same lattice geometry for both mechanisms.
 
 Run-level persistence of config copies, seed, revision, environment, and

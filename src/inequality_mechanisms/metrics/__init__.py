@@ -1,5 +1,31 @@
 """Search and path quality metrics."""
 
+from inequality_mechanisms.metrics.hierarchical_bootstrap import (
+    HierarchicalBootstrapCI,
+    assert_not_task_level_iid,
+    hierarchical_bootstrap_ci,
+    mechanism_level_effects,
+    paired_log_expansion_ratio,
+    required_mechanism_count,
+    sequential_precision_report,
+)
+from inequality_mechanisms.metrics.bootstrap import (
+    BootstrapCI,
+    bootstrap_path_quality_metrics,
+    bootstrap_primary_metrics,
+    paired_bootstrap_ci,
+)
+from inequality_mechanisms.metrics.descriptors import (
+    correlate_descriptors,
+    graph_descriptors,
+    mechanism_descriptors,
+)
+from inequality_mechanisms.metrics.equal_cost_paths import (
+    TIE_BREAKING_POLICY,
+    compare_equal_cost_pair,
+    compare_equal_cost_rows,
+    equal_cost_summary_csv,
+)
 from inequality_mechanisms.metrics.expansions import (
     normalized_expansion,
     paired_log_ratio,
@@ -10,13 +36,81 @@ from inequality_mechanisms.metrics.expansions import (
     summary_table_csv,
     summary_table_rows,
 )
+from inequality_mechanisms.metrics.path_metrics import (
+    PATH_LENGTH_CONVENTIONS,
+    PATH_METRIC_ATOL,
+    PathMetrics,
+    assert_cost_path_invariant,
+    compute_path_metrics,
+    compute_path_metrics_from_trajectories,
+)
+from inequality_mechanisms.metrics.path_quality import (
+    PATH_QUALITY_ATOL,
+    PATH_QUALITY_CONVENTIONS,
+    PathQualityMetrics,
+    attach_path_quality_fields,
+    compute_path_quality,
+    compute_path_quality_from_trajectories,
+    count_self_intersections,
+    cumulative_turning,
+    near_revisit_metrics,
+    path_quality_null_fields,
+    quality_config_metadata,
+    segments_intersect,
+)
+from inequality_mechanisms.metrics.savings import (
+    astar_expansion_delta,
+    astar_savings,
+    compute_savings_rows,
+    summarize_savings,
+)
 
 __all__ = [
+    "BootstrapCI",
+    "HierarchicalBootstrapCI",
+    "PATH_LENGTH_CONVENTIONS",
+    "PATH_METRIC_ATOL",
+    "PATH_QUALITY_ATOL",
+    "PATH_QUALITY_CONVENTIONS",
+    "PathMetrics",
+    "PathQualityMetrics",
+    "TIE_BREAKING_POLICY",
+    "assert_cost_path_invariant",
+    "assert_not_task_level_iid",
+    "astar_expansion_delta",
+    "astar_savings",
+    "attach_path_quality_fields",
+    "bootstrap_path_quality_metrics",
+    "bootstrap_primary_metrics",
+    "compare_equal_cost_pair",
+    "compare_equal_cost_rows",
+    "compute_path_metrics",
+    "compute_path_metrics_from_trajectories",
+    "compute_path_quality",
+    "compute_path_quality_from_trajectories",
+    "compute_savings_rows",
+    "correlate_descriptors",
+    "count_self_intersections",
+    "cumulative_turning",
+    "equal_cost_summary_csv",
+    "graph_descriptors",
+    "hierarchical_bootstrap_ci",
+    "mechanism_descriptors",
+    "mechanism_level_effects",
+    "near_revisit_metrics",
     "normalized_expansion",
+    "paired_bootstrap_ci",
+    "paired_log_expansion_ratio",
     "paired_log_ratio",
     "paired_log_ratios_for_algorithm",
+    "path_quality_null_fields",
+    "quality_config_metadata",
+    "required_mechanism_count",
+    "segments_intersect",
+    "sequential_precision_report",
     "successful_expansions",
     "successful_rhos",
+    "summarize_savings",
     "summarize_trials",
     "summary_table_csv",
     "summary_table_rows",

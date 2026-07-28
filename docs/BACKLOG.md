@@ -89,15 +89,19 @@ ownership gaps, diagnostics, nested edge sensitivity, and open ablations.
 
 ### P0 — Ownership and residual correctness
 
-- IM-042 Graph as canonical output boundary (S3-03)
-- IM-043 Call-site audit of `input_to_output()` (S3-04)
+- IM-042 Graph as canonical output boundary (S3-03) — done
+- IM-043 Call-site audit of `input_to_output()` (S3-04) — done
+  (`docs/notes/IM-043-input-to-output-audit.md`)
 - IM-044 Residual ownership / nesting regression tests (S3-05; extends IM-038)
-- S3-01 / S3-02 confirm IM-032 / IM-033; amend ADR-011 only if needed
+  — done (`tests/invariants/test_sprint_three_ownership.py`)
+- S3-01 / S3-02 confirm IM-032 / IM-033; ADR-011 amended for graph ownership only
 
 ### P1 — Instrumentation and controlled science
 
-- IM-045 Output inspection diagnostics (S3-06)
-- IM-046 Minimal edge microscope (S3-07)
+- IM-045 Output inspection diagnostics (S3-06) — done
+  (`ConstrainedInputGraph.inspect_output`, `diagnostics/`)
+- IM-046 Minimal edge microscope (S3-07) — done
+  (`graphs/edge_trace.py`, shared with validator; canvas bundle)
 - IM-047 Nested edge-sampling sensitivity (S3-08; strengthens IM-037)
 - IM-019 Monotonic-branch ablation (S3-09)
 - IM-020 Periodic-boundary ablation (S3-09)

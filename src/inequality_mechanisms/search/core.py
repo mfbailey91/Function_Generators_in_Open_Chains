@@ -13,7 +13,6 @@ from collections.abc import Callable
 import numpy as np
 from numpy.typing import NDArray
 
-from inequality_mechanisms.graphs.costs import output_euclidean_cost
 from inequality_mechanisms.graphs.validation import ConstrainedInputGraph
 from inequality_mechanisms.search.heuristics import Heuristic
 from inequality_mechanisms.search.result import SearchResult
@@ -36,6 +35,7 @@ def best_first_search(
     heuristic: Heuristic,
     *,
     edge_cost: Callable[[int, int], float] | None = None,
+    record_expanded: bool = False,
 ) -> SearchResult:
     """Run instrumented best-first search on a constrained input graph.
 
@@ -56,6 +56,9 @@ def best_first_search(
     edge_cost :
         Optional ``(u_id, v_id) -> float`` override. Defaults to Version 1
         output Euclidean displacement.
+    record_expanded :
+        When ``True``, populate ``SearchResult.expanded_nodes`` in expansion
+        order (diagnostic views). Default keeps the tuple empty.
 
     Returns
     -------
@@ -79,17 +82,15 @@ def best_first_search(
 
     cost_fn = edge_cost
     if cost_fn is None:
-        mech = graph.mechanism
         grid = graph.grid
 
         def cost_fn(u_id: int, v_id: int) -> float:
             u = grid.indices_from_id(u_id)
             v = grid.indices_from_id(v_id)
-            return output_euclidean_cost(
-                mech,
+            # IM-042: graph owns raw → canonical conversion for edge costs.
+            return graph.output_displacement(
                 grid.coordinates(*u),
                 grid.coordinates(*v),
-                output_space=graph.output_space,
             )
 
     g_best: dict[int, float] = {start: 0.0}
@@ -104,6 +105,7 @@ def best_first_search(
     n_expanded = 0
     n_stale = 0
     closed: set[int] = set()
+    expanded_order: list[int] = []
 
     while open_heap:
         f_u, u, g_u = heapq.heappop(open_heap)
@@ -120,6 +122,8 @@ def best_first_search(
         # Expansion: pop at best-known g and examine outgoing edges.
         n_expanded += 1
         closed.add(u)
+        if record_expanded:
+            expanded_order.append(u)
 
         if u == goal:
             path = _reconstruct_path(came_from, goal)
@@ -130,6 +134,7 @@ def best_first_search(
                 n_expanded=n_expanded,
                 n_generated=n_generated,
                 n_stale=n_stale,
+                expanded_nodes=tuple(expanded_order) if record_expanded else (),
             )
 
         i0, i1 = graph.grid.indices_from_id(u)
@@ -162,6 +167,7 @@ def best_first_search(
         n_expanded=n_expanded,
         n_generated=n_generated,
         n_stale=n_stale,
+        expanded_nodes=tuple(expanded_order) if record_expanded else (),
     )
 
 
@@ -176,7 +182,7 @@ def _cached_outputs(
         if cached is not None:
             return cached
         coords = graph.grid.coordinates(*graph.grid.indices_from_id(node_id))
-        q = graph.output_at(coords)
+        q = graph.output(coords)
         cache[node_id] = q
         return q
 

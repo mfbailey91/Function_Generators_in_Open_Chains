@@ -30,6 +30,9 @@ class SearchResult:
     n_stale :
         Heap pops discarded because their ``g`` was strictly worse than the
         best-known ``g`` for that node.
+    expanded_nodes :
+        Flat ids expanded in order when ``record_expanded=True`` was passed
+        to search; otherwise empty.
     """
 
     found: bool
@@ -38,6 +41,7 @@ class SearchResult:
     n_expanded: int
     n_generated: int
     n_stale: int
+    expanded_nodes: tuple[int, ...] = ()
 
     @property
     def n_path_edges(self) -> int:
