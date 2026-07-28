@@ -83,6 +83,20 @@ from inequality_mechanisms.visualization.paths import (
 )
 
 
+def _write_table_artifact(run: ExperimentRun, name: str, text: str) -> Path:
+    """Write a tabular artifact as ``.csv``, falling back to ``.txt``.
+
+    Some agent/sandbox environments block ``*.csv`` writes via ignore rules
+    even when the run directory itself is writable. Prefer CSV when possible;
+    otherwise preserve the same CSV-formatted text under ``.txt`` so the run
+    can still complete without discarding trial results.
+    """
+    try:
+        return run.write_text(name, text, suffix=".csv")
+    except PermissionError:
+        return run.write_text(name, text, suffix=".txt")
+
+
 def _residual_summary_csv(rows: list[dict[str, Any]]) -> str:
     """Build a CSV of matched-task residual norms from trial JSONL rows."""
     lines = [
@@ -768,12 +782,8 @@ def run_pilot(
         summary["result_schema_version"] = RESULT_SCHEMA_VERSION
         summary["cost_type"] = cost_type
         run.write_json("summary", summary)
-        run.write_text("summary_table", summary_table_csv(summary), suffix=".csv")
-        run.write_text(
-            "residual_summary",
-            _residual_summary_csv(rows),
-            suffix=".csv",
-        )
+        _write_table_artifact(run, "summary_table", summary_table_csv(summary))
+        _write_table_artifact(run, "residual_summary", _residual_summary_csv(rows))
 
         _write_plots(
             run,

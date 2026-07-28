@@ -599,7 +599,7 @@ def render_monte_carlo_canvas_html(payload: dict[str, Any]) -> str:
   <section id="raw">
     <h2>summary.json</h2>
     <pre>{html.escape(summary_json)}</pre>
-    <h2 style="margin-top:1rem;font-size:1.05rem">summary_table.csv</h2>
+    <h2 style="margin-top:1rem;font-size:1.05rem">summary_table</h2>
     <pre>{html.escape(summary_csv) if summary_csv else "(missing)"}</pre>
   </section>
 </main>

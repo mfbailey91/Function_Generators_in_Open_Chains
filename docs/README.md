@@ -37,6 +37,13 @@ The `figures/` directory must remain beside it for images to render.
 Regenerate with `python scripts/generate_diagnostics_canvas.py --out diagnostics`, then open `diagnostics/index.html`.
 Paired numerical assertions live in `tests/diagnostics/`.
 
+## Monte Carlo canvas
+
+Small practical run: `configs/pilot.canvas.v1.yaml` (20 equal-node trials).
+Reproduce with `scripts/reproduce_pilot.py`; open `results/<run_id>/index.html`
+(or regenerate via `scripts/generate_monte_carlo_canvas.py --latest`).
+See also `artifacts/monte_carlo/README.md` for a checked local canvas run.
+
 Recommended editors:
 - Obsidian
 - Typora
