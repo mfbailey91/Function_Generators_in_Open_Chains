@@ -92,12 +92,124 @@ class LimitsConfig(BaseModel):
         return OutputJointLimits.box(lower=self.lower, upper=self.upper)
 
 
+def _default_cost_types() -> list[CostType]:
+    return ["uniform", "input_euclidean", "output_euclidean"]
+
+
 class CostConfig(BaseModel):
-    """Edge-cost selection for search."""
+    """Edge-cost selection for search.
+
+    Pilot uses ``type`` (single cost). Sprint Four factorial runs use
+    ``types`` when provided; otherwise :meth:`resolved_types` returns
+    ``[type]``.
+    """
 
     model_config = ConfigDict(extra="forbid")
 
     type: CostType = "output_euclidean"
+    types: list[CostType] | None = None
+
+    @field_validator("types")
+    @classmethod
+    def _types_unique_nonempty(
+        cls, value: list[CostType] | None
+    ) -> list[CostType] | None:
+        if value is None:
+            return None
+        if not value:
+            raise ValueError("cost.types must be non-empty when provided")
+        if len(set(value)) != len(value):
+            raise ValueError("cost.types must not contain duplicates")
+        return list(value)
+
+    def resolved_types(self) -> list[CostType]:
+        """Return the cost names to run (factorial list or singleton)."""
+        if self.types is not None:
+            return list(self.types)
+        return [self.type]
+
+
+class Sprint4Config(BaseModel):
+    """Sprint Four P1 study options (factorial, landscape, bootstrap)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    n_landscape_trials: int = Field(default=1, ge=0)
+    landscape_costs: list[CostType] = Field(
+        default_factory=lambda: ["output_euclidean"]
+    )
+    bootstrap_n_samples: int = Field(default=1000, ge=10)
+    bootstrap_seed: int = 0
+    bootstrap_confidence: float = Field(default=0.95, gt=0.0, lt=1.0)
+    gain_epsilon: float = Field(default=0.05, gt=0.0)
+    high_gain_threshold: float = Field(default=2.0, gt=0.0)
+    near_reversal_epsilon: float = Field(default=0.02, gt=0.0)
+
+    @field_validator("landscape_costs")
+    @classmethod
+    def _landscape_costs_unique(cls, value: list[CostType]) -> list[CostType]:
+        if len(set(value)) != len(value):
+            raise ValueError("sprint4.landscape_costs must not contain duplicates")
+        return list(value)
+
+
+class PathQualityConfig(BaseModel):
+    """Sprint Five path-quality metric options (S5-05)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    revisit_exclusion_steps: int = Field(default=4, ge=0)
+    revisit_threshold_q: float = Field(default=0.05, gt=0.0)
+    revisit_threshold_x: float = Field(default=0.05, gt=0.0)
+    n_representative_cards: int = Field(
+        default=5,
+        ge=0,
+        description="Number of path-quality diagnostic cards to write.",
+    )
+
+
+MatchingRuleName = Literal["span", "total_variation", "rms_gain"]
+
+
+class Sprint6Config(BaseModel):
+    """Sprint Six equivalence / resolution / Monte Carlo options."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    matching_n_samples: int = Field(default=361, ge=16)
+    verify_equivalence: bool = True
+    resolution_shapes: list[int] = Field(
+        default_factory=lambda: [32, 48, 64, 96, 128]
+    )
+    max_relative_effect_change: float = Field(default=0.05, gt=0.0)
+    require_sign_stability: bool = True
+    require_component_stability: bool = True
+    require_task_feasibility_stability: bool = True
+    n_mechanisms: int = Field(default=4, ge=1)
+    tasks_per_mechanism: int = Field(default=2, ge=1)
+    min_accepted_tasks_per_mechanism: int = Field(default=1, ge=1)
+    mechanism_batch_size: int = Field(default=2, ge=1)
+    initial_mechanisms: int = Field(default=4, ge=1)
+    target_ci_half_width: float = Field(default=0.10, gt=0.0)
+    min_mechanisms: int = Field(default=4, ge=1)
+    max_mechanisms: int = Field(default=200, ge=1)
+    hierarchical_bootstrap_samples: int = Field(default=200, ge=10)
+    hierarchical_bootstrap_seed: int = 0
+    hierarchical_bootstrap_confidence: float = Field(default=0.95, gt=0.0, lt=1.0)
+    confirmation_n_mechanisms: int = Field(default=2, ge=1)
+    grid_anisotropy_acknowledged: bool = True
+
+    @field_validator("resolution_shapes")
+    @classmethod
+    def _resolution_shapes_ok(cls, value: list[int]) -> list[int]:
+        if not value:
+            raise ValueError("sprint6.resolution_shapes must be non-empty")
+        out = [int(v) for v in value]
+        if any(v < 2 for v in out):
+            raise ValueError("resolution_shapes entries must be >= 2")
+        if len(set(out)) != len(out):
+            raise ValueError("resolution_shapes must not contain duplicates")
+        return out
 
 
 class AlgorithmsConfig(BaseModel):
@@ -208,9 +320,43 @@ class MechanismPairConfig(BaseModel):
     def _coerce_fourbar(cls, value: Any) -> Any:
         return _normalize_fourbar_source(value)
 
-    def build_gearbox(self) -> Mechanism:
-        """Deserialize the gearbox mechanism."""
+    def gearbox_needs_derivation(self) -> bool:
+        """Return True when equivalent gearbox ratios must be derived."""
+        from inequality_mechanisms.mechanisms.equivalence import (
+            is_derivable_equivalent_gearbox_dict,
+        )
+
+        return is_derivable_equivalent_gearbox_dict(self.gearbox)
+
+    def build_gearbox(self, fourbar: Mechanism | None = None) -> Mechanism:
+        """Deserialize the gearbox mechanism.
+
+        When ``type: equivalent_gearbox`` omits ``ratios``, derive them from
+        ``fourbar`` using ``matching_rule`` (ADR-012).
+        """
         _ensure_mechanism_registry()
+        if self.gearbox_needs_derivation():
+            if fourbar is None:
+                raise ValueError(
+                    "equivalent_gearbox without ratios requires a four-bar "
+                    "for match_equivalent_gearbox"
+                )
+            from inequality_mechanisms.mechanisms.equivalence import (
+                match_equivalent_gearbox,
+            )
+
+            rule = str(self.gearbox["matching_rule"])
+            n_samples = int(self.gearbox.get("n_samples", 361))
+            periodic_raw = self.gearbox.get("periodic")
+            periodic = tuple(periodic_raw) if periodic_raw is not None else None
+            name = self.gearbox.get("name")
+            return match_equivalent_gearbox(
+                fourbar,
+                matching_rule=rule,  # type: ignore[arg-type]
+                n_samples=n_samples,
+                periodic=periodic,
+                name=None if name is None else str(name),
+            )
         return Mechanism.from_dict(self.gearbox)
 
     def build_fourbar(self) -> Mechanism:
@@ -299,11 +445,21 @@ class ExperimentConfig(BaseModel):
         mode; forbidden for ``population`` mode (limits come from each
         sampled four-bar's follower ranges).
     cost :
-        Edge-cost family (Version 1: output Euclidean).
+        Edge-cost family (``type`` for single-cost pilot; optional ``types``
+        for Sprint Four factorial runs).
     algorithms :
         Forward search algorithms to run on each paired task.
     trials :
         Number of matched start/goal tasks and preimage selection policy.
+    sprint4 :
+        Optional Sprint Four P1 options (landscape, bootstrap, gain
+        thresholds). Defaults apply when omitted.
+    path_quality :
+        Optional Sprint Five path-quality options (revisit window and
+        thresholds). Defaults apply when omitted.
+    sprint6 :
+        Optional Sprint Six equivalence / resolution / hierarchical Monte
+        Carlo options (ADR-012 / ADR-013). Defaults apply when omitted.
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -315,13 +471,12 @@ class ExperimentConfig(BaseModel):
     cost: CostConfig = Field(default_factory=CostConfig)
     algorithms: AlgorithmsConfig = Field(default_factory=AlgorithmsConfig)
     trials: TrialsConfig
+    sprint4: Sprint4Config = Field(default_factory=Sprint4Config)
+    path_quality: PathQualityConfig = Field(default_factory=PathQualityConfig)
+    sprint6: Sprint6Config = Field(default_factory=Sprint6Config)
 
     @model_validator(mode="after")
     def _dims_and_limits_agree(self) -> ExperimentConfig:
-        gb = self.mechanisms.build_gearbox()
-        if gb.input_dim != 2 or gb.output_dim != 2:
-            raise ValueError("gearbox must have input_dim == output_dim == 2")
-
         mode = self.mechanisms.fourbar_mode
         if mode == "fixed":
             if self.limits is None:
@@ -329,6 +484,9 @@ class ExperimentConfig(BaseModel):
             fb = self.mechanisms.build_fourbar()
             if fb.input_dim != 2 or fb.output_dim != 2:
                 raise ValueError("fourbar must have input_dim == output_dim == 2")
+            gb = self.mechanisms.build_gearbox(fb)
+            if gb.input_dim != 2 or gb.output_dim != 2:
+                raise ValueError("gearbox must have input_dim == output_dim == 2")
             if self.limits.to_limits().dim != gb.output_dim:
                 raise ValueError("limits.dim must equal mechanism output_dim")
         else:
@@ -344,6 +502,19 @@ class ExperimentConfig(BaseModel):
                 raise ValueError("population fourbar.n_bars must be 2 for Version 1")
             # Construct the spec so invalid population numbers fail at load time.
             src.to_spec()
+            if self.mechanisms.gearbox_needs_derivation():
+                rule = str(self.mechanisms.gearbox.get("matching_rule", ""))
+                if rule not in {"span", "total_variation", "rms_gain"}:
+                    raise ValueError(
+                        "equivalent_gearbox matching_rule must be one of "
+                        "{span, total_variation, rms_gain}"
+                    )
+            else:
+                gb = self.mechanisms.build_gearbox()
+                if gb.input_dim != 2 or gb.output_dim != 2:
+                    raise ValueError(
+                        "gearbox must have input_dim == output_dim == 2"
+                    )
         return self
 
 

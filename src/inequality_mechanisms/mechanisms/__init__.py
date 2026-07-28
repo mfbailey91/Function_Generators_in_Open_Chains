@@ -6,8 +6,36 @@ from inequality_mechanisms.mechanisms.base import (
     clear_mechanism_registry,
     register_mechanism_type,
 )
+from inequality_mechanisms.mechanisms.equivalence import (
+    BASELINE_LABELS,
+    MATCHED_QUANTITY_TABLE,
+    AxisMatchResult,
+    baseline_label_for_matching_rule,
+    baseline_label_for_mechanism,
+    equivalence_summary_rows,
+    is_derivable_equivalent_gearbox_dict,
+    match_equivalent_gearbox,
+    match_planar_fourbar_axis,
+    verify_matched_graphs,
+    verify_rms_match,
+    verify_span_match,
+    verify_tv_match,
+)
 from inequality_mechanisms.mechanisms.fourbar import IndependentFourBars, PlanarFourBar
-from inequality_mechanisms.mechanisms.gearbox import FixedRatioGearbox, UnitGearbox
+from inequality_mechanisms.mechanisms.gearbox import (
+    EquivalentGearbox,
+    FixedRatioGearbox,
+    UnitGearbox,
+)
+from inequality_mechanisms.mechanisms.monotonic import (
+    MonotonicBox2D,
+    MonotonicSector,
+    find_monotonic_sectors,
+    monotonic_box_for_independent_fourbars,
+    open_axis_independent_fourbars,
+    primary_monotonic_sector,
+    unique_inverse_output,
+)
 from inequality_mechanisms.mechanisms.population import (
     CrankRockerPopulationSpec,
     follower_range,
@@ -19,19 +47,40 @@ from inequality_mechanisms.mechanisms.population import (
 )
 
 __all__ = [
+    "BASELINE_LABELS",
+    "MATCHED_QUANTITY_TABLE",
+    "AxisMatchResult",
     "CrankRockerPopulationSpec",
+    "EquivalentGearbox",
     "FixedRatioGearbox",
     "IndependentFourBars",
     "Mechanism",
     "MechanismRegistryError",
+    "MonotonicBox2D",
+    "MonotonicSector",
     "PlanarFourBar",
     "UnitGearbox",
+    "baseline_label_for_matching_rule",
+    "baseline_label_for_mechanism",
     "clear_mechanism_registry",
+    "equivalence_summary_rows",
+    "find_monotonic_sectors",
     "follower_range",
+    "is_derivable_equivalent_gearbox_dict",
     "is_strict_crank_rocker",
     "limits_from_fourbar_follower_ranges",
+    "match_equivalent_gearbox",
+    "match_planar_fourbar_axis",
+    "monotonic_box_for_independent_fourbars",
+    "open_axis_independent_fourbars",
     "output_space_from_fourbar_follower_ranges",
+    "primary_monotonic_sector",
     "register_mechanism_type",
     "sample_crank_rocker",
     "sample_independent_crank_rockers",
+    "unique_inverse_output",
+    "verify_matched_graphs",
+    "verify_rms_match",
+    "verify_span_match",
+    "verify_tv_match",
 ]

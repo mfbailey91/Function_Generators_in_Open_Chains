@@ -1,0 +1,86 @@
+# Sprint Six project showcase — 5 path samples + full canvas printout.
+# Span-matched gearbox vs fixed four-bar with Dijkstra and A*.
+
+seed: 7
+
+mechanisms:
+  gearbox:
+    type: equivalent_gearbox
+    matching_rule: span
+    n_samples: 181
+    periodic: [true, true]
+    name: span_matched_gearbox
+  fourbar:
+    mode: fixed
+    mechanism:
+      type: independent_fourbars
+      name: fixed_fourbar
+      bars:
+        - type: planar_fourbar
+          a: 1.0
+          b: 2.5
+          c: 2.0
+          d: 2.0
+          branch: 1
+          periodic: [true]
+          name: bar0
+        - type: planar_fourbar
+          a: 1.0
+          b: 2.5
+          c: 2.0
+          d: 2.0
+          branch: 1
+          periodic: [true]
+          name: bar1
+
+graph:
+  shape: [16, 16]
+  wrap: [true, true]
+  edge_samples: 7
+
+limits:
+  lower: [0.5, 0.5]
+  upper: [2.5, 2.5]
+
+cost:
+  type: output_euclidean
+  types: [output_euclidean]
+
+algorithms:
+  names: [dijkstra, astar]
+  validate_heuristic: false
+
+trials:
+  n_trials: 5
+  min_output_separation: 0.12
+  preimage_policy: lex_min_node_id
+  max_sample_attempts: 20000
+  require_reachable: true
+  n_path_samples: 5
+
+sprint4:
+  bootstrap_n_samples: 100
+  bootstrap_seed: 0
+  bootstrap_confidence: 0.95
+
+sprint6:
+  matching_n_samples: 181
+  verify_equivalence: true
+  resolution_shapes: [12, 16]
+  max_relative_effect_change: 0.5
+  require_sign_stability: false
+  require_component_stability: false
+  require_task_feasibility_stability: false
+  n_mechanisms: 1
+  tasks_per_mechanism: 5
+  min_accepted_tasks_per_mechanism: 1
+  mechanism_batch_size: 1
+  initial_mechanisms: 1
+  target_ci_half_width: 1.0
+  min_mechanisms: 1
+  max_mechanisms: 10
+  hierarchical_bootstrap_samples: 80
+  hierarchical_bootstrap_seed: 0
+  hierarchical_bootstrap_confidence: 0.95
+  confirmation_n_mechanisms: 1
+  grid_anisotropy_acknowledged: true

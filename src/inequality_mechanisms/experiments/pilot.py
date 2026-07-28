@@ -518,7 +518,7 @@ def _build_population_trial_graphs(
         fourbar,
         n_samples=int(spec.n_crank_samples),
     )
-    gearbox = config.mechanisms.build_gearbox()
+    gearbox = config.mechanisms.build_gearbox(fourbar)
     edge_samples = int(config.graph.edge_samples)
 
     if not config.graph.match_valid_nodes:
