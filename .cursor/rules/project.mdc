@@ -5,9 +5,11 @@ alwaysApply: true
 
 # Inequality Mechanisms project rules
 
+- Read `docs/software/VERSION_MATRIX.md`, `docs/software/PROJECT_PLAN.md`, and `docs/software/planning/ACTIVE_SPRINT.md` before architecture work.
+- Treat root-level moved-document stubs as redirects, not authoritative sources.
 - This is scientific research software, not a product prototype.
 - Favor correctness, explicitness, and testability over clever abstractions.
-- Read `architecture_version` and the relevant ADR before changing graph-state semantics.
+- Read `architecture_version` and the relevant ADR under `docs/software/architecture/adr/` before changing graph-state semantics.
 - Version 1 noninjective or full-cycle experiments preserve complete actuator-state identity in U.
 - Version 2 experiments may use output-state identity in Q only on a certified one-to-one operating branch with a unique actuator realization attached.
 - Never collapse duplicate output preimages into one plain Q node.
@@ -24,4 +26,5 @@ alwaysApply: true
 - Prefer small, composable modules and compatibility adapters over rename-only rewrites.
 - Never modify generated results to make an experiment look better.
 - Update or add the relevant ADR when changing a foundational decision.
+- Research documents under `docs/research/` motivate the work but do not create software requirements unless an accepted ADR, contract, or sprint explicitly adopts them.
 - Do not implement future-sprint work opportunistically when executing a numbered sprint issue.

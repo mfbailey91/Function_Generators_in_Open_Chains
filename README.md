@@ -12,7 +12,9 @@ output joint limits and matched output start/goal tasks.
 
 Core library code lives under `src/inequality_mechanisms/`. Notebooks analyze
 results; they do not define algorithms. Version 1 excludes RL, dynamics,
-collision checking, hardware, and mechanism optimization.
+collision checking, hardware, and mechanism optimization. The `v2-rearchitecture`
+branch preserves that baseline while developing certified invertible-branch,
+output-state planning as a separate Version 2 architecture.
 
 ## Requirements
 
@@ -47,7 +49,7 @@ MPLBACKEND=Agg PYTHONPATH=src python scripts/reproduce_pilot.py --config configs
 
 Writes a new immutable run under `results/<run_id>/` with trial JSONL, a
 summary table, and paired raw / normalized / log-ratio expansion plots.
-See [docs/ADR-008-pilot-reproduction.md](docs/ADR-008-pilot-reproduction.md).
+See [ADR-008](docs/software/architecture/adr/ADR-008-pilot-reproduction.md).
 
 Equal valid-node ablation: `configs/pilot.equal_nodes.v1.yaml` (ADR-010).
 For a smaller canvas-oriented Monte Carlo, use
@@ -75,7 +77,7 @@ MPLBACKEND=Agg PYTHONPATH=src python scripts/reproduce_sprint4_qgrid.py \
 ```
 
 Larger lattice: `configs/sprint4.qgrid.v1.yaml`. ADR-001 is unchanged; see
-`docs/notes/S4-12-lifted-output-state.md` for deferred `(q,σ)` state.
+`docs/software/architecture/notes/S4-12-lifted-output-state.md` for deferred `(q,σ)` state.
 
 ### Monte Carlo canvas
 
@@ -97,5 +99,5 @@ when present; regenerating it does not rewrite trial JSONL.
 - [docs/BACKLOG.md](docs/BACKLOG.md) — implementation issues
 - [docs/ADR-001-search-in-input-space.md](docs/ADR-001-search-in-input-space.md) —
   search state identity lives in input configuration space
-- [docs/ADR-008-pilot-reproduction.md](docs/ADR-008-pilot-reproduction.md) —
+- [ADR-008](docs/software/architecture/adr/ADR-008-pilot-reproduction.md) —
   pilot trial schema and expansion figures

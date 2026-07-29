@@ -1,51 +1,37 @@
-# Inequality Mechanisms docs
+# Documentation
 
-Open `inequality_mechanisms_paper_draft.md` in a Markdown editor from this folder.
-The `figures/` directory must remain beside it for images to render.
+The documentation is organized by authority so Version 1 and Version 2 can coexist without blending their assumptions.
 
-## Active planning
+## Start here
 
-- [PROJECT_PLAN.md](PROJECT_PLAN.md) — Version 1 software milestones
-- [BACKLOG.md](BACKLOG.md) — issue tracker
-- [SPRINT_FOUR_BACKLOG.md](SPRINT_FOUR_BACKLOG.md) — Sprint Four: search geometry attribution (P0/P1 done; P2 follow-up)
-- [SPRINT_3.md](SPRINT_3.md) — Sprint 3: graph ownership, diagnostics, nested sensitivity, ablations
-- [SPRINT_TWO_BACKLOG.md](SPRINT_TWO_BACKLOG.md) — Sprint Two controlled-science backlog (P0 done)
+### Implementing software
 
-## Architecture decision records
+1. [Version matrix](software/VERSION_MATRIX.md)
+2. [Software project plan](software/PROJECT_PLAN.md)
+3. [Architecture guide](software/architecture/README.md)
+4. [Active sprint](software/planning/ACTIVE_SPRINT.md)
 
-| ADR | Topic |
-| --- | --- |
-| [ADR-001](ADR-001-search-in-input-space.md) | Search identity in \(\mathcal U\) |
-| [ADR-002](ADR-002-mechanism-protocol.md) | Mechanism protocol |
-| [ADR-003](ADR-003-fourbar-conventions.md) | Four-bar Freudenstein conventions |
-| [ADR-004](ADR-004-shared-output-limits.md) | Shared output limits and edge validation |
-| [ADR-005](ADR-005-search-semantics.md) | Dijkstra / A* expansion semantics |
-| [ADR-006](ADR-006-experiment-config.md) | Experiment config schema |
-| [ADR-007](ADR-007-experiment-registry.md) | Run registry and provenance |
-| [ADR-008](ADR-008-pilot-reproduction.md) | Pilot reproduction |
-| [ADR-009](ADR-009-mechanism-population.md) | Crank-rocker population |
-| [ADR-010](ADR-010-equal-valid-nodes.md) | Equal valid-node mode |
-| [ADR-011](ADR-011-output-space-semantics.md) | Bounded lifted \(\mathcal Q\) (Sprint Two / graph ownership) |
+### Running or interpreting experiments
 
-## Sprint notes
+1. [Experiment documentation](software/experiments/README.md)
+2. The relevant protocol and schema
+3. The relevant runbook
 
-- [notes/SPRINT_FOUR_P0_STATUS.md](notes/SPRINT_FOUR_P0_STATUS.md) — Sprint Four P0/P1 status (P2 follow-up)
-- [notes/IM-043-input-to-output-audit.md](notes/IM-043-input-to-output-audit.md) — Sprint 3 call-site audit (IM-043)
+### Working on the research narrative
 
-## Diagnostics canvas
+1. [Research documentation](research/README.md)
+2. [Paper draft](research/paper/inequality_mechanisms_paper_draft.md)
+3. [Literature map](research/literature/literature_map.md)
 
-Regenerate with `python scripts/generate_diagnostics_canvas.py --out diagnostics`, then open `diagnostics/index.html`.
-Paired numerical assertions live in `tests/diagnostics/`.
+## Authority model
 
-## Monte Carlo canvas
+- **Contracts specify** what the current software must mean.
+- **ADRs decide** why foundational choices were made and which version they apply to.
+- **Sprints execute** accepted contracts and ADRs.
+- **Experiment protocols define evidence** and reports interpret completed runs.
+- **Research documents motivate** the program without silently creating software requirements.
+- **Archive documents preserve history** but are not current implementation authority.
 
-Small practical run: `configs/pilot.canvas.v1.yaml` (20 equal-node trials).
-Reproduce with `scripts/reproduce_pilot.py`; open `results/<run_id>/index.html`
-(or regenerate via `scripts/generate_monte_carlo_canvas.py --latest`).
-See also `artifacts/monte_carlo/README.md` for a checked local canvas run.
+## Compatibility redirects
 
-Recommended editors:
-- Obsidian
-- Typora
-- VS Code with Markdown math support
-- GitHub
+The former root-level Markdown paths remain as temporary redirect stubs so existing links do not break during the migration. New edits should target the authoritative paths above. See [DOCS_MIGRATION.md](DOCS_MIGRATION.md).
