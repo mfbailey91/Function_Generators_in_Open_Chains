@@ -74,11 +74,11 @@ class TestRunPilot:
         summary = run.read_json("summary")
         assert summary["n_rows"] == 12
         assert "by_group" in summary
-        assert summary["result_schema_version"] == "4.0.0"
+        assert summary["result_schema_version"] == "4.1.0"
         assert summary["cost_type"] == "output_euclidean"
 
         for row in rows:
-            assert row["result_schema_version"] == "4.0.0"
+            assert row["result_schema_version"] == "4.1.0"
             assert row["cost_type"] == "output_euclidean"
             assert row["heuristic_type"] in ("zero", "output_euclidean")
             assert "optimal_cost" in row
@@ -90,7 +90,7 @@ class TestRunPilot:
 
         canvas = run.path / "index.html"
         assert canvas.is_file()
-        assert "4.0.0" in canvas.read_text(encoding="utf-8")
+        assert "4.1.0" in canvas.read_text(encoding="utf-8")
 
         for name in (
             "expansions_raw",

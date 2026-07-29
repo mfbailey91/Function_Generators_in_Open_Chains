@@ -1,0 +1,67 @@
+# Sprint Four P1 factorial (small science-scale fixed pair).
+
+seed: 0
+
+mechanisms:
+  gearbox:
+    type: unit_gearbox
+    dim: 2
+    periodic: [true, true]
+    name: unit_gearbox
+  fourbar:
+    mode: fixed
+    mechanism:
+      type: independent_fourbars
+      name: fixed_fourbar
+      bars:
+        - type: planar_fourbar
+          a: 1.0
+          b: 2.5
+          c: 2.0
+          d: 2.0
+          branch: 1
+          periodic: [true]
+          name: bar0
+        - type: planar_fourbar
+          a: 1.0
+          b: 2.5
+          c: 2.0
+          d: 2.0
+          branch: 1
+          periodic: [true]
+          name: bar1
+
+graph:
+  shape: [12, 12]
+  wrap: [true, true]
+  edge_samples: 9
+
+limits:
+  lower: [0.8, 0.8]
+  upper: [2.4, 2.4]
+
+cost:
+  type: output_euclidean
+  types: [uniform, input_euclidean, output_euclidean]
+
+algorithms:
+  names: [dijkstra, astar]
+  validate_heuristic: false
+
+trials:
+  n_trials: 20
+  min_output_separation: 0.15
+  preimage_policy: lex_min_node_id
+  max_sample_attempts: 20000
+  require_reachable: true
+  n_path_samples: 2
+
+sprint4:
+  n_landscape_trials: 2
+  landscape_costs: [output_euclidean, uniform]
+  bootstrap_n_samples: 1000
+  bootstrap_seed: 0
+  bootstrap_confidence: 0.95
+  gain_epsilon: 0.05
+  high_gain_threshold: 2.0
+  near_reversal_epsilon: 0.02

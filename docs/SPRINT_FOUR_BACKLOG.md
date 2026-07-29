@@ -1,8 +1,7 @@
 # Sprint Four Backlog — Search Geometry Attribution
 
-> **Status:** P0 (S4-01–S4-05) is the current implementation target.
-> P1/P2 (S4-06–S4-12) is deferred follow-up. See
-> `docs/notes/SPRINT_FOUR_P0_STATUS.md`.
+> **Status:** P0 (S4-01–S4-05), P1 (S4-06–S4-10), and P2 (S4-11–S4-12) are
+> implemented. See `docs/notes/SPRINT_FOUR_P0_STATUS.md`.
 
 ## Objective
 

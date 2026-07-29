@@ -57,6 +57,26 @@ Cost ablations (Sprint Four P0): `configs/pilot.cost_uniform.v1.yaml` and
 metric). Change `cost.type` in any config to `uniform`, `input_euclidean`,
 or `output_euclidean`.
 
+Sprint Four factorial attribution (P1):
+
+```bash
+MPLBACKEND=Agg PYTHONPATH=src python scripts/reproduce_sprint4.py \
+  --config configs/sprint4.smoke.v1.yaml
+```
+
+Science-scale: `configs/sprint4.factorial.v1.yaml`. Writes mech × cost × algo
+trials, A* savings plots, landscape bundles, descriptors, and bootstrap CIs.
+
+Monotonic uniform-U vs uniform-Q control (P2 / S4-11):
+
+```bash
+MPLBACKEND=Agg PYTHONPATH=src python scripts/reproduce_sprint4_qgrid.py \
+  --config configs/sprint4.qgrid.smoke.v1.yaml
+```
+
+Larger lattice: `configs/sprint4.qgrid.v1.yaml`. ADR-001 is unchanged; see
+`docs/notes/S4-12-lifted-output-state.md` for deferred `(q,σ)` state.
+
 ### Monte Carlo canvas
 
 After a completed run (or regenerating if `index.html` is missing):
