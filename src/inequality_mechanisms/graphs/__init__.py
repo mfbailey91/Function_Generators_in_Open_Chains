@@ -1,5 +1,6 @@
 """Input-side graph construction and validation."""
 
+from inequality_mechanisms.graphs.adapters import ConstrainedInputSearchAdapter
 from inequality_mechanisms.graphs.costs import (
     KNOWN_COST_TYPES,
     build_edge_cost,
@@ -10,8 +11,22 @@ from inequality_mechanisms.graphs.costs import (
     uniform_edge_cost,
     wrapped_input_displacement,
 )
+from inequality_mechanisms.graphs.embedded import (
+    EmbeddedPlanningGraph,
+    UniformOutputLattice,
+)
 from inequality_mechanisms.graphs.grid import GridNode, PeriodicGrid2D
 from inequality_mechanisms.graphs.output_grid import MonotonicOutputGraph
+from inequality_mechanisms.graphs.sampling import (
+    AxisSpacingStatistics,
+    SamplingDomain,
+    SamplingSpecification,
+    TransitionParameterization,
+    compute_axis_spacing_statistics,
+)
+from inequality_mechanisms.graphs.topology import GraphTopology, TensorGridTopology
+from inequality_mechanisms.graphs.transitions import EdgeTraceV2, build_edge_trace_v2
+from inequality_mechanisms.graphs.query_overlay import QueryOverlayGraph, QueryNode
 from inequality_mechanisms.graphs.validation import (
     ConstrainedInputGraph,
     configuration_is_valid,
@@ -20,12 +35,26 @@ from inequality_mechanisms.graphs.validation import (
 )
 
 __all__ = [
+    "AxisSpacingStatistics",
     "ConstrainedInputGraph",
+    "ConstrainedInputSearchAdapter",
+    "EdgeTraceV2",
+    "EmbeddedPlanningGraph",
+    "GraphTopology",
     "GridNode",
     "KNOWN_COST_TYPES",
     "MonotonicOutputGraph",
     "PeriodicGrid2D",
+    "SamplingDomain",
+    "SamplingSpecification",
+    "TensorGridTopology",
+    "TransitionParameterization",
+    "QueryNode",
+    "QueryOverlayGraph",
+    "UniformOutputLattice",
     "build_edge_cost",
+    "build_edge_trace_v2",
+    "compute_axis_spacing_statistics",
     "configuration_is_valid",
     "edge_is_valid",
     "graph_output_euclidean_cost",

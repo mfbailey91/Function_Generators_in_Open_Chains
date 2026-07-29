@@ -20,7 +20,7 @@ from inequality_mechanisms.search import (
     output_euclidean_heuristic,
     reverse_dijkstra,
 )
-from inequality_mechanisms.search.core import _cached_outputs
+from inequality_mechanisms.search.v1_compat import _cached_outputs
 from inequality_mechanisms.spaces import OutputJointLimits, OutputSpace
 
 _CR_LENGTHS = (1.0, 2.5, 2.0, 2.0)

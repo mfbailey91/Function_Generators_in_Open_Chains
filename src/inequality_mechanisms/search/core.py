@@ -2,19 +2,21 @@
 
 See ``docs/ADR-005-search-semantics.md`` for expansion counting, stale-entry
 handling, and deterministic tie-breaking.
+
+Sprint V2.1 decouples this module from Version 1 graph types: it depends
+only on the minimal :class:`~inequality_mechanisms.search.protocol.SearchGraph`
+structural contract (node count, node validity, neighbor iteration) plus
+explicit ``edge_cost`` and ``heuristic`` callables supplied by the caller.
+This module imports only the generic search protocol; Version 1 adapters and
+helpers live in ``graphs/adapters.py`` and ``search/v1_compat.py``.
 """
 
 from __future__ import annotations
 
 import heapq
 import math
-from collections.abc import Callable
 
-import numpy as np
-from numpy.typing import NDArray
-
-from inequality_mechanisms.graphs.validation import ConstrainedInputGraph
-from inequality_mechanisms.search.heuristics import Heuristic
+from inequality_mechanisms.search.protocol import EdgeCost, Heuristic, SearchGraph
 from inequality_mechanisms.search.result import SearchResult
 
 
@@ -29,15 +31,15 @@ def _reconstruct_path(came_from: dict[int, int], goal: int) -> tuple[int, ...]:
 
 
 def best_first_search(
-    graph: ConstrainedInputGraph,
+    graph: SearchGraph,
     start: int,
     goal: int,
-    heuristic: Heuristic,
     *,
-    edge_cost: Callable[[int, int], float] | None = None,
+    edge_cost: EdgeCost,
+    heuristic: Heuristic,
     record_expanded: bool = False,
 ) -> SearchResult:
-    """Run instrumented best-first search on a constrained input graph.
+    """Run instrumented best-first search on a generic search graph.
 
     Priority key is ``(f, node_id)`` with ``f = g + h(node)``. Equal ``f``
     values break ties by ascending flat ``node_id``. Multiple heap entries per
@@ -47,15 +49,17 @@ def best_first_search(
     Parameters
     ----------
     graph :
-        Filtered input lattice with mechanism and shared output limits.
+        Any object satisfying :class:`SearchGraph` (node count, node
+        validity, and neighbor iteration by flat node id).
     start, goal :
         Flat node ids. Both must be valid nodes of ``graph``.
-    heuristic :
-        Cost-to-go estimate ``h(node_id)``. Use ``zero_heuristic`` for
-        Dijkstra and an output-space Euclidean heuristic for A*.
     edge_cost :
-        Optional ``(u_id, v_id) -> float`` override. Defaults to Version 1
-        output Euclidean displacement.
+        Required ``(u_id, v_id) -> float`` edge weight. The generic core
+        constructs no graph-specific default; callers resolve one (e.g.
+        Version 1's output Euclidean cost) before calling this function.
+    heuristic :
+        Cost-to-go estimate ``h(node_id)``. Use a zero heuristic for
+        Dijkstra and an admissible heuristic for A*.
     record_expanded :
         When ``True``, populate ``SearchResult.expanded_nodes`` in expansion
         order (diagnostic views). Default keeps the tuple empty.
@@ -70,28 +74,17 @@ def best_first_search(
     ValueError
         If ``start`` or ``goal`` is out of range or not a valid node.
     """
-    n_nodes = graph.grid.node_count
+    n_nodes = graph.node_count
     if start < 0 or start >= n_nodes:
         raise ValueError(f"start node_id out of range: {start}")
     if goal < 0 or goal >= n_nodes:
         raise ValueError(f"goal node_id out of range: {goal}")
-    if not graph.node_is_valid_id(start):
+    if not graph.node_is_valid(start):
         raise ValueError(f"start node {start} is not valid under graph constraints")
-    if not graph.node_is_valid_id(goal):
+    if not graph.node_is_valid(goal):
         raise ValueError(f"goal node {goal} is not valid under graph constraints")
 
     cost_fn = edge_cost
-    if cost_fn is None:
-        grid = graph.grid
-
-        def cost_fn(u_id: int, v_id: int) -> float:
-            u = grid.indices_from_id(u_id)
-            v = grid.indices_from_id(v_id)
-            # IM-042: graph owns raw → canonical conversion for edge costs.
-            return graph.output_displacement(
-                grid.coordinates(*u),
-                grid.coordinates(*v),
-            )
 
     g_best: dict[int, float] = {start: 0.0}
     came_from: dict[int, int] = {}
@@ -137,9 +130,7 @@ def best_first_search(
                 expanded_nodes=tuple(expanded_order) if record_expanded else (),
             )
 
-        i0, i1 = graph.grid.indices_from_id(u)
-        for j0, j1 in graph.neighbors(i0, i1):
-            v = graph.grid.node_id(j0, j1)
+        for v in graph.neighbors(u):
             if v in closed:
                 continue
             tentative = g_u + cost_fn(u, v)
@@ -169,21 +160,3 @@ def best_first_search(
         n_stale=n_stale,
         expanded_nodes=tuple(expanded_order) if record_expanded else (),
     )
-
-
-def _cached_outputs(
-    graph: ConstrainedInputGraph,
-) -> Callable[[int], NDArray[np.floating]]:
-    """Lazily cache canonicalized ``g(u)`` by flat node id."""
-    cache: dict[int, NDArray[np.floating]] = {}
-
-    def output_of(node_id: int) -> NDArray[np.floating]:
-        cached = cache.get(node_id)
-        if cached is not None:
-            return cached
-        coords = graph.grid.coordinates(*graph.grid.indices_from_id(node_id))
-        q = graph.output(coords)
-        cache[node_id] = q
-        return q
-
-    return output_of

@@ -6,6 +6,9 @@ from inequality_mechanisms.mechanisms.base import (
     clear_mechanism_registry,
     register_mechanism_type,
 )
+from inequality_mechanisms.mechanisms.branch_selection import (
+    select_fourbar_monotonic_branch,
+)
 from inequality_mechanisms.mechanisms.equivalence import (
     BASELINE_LABELS,
     MATCHED_QUANTITY_TABLE,
@@ -26,6 +29,7 @@ from inequality_mechanisms.mechanisms.gearbox import (
     EquivalentGearbox,
     FixedRatioGearbox,
     UnitGearbox,
+    equivalent_gearbox_matching_endpoints,
 )
 from inequality_mechanisms.mechanisms.monotonic import (
     MonotonicBox2D,
@@ -35,6 +39,19 @@ from inequality_mechanisms.mechanisms.monotonic import (
     open_axis_independent_fourbars,
     primary_monotonic_sector,
     unique_inverse_output,
+)
+from inequality_mechanisms.mechanisms.operating_branch import (
+    AffineAxisInverse,
+    BranchCertificate,
+    BranchCertificationError,
+    BranchInverseError,
+    MonotoneTableAxisInverse,
+    OperatingBranch,
+    affine_operating_branch,
+    certify_branch,
+    equivalent_gearbox_branch,
+    fixed_ratio_gearbox_branch,
+    unit_gearbox_branch,
 )
 from inequality_mechanisms.mechanisms.population import (
     CrankRockerPopulationSpec,
@@ -49,22 +66,33 @@ from inequality_mechanisms.mechanisms.population import (
 __all__ = [
     "BASELINE_LABELS",
     "MATCHED_QUANTITY_TABLE",
+    "AffineAxisInverse",
     "AxisMatchResult",
+    "BranchCertificate",
+    "BranchCertificationError",
+    "BranchInverseError",
     "CrankRockerPopulationSpec",
     "EquivalentGearbox",
     "FixedRatioGearbox",
     "IndependentFourBars",
     "Mechanism",
     "MechanismRegistryError",
+    "MonotoneTableAxisInverse",
     "MonotonicBox2D",
     "MonotonicSector",
+    "OperatingBranch",
     "PlanarFourBar",
     "UnitGearbox",
+    "affine_operating_branch",
     "baseline_label_for_matching_rule",
     "baseline_label_for_mechanism",
+    "certify_branch",
     "clear_mechanism_registry",
     "equivalence_summary_rows",
+    "equivalent_gearbox_branch",
+    "equivalent_gearbox_matching_endpoints",
     "find_monotonic_sectors",
+    "fixed_ratio_gearbox_branch",
     "follower_range",
     "is_derivable_equivalent_gearbox_dict",
     "is_strict_crank_rocker",
@@ -78,7 +106,9 @@ __all__ = [
     "register_mechanism_type",
     "sample_crank_rocker",
     "sample_independent_crank_rockers",
+    "select_fourbar_monotonic_branch",
     "unique_inverse_output",
+    "unit_gearbox_branch",
     "verify_matched_graphs",
     "verify_rms_match",
     "verify_span_match",

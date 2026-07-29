@@ -1,0 +1,109 @@
+seed: 1
+mechanisms:
+  gearbox:
+    type: unit_gearbox
+    dim: 2
+    periodic:
+    - true
+    - true
+    name: unit_gearbox
+  fourbar:
+    mode: fixed
+    mechanism:
+      type: independent_fourbars
+      bars:
+      - type: planar_fourbar
+        a: 1.0
+        b: 2.5
+        c: 2.0
+        d: 2.0
+        branch: 1
+        periodic:
+        - true
+        name: independent_fourbars[0]
+      - type: planar_fourbar
+        a: 1.0
+        b: 2.5
+        c: 2.0
+        d: 2.0
+        branch: 1
+        periodic:
+        - true
+        name: independent_fourbars[1]
+      name: independent_fourbars
+graph:
+  shape:
+  - 8
+  - 8
+  ranges: null
+  wrap:
+  - true
+  - true
+  edge_samples: 17
+  match_valid_nodes: false
+  match_relative_tol: 0.1
+  match_shape_hi: 128
+limits:
+  lower:
+  - 1.05
+  - 1.05
+  upper:
+  - 2.2
+  - 2.2
+cost:
+  type: output_euclidean
+  types: null
+algorithms:
+  names:
+  - dijkstra
+  - astar
+  validate_heuristic: false
+trials:
+  n_trials: 4
+  min_output_separation: 0.0
+  preimage_policy: lex_min_node_id
+  max_sample_attempts: 10000
+  snap_output_tol: null
+  require_reachable: false
+  n_path_samples: 0
+sprint4:
+  n_landscape_trials: 1
+  landscape_costs:
+  - output_euclidean
+  bootstrap_n_samples: 1000
+  bootstrap_seed: 0
+  bootstrap_confidence: 0.95
+  gain_epsilon: 0.05
+  high_gain_threshold: 2.0
+  near_reversal_epsilon: 0.02
+path_quality:
+  revisit_exclusion_steps: 4
+  revisit_threshold_q: 0.05
+  revisit_threshold_x: 0.05
+  n_representative_cards: 5
+sprint6:
+  matching_n_samples: 361
+  verify_equivalence: true
+  resolution_shapes:
+  - 32
+  - 48
+  - 64
+  - 96
+  - 128
+  max_relative_effect_change: 0.05
+  require_sign_stability: true
+  require_component_stability: true
+  require_task_feasibility_stability: true
+  n_mechanisms: 4
+  tasks_per_mechanism: 2
+  min_accepted_tasks_per_mechanism: 1
+  mechanism_batch_size: 2
+  initial_mechanisms: 4
+  target_ci_half_width: 0.1
+  min_mechanisms: 4
+  max_mechanisms: 200
+  hierarchical_bootstrap_samples: 200
+  hierarchical_bootstrap_seed: 0
+  hierarchical_bootstrap_confidence: 0.95
+  confirmation_n_mechanisms: 2
+  grid_anisotropy_acknowledged: true

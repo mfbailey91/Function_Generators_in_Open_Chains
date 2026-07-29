@@ -15,7 +15,6 @@ from inequality_mechanisms.graphs.costs import (
     build_edge_cost,
 )
 from inequality_mechanisms.graphs.validation import ConstrainedInputGraph
-from inequality_mechanisms.search.core import _cached_outputs
 from inequality_mechanisms.search.heuristics import (
     Heuristic,
     input_euclidean_heuristic,
@@ -23,6 +22,7 @@ from inequality_mechanisms.search.heuristics import (
     uniform_step_heuristic,
     zero_heuristic,
 )
+from inequality_mechanisms.search.v1_compat import _cached_outputs
 
 HeuristicName = Literal[
     "zero",

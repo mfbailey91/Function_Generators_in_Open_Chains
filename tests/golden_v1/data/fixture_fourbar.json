@@ -1,0 +1,71 @@
+{
+  "name": "fourbar_input_state",
+  "architecture_version": 1,
+  "graph": {
+    "shape": [
+      16,
+      16
+    ],
+    "wrap": [
+      true,
+      true
+    ]
+  },
+  "mechanism": {
+    "type": "independent_fourbars",
+    "bars": [
+      {
+        "type": "planar_fourbar",
+        "a": 1.0,
+        "b": 2.5,
+        "c": 2.0,
+        "d": 2.0,
+        "branch": 1,
+        "periodic": [
+          true
+        ],
+        "name": "independent_fourbars[0]"
+      },
+      {
+        "type": "planar_fourbar",
+        "a": 1.0,
+        "b": 2.5,
+        "c": 2.0,
+        "d": 2.0,
+        "branch": 1,
+        "periodic": [
+          true
+        ],
+        "name": "independent_fourbars[1]"
+      }
+    ],
+    "name": "independent_fourbars"
+  },
+  "limits": {
+    "lower": [
+      1.05,
+      1.05
+    ],
+    "upper": [
+      2.2,
+      2.2
+    ]
+  },
+  "start": 0,
+  "goal": 255,
+  "expected": {
+    "found": true,
+    "cost": 0.9020444068533147,
+    "path": [
+      0,
+      15,
+      255
+    ],
+    "n_expanded": 6,
+    "n_generated": 8,
+    "n_stale": 0,
+    "n_path_edges": 2,
+    "valid_node_count": 100,
+    "astar_cost": 0.9020444068533147
+  }
+}

@@ -19,11 +19,11 @@ from typing import Any
 import numpy as np
 from numpy.random import Generator
 
+from inequality_mechanisms.experiments.canvas import write_monte_carlo_canvas
 from inequality_mechanisms.experiments.config import (
     ExperimentConfig,
     FourBarPopulationSource,
 )
-from inequality_mechanisms.experiments.canvas import write_monte_carlo_canvas
 from inequality_mechanisms.experiments.equal_nodes import (
     match_gearbox_to_fourbar_valid_count,
 )
@@ -43,6 +43,7 @@ from inequality_mechanisms.experiments.tasks import (
     SelectedPreimages,
     generate_paired_tasks,
 )
+from inequality_mechanisms.graphs.adapters import ConstrainedInputSearchAdapter
 from inequality_mechanisms.graphs.grid import PeriodicGrid2D
 from inequality_mechanisms.graphs.validation import ConstrainedInputGraph
 from inequality_mechanisms.kinematics import Planar2R
@@ -193,11 +194,11 @@ def _run_search(
         ):
             return astar(graph, start, goal)
         return best_first_search(
-            graph,
+            ConstrainedInputSearchAdapter(graph),
             start,
             goal,
-            objective.heuristic,
             edge_cost=objective.edge_cost,
+            heuristic=objective.heuristic,
             record_expanded=record_expanded,
         )
     raise ValueError(f"unknown algorithm: {algorithm!r}")

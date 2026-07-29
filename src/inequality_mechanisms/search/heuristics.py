@@ -18,9 +18,16 @@ from numpy.typing import ArrayLike, NDArray
 from inequality_mechanisms.graphs.costs import wrapped_input_displacement
 from inequality_mechanisms.graphs.validation import ConstrainedInputGraph
 from inequality_mechanisms.mechanisms.base import Mechanism
+from inequality_mechanisms.search.protocol import Heuristic
 from inequality_mechanisms.spaces.output_space import OutputSpace
 
-Heuristic = Callable[[int], float]
+__all__ = [
+    "Heuristic",
+    "input_euclidean_heuristic",
+    "output_euclidean_heuristic",
+    "uniform_step_heuristic",
+    "zero_heuristic",
+]
 
 
 def output_euclidean_heuristic(
