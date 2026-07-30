@@ -248,6 +248,11 @@ def run_shared_q_paired_study(
     run_dir = root / rid
     if run_dir.exists():
         raise FileExistsError(f"run directory already exists: {run_dir}")
+    run_dir.mkdir(parents=True)
+    (run_dir / "branches").mkdir()
+    (run_dir / "diagnostics").mkdir()
+    (run_dir / "figures").mkdir()
+    (run_dir / "figures" / "paths").mkdir()
 
     revision = capture_revision(cwd=None)
     environment = capture_environment()
@@ -260,6 +265,33 @@ def run_shared_q_paired_study(
     branch_payloads: dict[str, Any] = {}
     diagnostic_payloads: dict[str, Any] = {}
     trial_index = 0
+    figures_root = run_dir / "figures"
+    plotters: dict[str, Any] | None = None
+    if write_figures:
+        try:
+            from inequality_mechanisms.visualization.embedded_graphs import (
+                plot_actuator_samples,
+                plot_embedded_q_path,
+                plot_embedded_u_path,
+                plot_output_graph,
+            )
+            from inequality_mechanisms.visualization.paths import plot_cartesian_path
+            from inequality_mechanisms.visualization.v2_expansions import (
+                plot_v2_expansions_by_alpha,
+                plot_v2_expansions_by_mechanism,
+            )
+        except ImportError:
+            plotters = None
+        else:
+            plotters = {
+                "plot_actuator_samples": plot_actuator_samples,
+                "plot_embedded_q_path": plot_embedded_q_path,
+                "plot_embedded_u_path": plot_embedded_u_path,
+                "plot_output_graph": plot_output_graph,
+                "plot_cartesian_path": plot_cartesian_path,
+                "plot_v2_expansions_by_alpha": plot_v2_expansions_by_alpha,
+                "plot_v2_expansions_by_mechanism": plot_v2_expansions_by_mechanism,
+            }
 
     algorithms = [config.study.reference_algorithm] + list(
         config.study.optional_algorithms
@@ -309,6 +341,25 @@ def run_shared_q_paired_study(
             )
             raise V2RunnerError(f"pair {pair_id}: {exc}") from exc
         invariant_reports.append({"pair_id": pair_id, **inv.to_dict()})
+
+        if plotters is not None:
+            pair_fig = figures_root / pair_id
+            pair_fig.mkdir(parents=True, exist_ok=True)
+            plotters["plot_output_graph"](
+                g_fb,
+                pair_fig / "q_lattice.png",
+                title=f"{pair_id}: shared Q lattice",
+            )
+            plotters["plot_actuator_samples"](
+                g_fb,
+                pair_fig / "u_fourbar.png",
+                title=f"{pair_id}: four-bar U embedding",
+            )
+            plotters["plot_actuator_samples"](
+                g_gb,
+                pair_fig / "u_span_matched_gearbox.png",
+                title=f"{pair_id}: span-matched gearbox U",
+            )
 
         ref_branch = mechanism_branches[FOURBAR_MECHANISM_ID]
         cert = ref_branch.certificate
@@ -575,6 +626,42 @@ def run_shared_q_paired_study(
                     trial_rows.append(row)
                     alpha_rows[float(alpha)][mechanism_id] = row
 
+                    if plotters is not None and result.found and result.path:
+                        paths_dir = figures_root / "paths"
+                        paths_dir.mkdir(parents=True, exist_ok=True)
+                        alpha_tag = f"{float(alpha):g}".replace(".", "p")
+                        stem = f"{pair_id}__a{alpha_tag}__{mechanism_id}"
+                        plotters["plot_embedded_q_path"](
+                            graph,
+                            paths_dir / f"{stem}_q.png",
+                            path_node_ids=result.path,
+                            expanded_node_ids=result.expanded_nodes,
+                            title=f"{pair_id} α={alpha:g} {mechanism_id}: Q",
+                        )
+                        plotters["plot_embedded_u_path"](
+                            graph,
+                            paths_dir / f"{stem}_u.png",
+                            path_node_ids=result.path,
+                            expanded_node_ids=None,
+                            title=f"{pair_id} α={alpha:g} {mechanism_id}: U",
+                        )
+                        q_path = np.vstack(
+                            [
+                                np.asarray(graph.q_state(n), dtype=np.float64)
+                                for n in result.path
+                            ]
+                        )
+                        if q_path.shape[1] == 2:
+                            plotters["plot_cartesian_path"](
+                                q_path,
+                                paths_dir / f"{stem}_x.png",
+                                title=(
+                                    f"{pair_id} α={alpha:g} {mechanism_id}: "
+                                    "Cartesian"
+                                ),
+                                n_pose_samples=8,
+                            )
+
                     # Null-control hard gate at alpha=1.
                     if float(alpha) == 1.0 and len(alpha_rows[1.0]) == 2:
                         ra = alpha_rows[1.0][FOURBAR_MECHANISM_ID]
@@ -634,12 +721,7 @@ def run_shared_q_paired_study(
                     )
                 trial_index += 1
 
-    # Write immutable package.
-    run_dir.mkdir(parents=True)
-    (run_dir / "branches").mkdir()
-    (run_dir / "diagnostics").mkdir()
-    (run_dir / "figures").mkdir()
-
+    # Write immutable package artifacts into the already-created run directory.
     config_payload = config.model_dump(mode="python")
     config_payload["frozen_pairs"] = [p.to_dict() for p in FROZEN_MECHANISM_PAIRS]
     config_payload["task_templates"] = [t.to_dict() for t in TASK_TEMPLATES]
@@ -705,18 +787,18 @@ def run_shared_q_paired_study(
         )
 
     if write_figures:
-        try:
-            from inequality_mechanisms.visualization.embedded_graphs import (
-                plot_actuator_samples,
-                plot_output_graph,
+        figures_root.mkdir(parents=True, exist_ok=True)
+        if plotters is not None and trial_rows:
+            plotters["plot_v2_expansions_by_mechanism"](
+                trial_rows,
+                figures_root / "expansions_raw.png",
+                title="Shared-Q paired study: expansions by mechanism",
             )
-        except ImportError:
-            pass
-        else:
-            # Figures for the last pair only would be incomplete; write per-pair
-            # graphs by rebuilding from branch payloads is heavy. Skip detailed
-            # PNGs here; the HTML canvas carries metric cards and tables.
-            del plot_actuator_samples, plot_output_graph
+            plotters["plot_v2_expansions_by_alpha"](
+                trial_rows,
+                figures_root / "expansions_by_alpha.png",
+                title="Shared-Q paired study: expansions vs alpha",
+            )
 
     write_v2_canvas(run_dir)
     return SharedQPairedStudyResult(

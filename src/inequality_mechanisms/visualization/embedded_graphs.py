@@ -9,6 +9,7 @@ graphs render as a lattice with topology-owned edges.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
 
@@ -235,3 +236,155 @@ def plot_edge_trace(
     fig.savefig(out, dpi=150)
     plt.close(fig)
     return out
+
+
+def _coords_for_nodes(
+    graph: EmbeddedPlanningGraph | Any,
+    node_ids: Sequence[int],
+    *,
+    space: str,
+) -> np.ndarray:
+    """Stack Q or U coordinates for ``node_ids``."""
+    rows: list[np.ndarray] = []
+    for node_id in node_ids:
+        if space == "q":
+            rows.append(np.asarray(graph.q_state(int(node_id)), dtype=np.float64))
+        elif space == "u":
+            rows.append(np.asarray(graph.u_state(int(node_id)), dtype=np.float64))
+        else:
+            raise ValueError(f"space must be 'q' or 'u', got {space!r}")
+    if not rows:
+        return np.empty((0, 2), dtype=np.float64)
+    return np.vstack(rows)
+
+
+def _plot_embedded_path(
+    graph: EmbeddedPlanningGraph | Any,
+    path_out: Path | str,
+    *,
+    space: str,
+    path_node_ids: Sequence[int],
+    expanded_node_ids: Sequence[int] | None = None,
+    title: str | None = None,
+    xlabel: str,
+    ylabel: str,
+    lattice_color: str,
+) -> Path:
+    """Shared Q/U path overlay on an embedded lattice."""
+    plt = _require_matplotlib()
+    out = Path(path_out)
+    out.parent.mkdir(parents=True, exist_ok=True)
+
+    # Query overlays expose q_state/u_state but keep lattice arrays on ``base``.
+    lattice_graph = getattr(graph, "base", None)
+    if lattice_graph is None:
+        lattice_graph = getattr(graph, "_base", graph)
+    values = lattice_graph.q_nodes if space == "q" else lattice_graph.u_nodes
+    fig, ax = plt.subplots(figsize=(5.5, 5.5))
+    _draw_lattice(ax, lattice_graph, values, color=lattice_color)
+
+    base_count = int(lattice_graph.node_count)
+    if expanded_node_ids:
+        exp = [
+            int(n)
+            for n in expanded_node_ids
+            if 0 <= int(n) < base_count and bool(lattice_graph.valid_nodes[int(n)])
+        ]
+        if exp:
+            coords = _coords_for_nodes(graph, exp, space=space)
+            if coords.size:
+                ax.scatter(
+                    coords[:, 0],
+                    coords[:, 1],
+                    s=28,
+                    color="C3",
+                    alpha=0.35,
+                    zorder=4,
+                    label="expanded",
+                )
+
+    path_ids = [int(n) for n in path_node_ids]
+    if path_ids:
+        path_coords = _coords_for_nodes(graph, path_ids, space=space)
+        if path_coords.shape[0] >= 2:
+            ax.plot(
+                path_coords[:, 0],
+                path_coords[:, 1],
+                color="C0",
+                linewidth=2.2,
+                zorder=5,
+                label="path",
+            )
+        if path_coords.shape[0] >= 1:
+            ax.scatter(
+                [path_coords[0, 0]],
+                [path_coords[0, 1]],
+                s=70,
+                color="C0",
+                zorder=6,
+                label="start",
+            )
+        if path_coords.shape[0] >= 2:
+            ax.scatter(
+                [path_coords[-1, 0]],
+                [path_coords[-1, 1]],
+                s=70,
+                color="C1",
+                zorder=6,
+                label="goal",
+            )
+
+    ax.set_xlabel(xlabel)
+    ax.set_ylabel(ylabel)
+    ax.set_title(title or f"{space.upper()} path overlay")
+    ax.legend(loc="best", fontsize=8)
+    if values.shape[1] == 2:
+        ax.set_aspect("equal", adjustable="box")
+    fig.tight_layout()
+    fig.savefig(out, dpi=150)
+    plt.close(fig)
+    return out
+
+
+def plot_embedded_q_path(
+    graph: EmbeddedPlanningGraph | Any,
+    path_out: Path | str,
+    *,
+    path_node_ids: Sequence[int],
+    expanded_node_ids: Sequence[int] | None = None,
+    title: str | None = None,
+) -> Path:
+    """Plot shared-Q lattice with expansions, selected path, and start/goal."""
+    return _plot_embedded_path(
+        graph,
+        path_out,
+        space="q",
+        path_node_ids=path_node_ids,
+        expanded_node_ids=expanded_node_ids,
+        title=title,
+        xlabel="$q_0$",
+        ylabel="$q_1$",
+        lattice_color="0.55",
+    )
+
+
+def plot_embedded_u_path(
+    graph: EmbeddedPlanningGraph | Any,
+    path_out: Path | str,
+    *,
+    path_node_ids: Sequence[int],
+    expanded_node_ids: Sequence[int] | None = None,
+    title: str | None = None,
+) -> Path:
+    """Plot actuator embedding with selected path and start/goal."""
+    return _plot_embedded_path(
+        graph,
+        path_out,
+        space="u",
+        path_node_ids=path_node_ids,
+        expanded_node_ids=expanded_node_ids,
+        title=title,
+        xlabel="$u_0$",
+        ylabel="$u_1$",
+        lattice_color="0.55",
+    )

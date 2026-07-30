@@ -173,9 +173,10 @@ class TestQUBlendObjective:
 
 
 class TestFrozenFixtures:
-    def test_five_pairs_and_three_tasks(self) -> None:
+    def test_five_pairs_and_cross_range_task(self) -> None:
         assert len(FROZEN_MECHANISM_PAIRS) == 5
-        assert len(TASK_TEMPLATES) == 3
+        assert len(TASK_TEMPLATES) == 1
+        assert TASK_TEMPLATES[0].task_set_id == "cross_range"
 
     def test_fractions_to_q(self) -> None:
         q = fractions_to_q([0.0, 10.0], [10.0, 20.0], (0.15, 0.20))
@@ -189,6 +190,7 @@ class TestSharedQPairedStudySmoke:
         )
         assert cfg.study.name == "shared_q_paired_smoke"
         assert cfg.study.alphas == [1.0, 0.5]
+        assert cfg.study.task_template_ids == ["cross_range"]
 
     def test_smoke_study_end_to_end(self, tmp_path: Path) -> None:
         cfg = load_shared_q_paired_study_config(
@@ -208,12 +210,20 @@ class TestSharedQPairedStudySmoke:
             }
         )
         result = run_shared_q_paired_study(
-            cfg, results_root=tmp_path, run_id="v28_smoke", write_figures=False
+            cfg, results_root=tmp_path, run_id="v28_smoke", write_figures=True
         )
         assert result.n_trial_rows == 4  # 1 pair × 1 task × 2 alpha × 2 mechs
         assert (result.path / "index.html").is_file()
         assert (result.path / "pair_comparisons.jsonl").is_file()
         assert (result.path / "pair_invariants.json").is_file()
+        assert (result.path / "figures" / "expansions_raw.png").is_file()
+        assert list((result.path / "figures" / "paths").glob("*_q.png"))
+        assert list((result.path / "figures" / "paths").glob("*_x.png"))
+        html = (result.path / "index.html").read_text(encoding="utf-8")
+        assert "Expansions" in html
+        assert "Cartesian paths" in html
+        assert "joint1_dominant" not in html
+        assert "joint2_dominant" not in html
         trials = (result.path / "trials.jsonl").read_text(encoding="utf-8")
         assert "span_matched_gearbox" in trials
         assert "q_u_blend" in trials

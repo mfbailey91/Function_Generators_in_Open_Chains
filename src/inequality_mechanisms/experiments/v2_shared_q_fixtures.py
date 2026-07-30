@@ -104,6 +104,10 @@ TASK_TEMPLATES: tuple[TaskTemplate, ...] = (
         goal_fraction=(0.85, 0.80),
         purpose="long diagonal movement through both axes",
     ),
+)
+
+#: Retained for reference / older configs; not used by the active V2.8 study.
+LEGACY_TASK_TEMPLATES: tuple[TaskTemplate, ...] = (
     TaskTemplate(
         task_set_id="joint1_dominant",
         start_fraction=(0.15, 0.45),
@@ -129,7 +133,7 @@ def pair_by_id(pair_id: str) -> MechanismPairFixture:
 
 def task_template_by_id(task_set_id: str) -> TaskTemplate:
     """Look up a frozen task template by id."""
-    for task in TASK_TEMPLATES:
+    for task in (*TASK_TEMPLATES, *LEGACY_TASK_TEMPLATES):
         if task.task_set_id == task_set_id:
             return task
     raise KeyError(f"unknown task template id: {task_set_id!r}")

@@ -291,8 +291,50 @@ def _pair_comparisons_html(rows: list[dict[str, Any]]) -> str:
     return "\n".join(parts)
 
 
+_TASK_DISPLAY_NAMES: dict[str, str] = {
+    "cross_range": "Cross-range",
+}
+
+
+def _filter_figures(
+    figures: list[dict[str, Any]],
+    *,
+    kind: str,
+) -> list[dict[str, Any]]:
+    """Filter discovered figures by dashboard section kind."""
+    out: list[dict[str, Any]] = []
+    for fig in figures:
+        src = str(fig.get("src") or "")
+        name = str(fig.get("name") or "")
+        if kind == "expansions":
+            if "expansions" in name or "expansions" in src:
+                out.append(fig)
+        elif kind == "lattices":
+            if "/paths/" in src:
+                continue
+            if "expansions" in name:
+                continue
+            if (
+                name.endswith("q_lattice")
+                or name.endswith("u_fourbar")
+                or name.endswith("u_span_matched_gearbox")
+                or "/pair_" in src
+            ):
+                out.append(fig)
+        elif kind == "paths_q":
+            if "/paths/" in src and name.endswith("_q"):
+                out.append(fig)
+        elif kind == "paths_u":
+            if "/paths/" in src and name.endswith("_u"):
+                out.append(fig)
+        elif kind == "paths_x":
+            if "/paths/" in src and name.endswith("_x"):
+                out.append(fig)
+    return out
+
+
 def _study_sections_html(payload: dict[str, Any]) -> str:
-    """Render task-set / pair / alpha cards when study metadata is present."""
+    """Render pair / alpha cards for the active study (cross-range only)."""
     manifest = (
         payload.get("manifest") if isinstance(payload.get("manifest"), dict) else {}
     )
@@ -302,7 +344,17 @@ def _study_sections_html(payload: dict[str, Any]) -> str:
     trial_rows = (
         payload.get("trial_rows") if isinstance(payload.get("trial_rows"), list) else []
     )
-    task_ids = [str(x) for x in (study.get("task_template_ids") or [])]
+    raw_task_ids = [str(x) for x in (study.get("task_template_ids") or [])]
+    # Drop joint-dominant templates from the dashboard display.
+    task_ids = [
+        tid
+        for tid in raw_task_ids
+        if tid not in {"joint1_dominant", "joint2_dominant"}
+    ]
+    if not task_ids and "cross_range" in raw_task_ids:
+        task_ids = ["cross_range"]
+    if not task_ids:
+        task_ids = ["cross_range"]
     pair_ids = [str(x) for x in (study.get("mechanism_pair_ids") or [])]
     alphas = [float(a) for a in (study.get("alphas") or [])]
     parts = [
@@ -313,7 +365,11 @@ def _study_sections_html(payload: dict[str, Any]) -> str:
         "<div class='kv'>",
         f"<div class='k'>Study</div><div>{html.escape(str(study.get('name', '')))}</div>",
         f"<div class='k'>Pairs</div><div>{html.escape(', '.join(pair_ids))}</div>",
-        f"<div class='k'>Tasks</div><div>{html.escape(', '.join(task_ids))}</div>",
+        (
+            "<div class='k'>Task</div><div>"
+            f"{html.escape(', '.join(_TASK_DISPLAY_NAMES.get(t, t) for t in task_ids))}"
+            "</div>"
+        ),
         (
             "<div class='k'>Alphas</div><div>"
             f"{html.escape(', '.join(str(a) for a in alphas))}"
@@ -322,7 +378,8 @@ def _study_sections_html(payload: dict[str, Any]) -> str:
         "</div>",
     ]
     for task_id in task_ids:
-        parts.append(f"<h3>Task set: {html.escape(task_id)}</h3>")
+        display = _TASK_DISPLAY_NAMES.get(task_id, task_id)
+        parts.append(f"<h3>Task: {html.escape(display)}</h3>")
         parts.append("<div class='grid'>")
         for pair_id in pair_ids:
             rows = [
@@ -330,6 +387,17 @@ def _study_sections_html(payload: dict[str, Any]) -> str:
                 for r in trial_rows
                 if r.get("task_set_id") == task_id and r.get("pair_id") == pair_id
             ]
+            if not rows:
+                # Also accept rows without task_set_id when only one task remains.
+                rows = [
+                    r
+                    for r in trial_rows
+                    if r.get("pair_id") == pair_id
+                    and (
+                        r.get("task_set_id") in (None, task_id)
+                        or r.get("task_set_id") == task_id
+                    )
+                ]
             if not rows:
                 continue
             parts.append("<div>")
@@ -488,11 +556,12 @@ def collect_v2_canvas_payload(run_dir: Path | str) -> dict[str, Any]:
     figures: list[dict[str, str]] = []
     figures_dir = path / "figures"
     if figures_dir.is_dir():
-        for file in sorted(figures_dir.glob("*.png")):
+        for file in sorted(figures_dir.rglob("*.png")):
+            rel = file.relative_to(path).as_posix()
             figures.append(
                 {
                     "name": file.stem,
-                    "src": f"figures/{file.name}",
+                    "src": rel,
                     "caption": file.stem.replace("_", " "),
                 }
             )
@@ -610,7 +679,6 @@ def render_v2_canvas_html(payload: dict[str, Any]) -> str:
     failures_html = _failures_html(failure_rows)
     branches_html = _branch_sections(branches)
     diagnostics_html = _diagnostics_sections(diagnostics)
-    figures_html = _figure_grid(figures, empty="No figures/ PNGs in this run package.")
     study_html = _study_sections_html(payload)
     pair_rows = (
         payload.get("pair_comparisons")
@@ -623,6 +691,27 @@ def render_v2_canvas_html(payload: dict[str, Any]) -> str:
         f"<pre>{html.escape(json.dumps(onset, indent=2, sort_keys=True))}</pre>"
         if isinstance(onset, dict)
         else "<p class='muted'>No divergence-onset summary.</p>"
+    )
+
+    expansions_html = _figure_grid(
+        _filter_figures(figures, kind="expansions"),
+        empty="No expansion figures.",
+    )
+    lattices_html = _figure_grid(
+        _filter_figures(figures, kind="lattices"),
+        empty="No shared Q/U lattice figures.",
+    )
+    paths_q_html = _figure_grid(
+        _filter_figures(figures, kind="paths_q"),
+        empty="No Q-path overlays.",
+    )
+    paths_u_html = _figure_grid(
+        _filter_figures(figures, kind="paths_u"),
+        empty="No U-path overlays.",
+    )
+    paths_x_html = _figure_grid(
+        _filter_figures(figures, kind="paths_x"),
+        empty="No Cartesian path figures.",
     )
 
     return f"""<!DOCTYPE html>
@@ -741,6 +830,36 @@ summary {{ cursor: pointer; color: var(--accent); }}
   {study_html}
 
   <section>
+    <h2>Expansions</h2>
+    <p class="muted">Node expansions across pairs for four-bar vs span-matched gearbox.</p>
+    {expansions_html}
+  </section>
+
+  <section>
+    <h2>Shared Q and U lattices</h2>
+    <p class="muted">Common output graph and mechanism-specific actuator embeddings.</p>
+    {lattices_html}
+  </section>
+
+  <section>
+    <h2>Q paths</h2>
+    <p class="muted">Selected paths and expansions on the shared output lattice.</p>
+    {paths_q_html}
+  </section>
+
+  <section>
+    <h2>U paths</h2>
+    <p class="muted">Selected paths in each mechanism's actuator embedding.</p>
+    {paths_u_html}
+  </section>
+
+  <section>
+    <h2>Cartesian paths</h2>
+    <p class="muted">End-effector trajectories with start and goal poses.</p>
+    {paths_x_html}
+  </section>
+
+  <section>
     <h2>Null-control gate</h2>
     <p class="{null_class}">{null_label}</p>
     <p class="muted">{null_detail}</p>
@@ -774,13 +893,8 @@ summary {{ cursor: pointer; color: var(--accent); }}
   </section>
 
   <section>
-    <h2>Figures</h2>
-    {figures_html}
-  </section>
-
-  <section>
     <h2>Config</h2>
-    <details open>
+    <details>
       <summary>config.yaml</summary>
       <pre>{config_yaml}</pre>
     </details>

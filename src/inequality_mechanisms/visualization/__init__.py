@@ -5,6 +5,8 @@ from inequality_mechanisms.visualization.embedded_graphs import (
     plot_actuator_samples,
     plot_axis_mapping,
     plot_edge_trace,
+    plot_embedded_q_path,
+    plot_embedded_u_path,
     plot_output_graph,
     plot_sampling_mode_comparison,
     plot_spacing_statistics,
@@ -22,6 +24,10 @@ from inequality_mechanisms.visualization.paths import (
     plot_input_path,
     plot_output_path,
 )
+from inequality_mechanisms.visualization.v2_expansions import (
+    plot_v2_expansions_by_alpha,
+    plot_v2_expansions_by_mechanism,
+)
 
 __all__ = [
     "cost_from_start",
@@ -31,6 +37,8 @@ __all__ = [
     "plot_axis_mapping",
     "plot_cartesian_path",
     "plot_edge_trace",
+    "plot_embedded_q_path",
+    "plot_embedded_u_path",
     "plot_input_path",
     "plot_normalized_expansions",
     "plot_operating_branch",
@@ -40,4 +48,6 @@ __all__ = [
     "plot_raw_expansions",
     "plot_sampling_mode_comparison",
     "plot_spacing_statistics",
+    "plot_v2_expansions_by_alpha",
+    "plot_v2_expansions_by_mechanism",
 ]
