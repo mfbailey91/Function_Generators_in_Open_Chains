@@ -1,5 +1,9 @@
 # Sprint V2.7 — 3R Planar Extension
 
+**Status: Deferred — do not implement until 2R V2.5/V2.6 results are reviewed.**
+
+This sprint remains documented for later use. It is **out of the active Version 2 execution sequence**. Re-open only after controlled 2R null-control, resolution, overlay, and capability evidence have been evaluated.
+
 ## Theme
 
 > Keep 2R as the microscope; use 3R as the first system that can make meaningful posture choices.
@@ -17,7 +21,8 @@ Do not start this sprint until:
 3. uniform-input and uniform-output graphs pass 2R null controls;
 4. exact query overlays are available;
 5. 2R grid-convergence behavior is understood;
-6. no production module assumes node states have length two.
+6. no production module assumes node states have length two;
+7. **2R evaluation review is complete** (printout / study evidence accepted).
 
 ## Manipulator models
 

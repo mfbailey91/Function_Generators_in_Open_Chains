@@ -29,6 +29,7 @@ from inequality_mechanisms.experiments.registry import (
     generate_run_id,
     validate_run_id,
 )
+from inequality_mechanisms.experiments.v2_canvas import write_v2_canvas
 from inequality_mechanisms.experiments.v2_config import (
     V2ExperimentConfig,
     load_v2_experiment_config,
@@ -407,6 +408,9 @@ def _write_run_package(
                 plot_actuator_samples(
                     graph, run_dir / "figures" / f"{mechanism_id}_u.png"
                 )
+
+    # Derived HTML printout (does not mutate trials.jsonl).
+    write_v2_canvas(run_dir)
 
 
 def run_v2_experiment(

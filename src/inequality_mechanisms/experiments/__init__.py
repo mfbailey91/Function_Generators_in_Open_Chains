@@ -1,5 +1,11 @@
 """Configuration-driven experiment runners and registries."""
 
+from inequality_mechanisms.experiments.canvas import (
+    collect_canvas_payload,
+    render_monte_carlo_canvas_html,
+    resolve_run_for_canvas,
+    write_monte_carlo_canvas,
+)
 from inequality_mechanisms.experiments.config import (
     AlgorithmsConfig,
     CostConfig,
@@ -20,17 +26,29 @@ from inequality_mechanisms.experiments.equal_nodes import (
     gearbox_grid_over_limits,
     match_gearbox_to_fourbar_valid_count,
 )
-from inequality_mechanisms.experiments.canvas import (
-    collect_canvas_payload,
-    render_monte_carlo_canvas_html,
-    resolve_run_for_canvas,
-    write_monte_carlo_canvas,
-)
 from inequality_mechanisms.experiments.pilot import run_pilot
+from inequality_mechanisms.experiments.registry import (
+    ExperimentRun,
+    RunRegistryError,
+    capture_environment,
+    capture_revision,
+    create_run,
+    default_results_root,
+    dump_manifest,
+    generate_run_id,
+    list_runs,
+    load_run,
+    validate_run_id,
+)
 from inequality_mechanisms.experiments.schema import (
     RESULT_SCHEMA_VERSION,
     SPRINT5_RESULT_SCHEMA_VERSION,
     SPRINT6_RESULT_SCHEMA_VERSION,
+)
+from inequality_mechanisms.experiments.setup import (
+    PairedGraphs,
+    build_paired_graphs,
+    build_paired_graphs_from_parts,
 )
 from inequality_mechanisms.experiments.sprint4 import run_sprint4
 from inequality_mechanisms.experiments.sprint4_qgrid import run_sprint4_qgrid
@@ -46,24 +64,6 @@ from inequality_mechanisms.experiments.sprint6_canvas import (
     render_sprint6_canvas_html,
     write_sprint6_canvas,
 )
-from inequality_mechanisms.experiments.registry import (
-    ExperimentRun,
-    RunRegistryError,
-    capture_environment,
-    capture_revision,
-    create_run,
-    default_results_root,
-    dump_manifest,
-    generate_run_id,
-    list_runs,
-    load_run,
-    validate_run_id,
-)
-from inequality_mechanisms.experiments.setup import (
-    PairedGraphs,
-    build_paired_graphs,
-    build_paired_graphs_from_parts,
-)
 from inequality_mechanisms.experiments.tasks import (
     EndpointResidual,
     PairedTask,
@@ -73,6 +73,12 @@ from inequality_mechanisms.experiments.tasks import (
     generate_paired_tasks,
     nearest_grid_indices,
     select_preimage,
+)
+from inequality_mechanisms.experiments.v2_canvas import (
+    collect_v2_canvas_payload,
+    render_v2_canvas_html,
+    resolve_v2_run_for_canvas,
+    write_v2_canvas,
 )
 
 __all__ = [
@@ -129,6 +135,10 @@ __all__ = [
     "collect_sprint6_canvas_payload",
     "render_sprint6_canvas_html",
     "write_sprint6_canvas",
+    "collect_v2_canvas_payload",
+    "render_v2_canvas_html",
+    "resolve_v2_run_for_canvas",
+    "write_v2_canvas",
     "select_preimage",
     "validate_run_id",
     "write_monte_carlo_canvas",

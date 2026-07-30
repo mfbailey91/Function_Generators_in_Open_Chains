@@ -169,6 +169,10 @@ This isolates metric/capability effects from sampling effects.
 5. Dijkstra remains the reference for objectives without a proven heuristic.
 6. The report states which effects remain after both sampling and endpoint discretization are controlled.
 
+## Post-sprint evaluation tooling
+
+After this sprint, Version 2 run packages write an HTML printout (`index.html`) summarizing null-control status, trials, branches, diagnostics, and figures. Regenerate with `scripts/generate_v2_canvas.py`. Sprint V2.7 (3R) remains deferred until that 2R evidence is reviewed.
+
 ## Cursor starter prompt
 
 ```text

@@ -9,7 +9,12 @@
 5. [Sprint V2.4 — Versioned Experiment Pipeline](SPRINT_V2_4_EXPERIMENT_PIPELINE.md)
 6. [Sprint V2.5 — Controlled 2R Study](SPRINT_V2_5_CONTROLLED_2R_STUDY.md)
 7. [Sprint V2.6 — Exact Query Overlays and Initial Capability Objectives](SPRINT_V2_6_QUERY_OVERLAYS_AND_CAPABILITIES.md)
-8. [Sprint V2.7 — 3R Planar Extension](SPRINT_V2_7_3R_EXTENSION.md)
+
+After V2.6: evaluate 2R results (including the Version 2 HTML run printout) before any higher-dimension work.
+
+## Deferred
+
+- [Sprint V2.7 — 3R Planar Extension](SPRINT_V2_7_3R_EXTENSION.md) — **held** pending review of trusted 2R V2.5/V2.6 evidence. Do not start until entry gates below and that review are both satisfied.
 
 ## Dependency map
 
@@ -21,7 +26,8 @@ V2.0 Contract + V1 baseline
                     └── V2.4 Experiment pipeline
                           └── V2.5 Controlled 2R study
                                 └── V2.6 Exact tasks + capabilities
-                                      └── V2.7 3R extension
+                                      └── 2R evaluation / printout review
+                                            └── (deferred) V2.7 3R extension
 ```
 
 V2.1 and early V2.2 design work may overlap after ADR acceptance, but V2.3 implementation must not begin until both contracts are stable.
@@ -35,8 +41,8 @@ V2.1 and early V2.2 design work may overlap after ADR acceptance, but V2.3 imple
 | Operating branch certificate passes | all Version 2 graphs |
 | Shared uniform-Q graph invariant passes | Version 2 runner promotion |
 | Search-level null control passes | controlled 2R study |
-| Grid convergence and exact-task controls pass | capability and 3R claims |
-| 2R architecture is dimension-independent | 3R implementation |
+| Grid convergence and exact-task controls pass | capability claims and any future 3R work |
+| 2R architecture is dimension-independent **and** 2R evidence reviewed | 3R implementation (deferred) |
 
 ## Scope boundary
 

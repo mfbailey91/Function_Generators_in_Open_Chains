@@ -6,7 +6,8 @@ The Version 2 sequence is defined in [sprints/v2/README.md](sprints/v2/README.md
 
 ## Current backlog
 
-No unassigned P0 work is recorded here.
+- **V2 HTML run printout (evaluation tooling):** implemented beside the V2 runner (`v2_canvas.py`, `scripts/generate_v2_canvas.py`). Keep regenerable; do not treat as a substitute for V2.7.
+- **Sprint V2.7 (3R):** deferred pending 2R evaluation review. See [sprints/v2/SPRINT_V2_7_3R_EXTENSION.md](sprints/v2/SPRINT_V2_7_3R_EXTENSION.md).
 
 ## Intake rules
 

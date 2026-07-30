@@ -438,11 +438,15 @@ Remove endpoint-snapping confounds with query overlays; add actuator and initial
 
 **Sprint:** [`SPRINT_V2_6_QUERY_OVERLAYS_AND_CAPABILITIES.md`](planning/sprints/v2/SPRINT_V2_6_QUERY_OVERLAYS_AND_CAPABILITIES.md)
 
-### V2-M7 — 3R extension
+### V2 evaluation deliverable — HTML run printout
 
-Extend the proven abstractions to 3R planar planning, first with full pose \((x,y,\phi)\), then with position-only redundant goals.
+After V2.6, each Version 2 run package must support a Sprint-6-style HTML printout (`results/<run_id>/index.html`) summarizing manifest metadata, null-control status, trials, failures, branch certificates, diagnostics, and figures. Regenerate with `scripts/generate_v2_canvas.py`. Use this printout (and the controlled 2R study artifacts) to evaluate 2R evidence before any higher-dimension work.
 
-**Sprint:** [`SPRINT_V2_7_3R_EXTENSION.md`](planning/sprints/v2/SPRINT_V2_7_3R_EXTENSION.md)
+### V2-M7 — 3R extension (deferred)
+
+**Status: deferred / held.** Extend the proven abstractions to 3R planar planning only after trusted 2R evaluation. First with full pose \((x,y,\phi)\), then with position-only redundant goals.
+
+**Sprint:** [`SPRINT_V2_7_3R_EXTENSION.md`](planning/sprints/v2/SPRINT_V2_7_3R_EXTENSION.md) (not in the active execution sequence)
 
 ## Migration strategy
 
@@ -496,7 +500,7 @@ Sprints may add targeted commands, but no acceptance criterion may depend only o
 | Branch certification samples miss a reversal | Invalid unique-inverse assumption | Dense deterministic certification, derivative margin, inverse residual tests, rejection near extrema |
 | Uniform-\(\mathcal Q\) control differs by mechanism | Null control is contaminated | Construct shared topology and shared \(q\) array once; attach mechanism-specific \(u\) arrays afterward |
 | Endpoint snapping dominates results | Apparent mechanism effect is discretization error | Record residuals first; add exact query overlays before capability claims |
-| 3R begins before 2R semantics are trusted | Higher dimension hides defects | Block 3R on null-control and grid-convergence gates |
+| 3R begins before 2R semantics are trusted | Higher dimension hides defects | Block 3R on null-control, grid-convergence, and explicit 2R evaluation review (V2-M7 deferred) |
 | Cursor follows the old always-apply rule literally | Agent rejects Version 2 architecture | Update `.cursor/rules/project.mdc` during V2-M0 with conditional V1/V2 state rules |
 
 ## Version 2 release gate
