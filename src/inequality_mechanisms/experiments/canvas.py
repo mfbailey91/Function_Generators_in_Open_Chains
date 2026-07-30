@@ -19,6 +19,10 @@ from inequality_mechanisms.experiments.registry import (
     list_runs,
     load_run,
 )
+from inequality_mechanisms.visualization.path_lengths import (
+    plot_path_length_q,
+    plot_path_length_x,
+)
 
 _CANVAS_NAME = "index.html"
 
@@ -33,6 +37,15 @@ _EXPANSION_FIGURES = (
         "expansions_ratio",
         "outputs/expansions_ratio.png",
         "Paired log-ratio log(N₄ʀ / N_gear)",
+    ),
+)
+
+_PATH_LENGTH_FIGURES = (
+    ("path_length_q", "outputs/path_length_q.png", "Joint path length L_Q"),
+    (
+        "path_length_x",
+        "outputs/path_length_x.png",
+        "End-effector path length L_X",
     ),
 )
 
@@ -88,6 +101,58 @@ def _rel_if_exists(run: ExperimentRun, relative: str) -> str | None:
     return relative if path.is_file() else None
 
 
+def _collect_named_figures(
+    run: ExperimentRun,
+    catalog: tuple[tuple[str, str, str], ...],
+) -> list[dict[str, str]]:
+    """Resolve registered or on-disk figures from a (name, fallback, caption) catalog."""
+    figures: list[dict[str, str]] = []
+    for name, fallback_rel, caption in catalog:
+        rel = run.outputs.get(name)
+        if rel is None:
+            rel = _rel_if_exists(run, fallback_rel)
+        if rel is None:
+            continue
+        figures.append({"name": name, "src": rel, "caption": caption})
+    return figures
+
+
+def ensure_path_length_figures(run: ExperimentRun) -> dict[str, Path]:
+    """Write L_Q / L_X distribution PNGs from trial JSONL when lengths exist.
+
+    Regenerating the canvas may refresh these derived figures without rewriting
+    trial records. On completed runs the PNGs are written under ``outputs/``
+    without mutating the registry manifest (collection uses on-disk fallbacks).
+    """
+    if "trials" not in run.outputs:
+        return {}
+    try:
+        rows = run.read_jsonl("trials")
+    except Exception:
+        return {}
+    has_lengths = any(
+        isinstance(r, dict)
+        and r.get("found")
+        and (r.get("path_length_q") is not None or r.get("path_length_x") is not None)
+        for r in rows
+    )
+    if not has_lengths:
+        return {}
+
+    outputs = run.outputs_dir
+    length_q_path = outputs / "path_length_q.png"
+    length_x_path = outputs / "path_length_x.png"
+    plot_path_length_q(rows, length_q_path)
+    plot_path_length_x(rows, length_x_path)
+    if run.status != "completed":
+        run.register_output("path_length_q", "outputs/path_length_q.png")
+        run.register_output("path_length_x", "outputs/path_length_x.png")
+    return {
+        "path_length_q": length_q_path,
+        "path_length_x": length_x_path,
+    }
+
+
 def _path_sample_figures(run: ExperimentRun) -> list[dict[str, str]]:
     """Discover path-sample PNGs under ``outputs/paths/``."""
     root = run.outputs_dir / "paths"
@@ -140,15 +205,8 @@ def collect_canvas_payload(run: ExperimentRun) -> dict[str, Any]:
     if run.config_path.is_file():
         config_text = run.config_path.read_text(encoding="utf-8")
 
-    figures: list[dict[str, str]] = []
-    for name, fallback_rel, caption in _EXPANSION_FIGURES:
-        rel = run.outputs.get(name)
-        if rel is None:
-            rel = _rel_if_exists(run, fallback_rel)
-        if rel is None:
-            continue
-        figures.append({"name": name, "src": rel, "caption": caption})
-
+    figures = _collect_named_figures(run, _EXPANSION_FIGURES)
+    path_length_figures = _collect_named_figures(run, _PATH_LENGTH_FIGURES)
     path_metrics = _path_metric_summary(run)
 
     return {
@@ -172,6 +230,7 @@ def collect_canvas_payload(run: ExperimentRun) -> dict[str, Any]:
         "summary_table_csv": summary_table,
         "config_yaml": config_text,
         "figures": figures,
+        "path_length_figures": path_length_figures,
         "path_samples": _path_sample_figures(run),
         "path_metrics": path_metrics,
         "cost_type": summary.get("cost_type"),
@@ -363,6 +422,11 @@ def render_monte_carlo_canvas_html(payload: dict[str, Any]) -> str:
     savings_n = savings_summary.get("n_pairs", "—")
 
     figures = payload.get("figures") if isinstance(payload.get("figures"), list) else []
+    path_length_figures = (
+        payload.get("path_length_figures")
+        if isinstance(payload.get("path_length_figures"), list)
+        else []
+    )
     path_samples = (
         payload.get("path_samples")
         if isinstance(payload.get("path_samples"), list)
@@ -578,7 +642,8 @@ def render_monte_carlo_canvas_html(payload: dict[str, Any]) -> str:
     <h2>Path metrics (Sprint Four)</h2>
     <p class="muted">
       Mean path lengths over found trials when <code>path_length_*</code> fields
-      are present in trial JSONL (schema 4.0.0+).
+      are present in trial JSONL (schema 4.0.0+). Distribution plots show joint
+      path length <code>L_Q</code> and end-effector path length <code>L_X</code>.
     </p>
     <table>
       <thead>
@@ -592,6 +657,7 @@ def render_monte_carlo_canvas_html(payload: dict[str, Any]) -> str:
 {path_metrics_rows}
       </tbody>
     </table>
+{_figure_grid(path_length_figures, empty="No L_Q / L_X distribution PNGs found under outputs/.")}
   </section>
 
   <section id="expansions">
@@ -655,6 +721,7 @@ def write_monte_carlo_canvas(
     else:
         handle = resolve_run_for_canvas(run, results_root=results_root)
 
+    ensure_path_length_figures(handle)
     payload = collect_canvas_payload(handle)
     html_text = render_monte_carlo_canvas_html(payload)
     out = handle.path / filename

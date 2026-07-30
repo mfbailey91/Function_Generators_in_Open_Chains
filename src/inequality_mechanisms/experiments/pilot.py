@@ -75,6 +75,10 @@ from inequality_mechanisms.visualization.expansions import (
     plot_paired_log_ratios,
     plot_raw_expansions,
 )
+from inequality_mechanisms.visualization.path_lengths import (
+    plot_path_length_q,
+    plot_path_length_x,
+)
 from inequality_mechanisms.visualization.paths import (
     cost_from_start,
     path_outputs,
@@ -423,24 +427,32 @@ def _write_plots(
     *,
     figures_dir: Path | None,
 ) -> dict[str, Path]:
-    """Write expansion PNGs under the run outputs (and optional copy dir)."""
+    """Write expansion and path-length PNGs under the run outputs."""
     outputs = run.outputs_dir
     raw_path = outputs / "expansions_raw.png"
     norm_path = outputs / "expansions_normalized.png"
     ratio_path = outputs / "expansions_ratio.png"
+    length_q_path = outputs / "path_length_q.png"
+    length_x_path = outputs / "path_length_x.png"
 
     plot_raw_expansions(rows, raw_path)
     plot_normalized_expansions(rows, norm_path)
     plot_paired_log_ratios(rows, ratio_path)
+    plot_path_length_q(rows, length_q_path)
+    plot_path_length_x(rows, length_x_path)
 
     run.register_output("expansions_raw", "outputs/expansions_raw.png")
     run.register_output("expansions_normalized", "outputs/expansions_normalized.png")
     run.register_output("expansions_ratio", "outputs/expansions_ratio.png")
+    run.register_output("path_length_q", "outputs/path_length_q.png")
+    run.register_output("path_length_x", "outputs/path_length_x.png")
 
     written = {
         "expansions_raw": raw_path,
         "expansions_normalized": norm_path,
         "expansions_ratio": ratio_path,
+        "path_length_q": length_q_path,
+        "path_length_x": length_x_path,
     }
     if figures_dir is not None:
         figures_dir = Path(figures_dir)

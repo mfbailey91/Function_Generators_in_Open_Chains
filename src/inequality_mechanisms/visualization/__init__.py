@@ -16,6 +16,10 @@ from inequality_mechanisms.visualization.expansions import (
     plot_paired_log_ratios,
     plot_raw_expansions,
 )
+from inequality_mechanisms.visualization.path_lengths import (
+    plot_path_length_q,
+    plot_path_length_x,
+)
 from inequality_mechanisms.visualization.paths import (
     cost_from_start,
     path_inputs,
@@ -45,6 +49,8 @@ __all__ = [
     "plot_output_graph",
     "plot_output_path",
     "plot_paired_log_ratios",
+    "plot_path_length_q",
+    "plot_path_length_x",
     "plot_raw_expansions",
     "plot_sampling_mode_comparison",
     "plot_spacing_statistics",
