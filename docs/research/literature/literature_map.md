@@ -66,7 +66,64 @@ Relevant less as proof of a four-bar elbow and more as evidence that linked surg
 **[16] Thakur et al. — physical artificial intelligence.**  
 A recent broad framing source. It is useful for vocabulary and field positioning, but it should not replace the more specific mechanism, morphology, and planning literature above.
 
-### 19.2 Questions to carry into the reading
+### 19.2 Conceptual framing and narrative order
+
+The literature should be read through a two-view structure that also organizes the paper's explanation.
+
+#### Mechanism view
+
+Begin with the conventional identity transmission,
+
+$$
+q=u,
+$$
+
+and make explicit that the ordinary revolute-joint model already contains a hidden **unit gearbox**. Because conventional kinematics usually begins in output coordinates $q$, the actuator-to-joint map is obscured. The identity case appears neutral only because its input and output coordinates coincide.
+
+Next introduce the general map
+
+$$
+\mathcal U\xrightarrow{g_m}\mathcal Q.
+$$
+
+Sample $\mathcal U$ uniformly and map those samples into $\mathcal Q$. This makes the function generator visible: equal actuator increments become equal, uniformly scaled, or configuration-dependent output increments for the unit gearbox, fixed gearbox, and four-bar respectively. The reader should see the deformation before being asked to interpret a graph-search result.
+
+> A uniform input graph reveals what motion the function generator physically generates.
+
+#### Planning-control view
+
+After the deformation is understood, return to a common uniform output graph. Give each mechanism the same output nodes, adjacency, output limits, start, goal, and nominal resolution. Reintroduce the mechanism through the inverse map, preimage state, feasibility, and edge weights.
+
+On an invertible branch,
+
+$$
+M_Q(q)
+=
+J_g^{-\mathsf T}W_uJ_g^{-1}
+$$
+
+expresses actuator-side cost in output coordinates. Two arms can therefore share the same $Q$ graph while assigning different costs to its edges and selecting different paths.
+
+> A uniform output graph reveals how different transmissions value the same possible arm motions.
+
+This second view is the controlled apples-to-apples comparison. It should also make clear why the function generator is easy to overlook: a uniform $Q$ graph without mechanism-dependent weights or hidden-state labels silently reduces every transmission to the unit gearbox abstraction.
+
+#### Proposed reader walk-up
+
+The narrative order should be:
+
+1. the familiar arm represented directly in $Q$;
+2. recognition that $q=u$ is an identity transmission rather than the absence of a transmission;
+3. explicit separation of $\mathcal U\to\mathcal Q\to\mathcal X$;
+4. a uniform-$U$ graph mapped into $Q$ to reveal the generated inequality;
+5. gearbox and four-bar examples as constant and variable cases;
+6. the induced metric and local speed, torque, and resolution consequences;
+7. a uniform-$Q$ graph with mechanism-dependent costs as the controlled planning comparison;
+8. lifted output state $(q,\sigma)$ when the mechanism is not globally invertible.
+
+This sequence lets the argument move from the familiar abstraction to the generalized mechanism without asking the reader to accept the full graph-theoretic formulation at once.
+
+### 19.3 Questions to carry into the reading
 
 1. Does the literature treat kinematic mappings themselves as computational structure, or primarily focus on compliance, dynamics, materials, and actuator placement?
 2. Has anyone explicitly measured path-planning node expansions as a function of transmission geometry?
@@ -76,7 +133,7 @@ A recent broad framing source. It is useful for vocabulary and field positioning
 6. Which morphology–control papers measure learning speed or sample complexity rather than only final task performance?
 7. Where does added morphological inequality make control or learning worse?
 
-### 19.3 Reading-note template
+### 19.4 Reading-note template
 
 For each source, preserve notes in this form:
 

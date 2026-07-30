@@ -39,6 +39,13 @@ V2_RESULT_FIELDS: tuple[str, ...] = (
     "algorithm",
     "cost_type",
     "heuristic_type",
+    "alpha",
+    "s_q",
+    "s_u",
+    "cost_d_q",
+    "cost_d_u",
+    "cost_norm_q",
+    "cost_norm_u",
     "requested_start_q",
     "requested_goal_q",
     "realized_start_q",
@@ -60,6 +67,9 @@ V2_RESULT_FIELDS: tuple[str, ...] = (
     "path_length_u",
     "path_length_q",
     "path_length_x",
+    "expansion_fraction",
+    "pair_id",
+    "task_set_id",
     "q_spacing_summary",
     "u_spacing_summary",
     "seed",
@@ -89,6 +99,13 @@ class V2ResultRow:
     algorithm: str
     cost_type: str
     heuristic_type: str
+    alpha: float | None
+    s_q: float | None
+    s_u: float | None
+    cost_d_q: float | None
+    cost_d_u: float | None
+    cost_norm_q: float | None
+    cost_norm_u: float | None
     requested_start_q: list[float]
     requested_goal_q: list[float]
     realized_start_q: list[float] | None
@@ -110,6 +127,9 @@ class V2ResultRow:
     path_length_u: float | None
     path_length_q: float | None
     path_length_x: float | None
+    expansion_fraction: float | None
+    pair_id: str | None
+    task_set_id: str | None
     q_spacing_summary: list[dict[str, Any]]
     u_spacing_summary: list[dict[str, Any]]
     seed: int
@@ -136,6 +156,13 @@ class V2ResultRow:
             "algorithm": self.algorithm,
             "cost_type": self.cost_type,
             "heuristic_type": self.heuristic_type,
+            "alpha": self.alpha,
+            "s_q": self.s_q,
+            "s_u": self.s_u,
+            "cost_d_q": self.cost_d_q,
+            "cost_d_u": self.cost_d_u,
+            "cost_norm_q": self.cost_norm_q,
+            "cost_norm_u": self.cost_norm_u,
             "requested_start_q": list(self.requested_start_q),
             "requested_goal_q": list(self.requested_goal_q),
             "realized_start_q": self.realized_start_q,
@@ -157,6 +184,9 @@ class V2ResultRow:
             "path_length_u": self.path_length_u,
             "path_length_q": self.path_length_q,
             "path_length_x": self.path_length_x,
+            "expansion_fraction": self.expansion_fraction,
+            "pair_id": self.pair_id,
+            "task_set_id": self.task_set_id,
             "q_spacing_summary": self.q_spacing_summary,
             "u_spacing_summary": self.u_spacing_summary,
             "seed": self.seed,

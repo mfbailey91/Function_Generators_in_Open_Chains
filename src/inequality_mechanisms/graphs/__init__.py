@@ -17,6 +17,12 @@ from inequality_mechanisms.graphs.embedded import (
 )
 from inequality_mechanisms.graphs.grid import GridNode, PeriodicGrid2D
 from inequality_mechanisms.graphs.output_grid import MonotonicOutputGraph
+from inequality_mechanisms.graphs.pair_invariants import (
+    SharedQPairInvariantError,
+    SharedQPairInvariantReport,
+    assert_identical_query_overlays,
+    assert_shared_q_pair_invariants,
+)
 from inequality_mechanisms.graphs.sampling import (
     AxisSpacingStatistics,
     SamplingDomain,
@@ -47,11 +53,15 @@ __all__ = [
     "PeriodicGrid2D",
     "SamplingDomain",
     "SamplingSpecification",
+    "SharedQPairInvariantError",
+    "SharedQPairInvariantReport",
     "TensorGridTopology",
     "TransitionParameterization",
     "QueryNode",
     "QueryOverlayGraph",
     "UniformOutputLattice",
+    "assert_identical_query_overlays",
+    "assert_shared_q_pair_invariants",
     "build_edge_cost",
     "build_edge_trace_v2",
     "compute_axis_spacing_statistics",
