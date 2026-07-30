@@ -83,7 +83,8 @@ from inequality_mechanisms.visualization.paths import (
     cost_from_start,
     path_outputs,
     plot_cartesian_path,
-    plot_input_path,
+    plot_input_graph_weights,
+    plot_output_graph_weights,
     plot_output_path,
 )
 
@@ -248,14 +249,13 @@ def _write_path_sample(
     fb_costs = cost_from_start(paired.fourbar, task.fourbar.start_node_id)
 
     figures = {
-        "gearbox_input": plot_input_path(
+        "gearbox_input": plot_input_graph_weights(
             paired.gearbox,
             gb_res.path,
             out / "gearbox_input.png",
-            costs=gb_costs,
             start=task.gearbox.start_node_id,
             goal=task.gearbox.goal_node_id,
-            title=f"Trial {trial_index} gearbox U",
+            title=f"Trial {trial_index} gearbox U (weighted)",
         ),
         "gearbox_output": plot_output_path(
             paired.gearbox,
@@ -266,20 +266,27 @@ def _write_path_sample(
             goal=task.gearbox.goal_node_id,
             title=f"Trial {trial_index} gearbox Q",
         ),
+        "gearbox_output_weights": plot_output_graph_weights(
+            paired.gearbox,
+            gb_res.path,
+            out / "gearbox_output_weights.png",
+            start=task.gearbox.start_node_id,
+            goal=task.gearbox.goal_node_id,
+            title=f"Trial {trial_index} gearbox Q weights",
+        ),
         "gearbox_cartesian": plot_cartesian_path(
             path_outputs(paired.gearbox, gb_res.path),
             out / "gearbox_cartesian.png",
             plant=plant,
             title=f"Trial {trial_index} gearbox Cartesian",
         ),
-        "fourbar_input": plot_input_path(
+        "fourbar_input": plot_input_graph_weights(
             paired.fourbar,
             fb_res.path,
             out / "fourbar_input.png",
-            costs=fb_costs,
             start=task.fourbar.start_node_id,
             goal=task.fourbar.goal_node_id,
-            title=f"Trial {trial_index} four-bar U",
+            title=f"Trial {trial_index} four-bar U (weighted)",
         ),
         "fourbar_output": plot_output_path(
             paired.fourbar,
@@ -289,6 +296,14 @@ def _write_path_sample(
             start=task.fourbar.start_node_id,
             goal=task.fourbar.goal_node_id,
             title=f"Trial {trial_index} four-bar Q",
+        ),
+        "fourbar_output_weights": plot_output_graph_weights(
+            paired.fourbar,
+            fb_res.path,
+            out / "fourbar_output_weights.png",
+            start=task.fourbar.start_node_id,
+            goal=task.fourbar.goal_node_id,
+            title=f"Trial {trial_index} four-bar Q weights",
         ),
         "fourbar_cartesian": plot_cartesian_path(
             path_outputs(paired.fourbar, fb_res.path),

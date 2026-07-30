@@ -25,7 +25,9 @@ from inequality_mechanisms.visualization.paths import (
     path_inputs,
     path_outputs,
     plot_cartesian_path,
+    plot_input_graph_weights,
     plot_input_path,
+    plot_output_graph_weights,
     plot_output_path,
 )
 from inequality_mechanisms.visualization.v2_expansions import (
@@ -43,10 +45,12 @@ __all__ = [
     "plot_edge_trace",
     "plot_embedded_q_path",
     "plot_embedded_u_path",
+    "plot_input_graph_weights",
     "plot_input_path",
     "plot_normalized_expansions",
     "plot_operating_branch",
     "plot_output_graph",
+    "plot_output_graph_weights",
     "plot_output_path",
     "plot_paired_log_ratios",
     "plot_path_length_q",

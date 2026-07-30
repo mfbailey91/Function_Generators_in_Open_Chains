@@ -238,6 +238,269 @@ def plot_output_path(
     return out
 
 
+def _node_u_q(
+    graph: ConstrainedInputGraph, node_id: int
+) -> tuple[NDArray[np.floating], NDArray[np.floating]]:
+    """Return ``(u, q)`` coordinates for a flat node id."""
+    i0, i1 = graph.grid.indices_from_id(int(node_id))
+    u = np.asarray(graph.grid.coordinates(i0, i1), dtype=np.float64)
+    q = np.asarray(graph.output(u), dtype=np.float64)
+    return u, q
+
+
+def lattice_edge_weights(
+    graph: ConstrainedInputGraph,
+) -> tuple[list[tuple[int, int]], NDArray[np.floating], NDArray[np.floating]]:
+    """Return undirected edges with U and induced Q Euclidean weights.
+
+    Parameters
+    ----------
+    graph :
+        Validated Version 1 input-space planning graph.
+
+    Returns
+    -------
+    edges :
+        Undirected pairs ``(a, b)`` with ``a < b``.
+    u_weights :
+        ``‖u_b - u_a‖₂`` for each edge.
+    q_weights :
+        ``‖q(u_b) - q(u_a)‖₂`` for each edge (mechanism-induced on the
+        shared adjacency).
+    """
+    edges: list[tuple[int, int]] = []
+    u_vals: list[float] = []
+    q_vals: list[float] = []
+    for a, b in graph.iter_edges():
+        u_a, q_a = _node_u_q(graph, a)
+        u_b, q_b = _node_u_q(graph, b)
+        edges.append((int(a), int(b)))
+        u_vals.append(float(np.linalg.norm(u_b - u_a)))
+        q_vals.append(float(np.linalg.norm(q_b - q_a)))
+    return (
+        edges,
+        np.asarray(u_vals, dtype=np.float64),
+        np.asarray(q_vals, dtype=np.float64),
+    )
+
+
+def _draw_weighted_edges(
+    ax: Any,
+    segments: NDArray[np.floating],
+    weights: NDArray[np.floating],
+    *,
+    cmap: str = "viridis",
+    linewidth: float = 1.4,
+) -> Any:
+    """Draw a ``LineCollection`` colored by ``weights``; return the collection."""
+    from matplotlib.collections import LineCollection
+
+    if segments.size == 0:
+        return None
+    lc = LineCollection(
+        segments,
+        array=weights,
+        cmap=cmap,
+        linewidths=linewidth,
+        zorder=2,
+    )
+    ax.add_collection(lc)
+    return lc
+
+
+def _overlay_path_markers(
+    ax: Any,
+    coords: NDArray[np.floating],
+    *,
+    start: NDArray[np.floating] | None,
+    goal: NDArray[np.floating] | None,
+) -> None:
+    """Overlay a polyline path plus start/goal markers."""
+    if coords.shape[0] >= 2:
+        ax.plot(
+            coords[:, 0],
+            coords[:, 1],
+            color="C3",
+            linewidth=2.2,
+            zorder=5,
+            label="path",
+        )
+    elif coords.shape[0] == 1:
+        ax.scatter(
+            [coords[0, 0]],
+            [coords[0, 1]],
+            color="C3",
+            s=40,
+            zorder=5,
+            label="path",
+        )
+    if start is not None:
+        ax.scatter(
+            [start[0]], [start[1]], color="C0", s=70, zorder=6, label="start"
+        )
+    if goal is not None:
+        ax.scatter(
+            [goal[0]], [goal[1]], color="C1", s=70, zorder=6, label="goal"
+        )
+
+
+def plot_input_graph_weights(
+    graph: ConstrainedInputGraph,
+    path: Sequence[int],
+    path_out: Path | str,
+    *,
+    start: int | None = None,
+    goal: int | None = None,
+    title: str | None = None,
+) -> Path:
+    """Write U as a 4-connected lattice with edges colored by U weight.
+
+    Edge weight is input Euclidean distance ``‖Δu‖₂``. The selected path and
+    start/goal markers are overlaid.
+    """
+    plt = _require_matplotlib()
+    out = Path(path_out)
+    out.parent.mkdir(parents=True, exist_ok=True)
+
+    if start is None and path:
+        start = int(path[0])
+    if goal is None and path:
+        goal = int(path[-1])
+
+    edges, u_weights, _q_weights = lattice_edge_weights(graph)
+    segments: list[list[list[float]]] = []
+    for a, b in edges:
+        u_a, _ = _node_u_q(graph, a)
+        u_b, _ = _node_u_q(graph, b)
+        segments.append([[float(u_a[0]), float(u_a[1])], [float(u_b[0]), float(u_b[1])]])
+    seg_arr = np.asarray(segments, dtype=np.float64) if segments else np.empty((0, 2, 2))
+
+    valid_u = []
+    for node in graph.iter_valid_nodes():
+        valid_u.append(node.coordinates)
+    valid_u_arr = (
+        np.asarray(valid_u, dtype=np.float64) if valid_u else np.empty((0, 2))
+    )
+
+    fig, ax = plt.subplots(figsize=(6.5, 5.5))
+    if valid_u_arr.size:
+        ax.scatter(
+            valid_u_arr[:, 0],
+            valid_u_arr[:, 1],
+            s=10,
+            color="0.55",
+            linewidths=0,
+            zorder=3,
+            label="valid nodes",
+        )
+    lc = _draw_weighted_edges(ax, seg_arr, u_weights)
+    if lc is not None:
+        cbar = fig.colorbar(lc, ax=ax)
+        cbar.set_label(r"U edge weight $\|\Delta u\|_2$")
+
+    path_coords = path_inputs(graph, path) if path else np.empty((0, 2))
+    start_xy = None
+    goal_xy = None
+    if start is not None:
+        start_xy, _ = _node_u_q(graph, start)
+    if goal is not None:
+        goal_xy, _ = _node_u_q(graph, goal)
+    _overlay_path_markers(ax, path_coords, start=start_xy, goal=goal_xy)
+
+    (u0_lo, u0_hi), (u1_lo, u1_hi) = graph.grid.ranges
+    ax.set_xlabel(r"$u_1$")
+    ax.set_ylabel(r"$u_2$")
+    ax.set_xlim(u0_lo, u0_hi)
+    ax.set_ylim(u1_lo, u1_hi)
+    ax.set_aspect("equal", adjustable="box")
+    ax.set_title(title or "U connected graph (edge weights)")
+    ax.legend(loc="best", fontsize=8)
+    fig.tight_layout()
+    fig.savefig(out, dpi=150)
+    plt.close(fig)
+    return out
+
+
+def plot_output_graph_weights(
+    graph: ConstrainedInputGraph,
+    path: Sequence[int],
+    path_out: Path | str,
+    *,
+    start: int | None = None,
+    goal: int | None = None,
+    title: str | None = None,
+) -> Path:
+    r"""Write a 1×2 Q lattice: left edges by \(w_Q\), right by induced \(w_U\).
+
+    Both panels share mapped Q coordinates and the same adjacency as the
+    input graph. Left color encodes output Euclidean edge weight; right
+    color encodes the induced actuator (U) weight on that edge.
+    """
+    plt = _require_matplotlib()
+    out = Path(path_out)
+    out.parent.mkdir(parents=True, exist_ok=True)
+
+    if start is None and path:
+        start = int(path[0])
+    if goal is None and path:
+        goal = int(path[-1])
+
+    edges, u_weights, q_weights = lattice_edge_weights(graph)
+    segments: list[list[list[float]]] = []
+    for a, b in edges:
+        _, q_a = _node_u_q(graph, a)
+        _, q_b = _node_u_q(graph, b)
+        segments.append([[float(q_a[0]), float(q_a[1])], [float(q_b[0]), float(q_b[1])]])
+    seg_arr = np.asarray(segments, dtype=np.float64) if segments else np.empty((0, 2, 2))
+
+    valid_q = []
+    for node in graph.iter_valid_nodes():
+        valid_q.append(graph.output(node.coordinates))
+    valid_q_arr = (
+        np.asarray(valid_q, dtype=np.float64) if valid_q else np.empty((0, 2))
+    )
+
+    path_coords = path_outputs(graph, path) if path else np.empty((0, 2))
+    start_xy = None
+    goal_xy = None
+    if start is not None:
+        _, start_xy = _node_u_q(graph, start)
+    if goal is not None:
+        _, goal_xy = _node_u_q(graph, goal)
+
+    fig, axes = plt.subplots(1, 2, figsize=(11.0, 5.2), sharex=True, sharey=True)
+    panels = (
+        (axes[0], q_weights, r"$w_Q=\|\Delta q\|_2$", "Q edge weights"),
+        (axes[1], u_weights, r"induced $w_U=\|\Delta u\|_2$", "Induced U edge weights"),
+    )
+    for ax, weights, cbar_label, panel_title in panels:
+        if valid_q_arr.size:
+            ax.scatter(
+                valid_q_arr[:, 0],
+                valid_q_arr[:, 1],
+                s=10,
+                color="0.55",
+                linewidths=0,
+                zorder=3,
+            )
+        lc = _draw_weighted_edges(ax, seg_arr, weights)
+        if lc is not None:
+            cbar = fig.colorbar(lc, ax=ax, fraction=0.046, pad=0.04)
+            cbar.set_label(cbar_label)
+        _overlay_path_markers(ax, path_coords, start=start_xy, goal=goal_xy)
+        ax.set_xlabel(r"$q_1$ [rad]")
+        ax.set_ylabel(r"$q_2$ [rad]")
+        ax.set_aspect("equal", adjustable="box")
+        ax.set_title(panel_title)
+        ax.legend(loc="best", fontsize=7)
+
+    fig.suptitle(title or "Q connected graph with Q and induced U weights", fontsize=11)
+    fig.tight_layout()
+    fig.savefig(out, dpi=150)
+    plt.close(fig)
+    return out
+
+
 def plot_cartesian_path(
     q_path: ArrayLike,
     path_out: Path | str,
