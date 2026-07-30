@@ -7,7 +7,7 @@ The `figures/` directory must remain beside it for images to render.
 
 - [PROJECT_PLAN.md](PROJECT_PLAN.md) — Version 1 software milestones
 - [BACKLOG.md](BACKLOG.md) — issue tracker
-- [SPRINT_FOUR_BACKLOG.md](SPRINT_FOUR_BACKLOG.md) — Sprint Four: search geometry attribution (P0 in progress; P1/P2 follow-up)
+- [SPRINT_FOUR_BACKLOG.md](SPRINT_FOUR_BACKLOG.md) — Sprint Four: search geometry attribution (P0/P1 done; P2 follow-up)
 - [SPRINT_3.md](SPRINT_3.md) — Sprint 3: graph ownership, diagnostics, nested sensitivity, ablations
 - [SPRINT_TWO_BACKLOG.md](SPRINT_TWO_BACKLOG.md) — Sprint Two controlled-science backlog (P0 done)
 
@@ -29,7 +29,7 @@ The `figures/` directory must remain beside it for images to render.
 
 ## Sprint notes
 
-- [notes/SPRINT_FOUR_P0_STATUS.md](notes/SPRINT_FOUR_P0_STATUS.md) — Sprint Four P0 vs P1+ follow-up
+- [notes/SPRINT_FOUR_P0_STATUS.md](notes/SPRINT_FOUR_P0_STATUS.md) — Sprint Four P0/P1 status (P2 follow-up)
 - [notes/IM-043-input-to-output-audit.md](notes/IM-043-input-to-output-audit.md) — Sprint 3 call-site audit (IM-043)
 
 ## Diagnostics canvas

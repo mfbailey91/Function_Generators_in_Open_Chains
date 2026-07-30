@@ -34,3 +34,11 @@ Costs:
 - output-space plots may overlap or cross.
 
 Version 1 uses known start and goal preimages. Multi-source and multi-goal search are deferred.
+
+## Sprint Four note (S4-11 / S4-12)
+
+Sprint Four’s monotonic uniform-``Q`` control samples a one-to-one follower
+sector for an experimental comparison only. It does **not** change this
+ADR: full-cycle multi-preimage ``q``-only graphs remain invalid as physical
+state identity. A future ``(q, σ)`` lifted state is documented in
+``docs/notes/S4-12-lifted-output-state.md`` and is not implemented here.

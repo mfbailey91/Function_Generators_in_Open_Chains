@@ -61,7 +61,7 @@ def _completed_synthetic_run(tmp_path: Path) -> Path:
         "n_sample_attempts": 2,
         "seed": 7,
         "cost_type": "output_euclidean",
-        "result_schema_version": "4.0.0",
+        "result_schema_version": "4.1.0",
         "graph_meta": {
             "fourbar_mode": "population",
             "match_valid_nodes": True,
@@ -107,7 +107,7 @@ def _completed_synthetic_run(tmp_path: Path) -> Path:
         "trials",
         [
             {
-                "result_schema_version": "4.0.0",
+                "result_schema_version": "4.1.0",
                 "trial_index": 0,
                 "mechanism": "gearbox",
                 "algorithm": "dijkstra",
@@ -161,7 +161,7 @@ class TestMonteCarloCanvas:
         assert "seed: 7" in html_text or ">7</dd>" in html_text
         assert "trial_0000" in html_text
         assert "result_schema_version" in html_text
-        assert "4.0.0" in html_text
+        assert "4.1.0" in html_text or "4.0.0" in html_text
         assert "output_euclidean" in html_text
         assert "mean L_U" in html_text
         assert "Path metrics" in html_text

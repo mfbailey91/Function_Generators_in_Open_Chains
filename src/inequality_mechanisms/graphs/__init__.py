@@ -11,6 +11,7 @@ from inequality_mechanisms.graphs.costs import (
     wrapped_input_displacement,
 )
 from inequality_mechanisms.graphs.grid import GridNode, PeriodicGrid2D
+from inequality_mechanisms.graphs.output_grid import MonotonicOutputGraph
 from inequality_mechanisms.graphs.validation import (
     ConstrainedInputGraph,
     configuration_is_valid,
@@ -22,6 +23,7 @@ __all__ = [
     "ConstrainedInputGraph",
     "GridNode",
     "KNOWN_COST_TYPES",
+    "MonotonicOutputGraph",
     "PeriodicGrid2D",
     "build_edge_cost",
     "configuration_is_valid",

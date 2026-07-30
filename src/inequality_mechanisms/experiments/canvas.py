@@ -175,7 +175,10 @@ def collect_canvas_payload(run: ExperimentRun) -> dict[str, Any]:
         "path_samples": _path_sample_figures(run),
         "path_metrics": path_metrics,
         "cost_type": summary.get("cost_type"),
+        "cost_types": summary.get("cost_types")
+        or (summary.get("graph_meta") or {}).get("cost_types"),
         "result_schema_version": summary.get("result_schema_version"),
+        "savings_summary": (summary.get("savings") or {}),
     }
 
 
@@ -339,6 +342,11 @@ def render_monte_carlo_canvas_html(payload: dict[str, Any]) -> str:
         or graph_meta.get("cost_type")
         or "—"
     )
+    cost_types = payload.get("cost_types") or graph_meta.get("cost_types")
+    if isinstance(cost_types, list) and cost_types:
+        cost_type_label = ", ".join(str(c) for c in cost_types)
+    else:
+        cost_type_label = str(cost_type)
     schema_version = (
         payload.get("result_schema_version")
         or path_metrics.get("result_schema_version")
@@ -347,6 +355,12 @@ def render_monte_carlo_canvas_html(payload: dict[str, Any]) -> str:
     )
     heuristic_types = path_metrics.get("heuristic_types") or []
     heuristic_label = ", ".join(str(h) for h in heuristic_types) if heuristic_types else "—"
+    savings_summary = (
+        payload.get("savings_summary")
+        if isinstance(payload.get("savings_summary"), dict)
+        else {}
+    )
+    savings_n = savings_summary.get("n_pairs", "—")
 
     figures = payload.get("figures") if isinstance(payload.get("figures"), list) else []
     path_samples = (
@@ -494,8 +508,9 @@ def render_monte_carlo_canvas_html(payload: dict[str, Any]) -> str:
     <span class="chip">run {run_id}</span>
     <span class="chip">seed {seed}</span>
     <span class="chip">{status}</span>
-    <span class="chip">cost {html.escape(str(cost_type))}</span>
+    <span class="chip">cost {html.escape(str(cost_type_label))}</span>
     <span class="chip">schema {html.escape(str(schema_version))}</span>
+    <span class="chip">savings pairs {html.escape(str(savings_n))}</span>
     <span class="chip">trials {html.escape(str(n_trials))}</span>
     <span class="chip">git {html.escape(str(git_describe))} ({dirty_label})</span>
   </div>
@@ -518,7 +533,7 @@ def render_monte_carlo_canvas_html(payload: dict[str, Any]) -> str:
       <dt>seed</dt><dd>{seed}</dd>
       <dt>status</dt><dd>{status}</dd>
       <dt>result_schema_version</dt><dd>{html.escape(str(schema_version))}</dd>
-      <dt>cost_type</dt><dd>{html.escape(str(cost_type))}</dd>
+      <dt>cost_type</dt><dd>{html.escape(str(cost_type_label))}</dd>
       <dt>heuristic_types</dt><dd>{html.escape(heuristic_label)}</dd>
       <dt>created_at</dt><dd>{html.escape(str(manifest.get("created_at") or "—"))}</dd>
       <dt>completed_at</dt><dd>{html.escape(str(manifest.get("completed_at") or "—"))}</dd>
