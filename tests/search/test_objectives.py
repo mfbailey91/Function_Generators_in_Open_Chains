@@ -4,7 +4,11 @@ from __future__ import annotations
 
 import pytest
 
-from inequality_mechanisms.graphs import ConstrainedInputGraph, PeriodicGrid2D
+from inequality_mechanisms.graphs import (
+    ConstrainedInputGraph,
+    ConstrainedInputSearchAdapter,
+    PeriodicGrid2D,
+)
 from inequality_mechanisms.mechanisms import UnitGearbox
 from inequality_mechanisms.search import (
     astar,
@@ -39,7 +43,11 @@ class TestPlanningObjectives:
         obj = resolve_planning_objective(graph, goal, cost_name)
         d = dijkstra(graph, start, goal, edge_cost=obj.edge_cost)
         a = best_first_search(
-            graph, start, goal, obj.heuristic, edge_cost=obj.edge_cost
+            ConstrainedInputSearchAdapter(graph),
+            start,
+            goal,
+            edge_cost=obj.edge_cost,
+            heuristic=obj.heuristic,
         )
         assert d.found and a.found
         assert d.cost == pytest.approx(a.cost)

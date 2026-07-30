@@ -2,16 +2,26 @@
 
 Uses the same expansion and stale-entry semantics as Dijkstra (ADR-005).
 Tie-breaking is deterministic: ascending flat ``node_id`` when ``f`` ties.
+
+Sprint V2.1: the generic core (``search/core.py``) no longer knows about
+``ConstrainedInputGraph``. This module resolves the Version 1 default edge
+cost and heuristic, wraps the graph in ``ConstrainedInputSearchAdapter``, and
+calls ``best_first_search``, preserving the public V1 signature and behavior.
 """
 
 from __future__ import annotations
 
 from collections.abc import Callable
 
+from inequality_mechanisms.graphs.adapters import ConstrainedInputSearchAdapter
 from inequality_mechanisms.graphs.validation import ConstrainedInputGraph
-from inequality_mechanisms.search.core import _cached_outputs, best_first_search
+from inequality_mechanisms.search.core import best_first_search
 from inequality_mechanisms.search.heuristics import output_euclidean_heuristic
 from inequality_mechanisms.search.result import SearchResult
+from inequality_mechanisms.search.v1_compat import (
+    _cached_outputs,
+    resolve_v1_default_edge_cost,
+)
 
 
 def astar(
@@ -66,9 +76,9 @@ def astar(
         output_space=graph.output_space,
     )
     return best_first_search(
-        graph,
+        ConstrainedInputSearchAdapter(graph),
         start,
         goal,
-        heuristic,
-        edge_cost=None,
+        edge_cost=resolve_v1_default_edge_cost(graph),
+        heuristic=heuristic,
     )

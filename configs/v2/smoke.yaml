@@ -1,0 +1,41 @@
+architecture_version: 2
+result_schema_version: 2
+planning_space: output
+
+seed: 123
+trials: 1
+
+mechanisms:
+  comparison: fourbar_vs_equivalent_affine_gearbox
+  dim: 2
+
+branch:
+  selection: monotonic_interval
+  certification_samples_per_axis: 9
+  minimum_abs_gain: 0.05
+  inverse_tolerance: 1.0e-6
+  endpoint_margin_fraction: 0.02
+  n_samples: 64
+  min_u_width: 0.3
+  table_samples_per_axis: 17
+
+sampling:
+  domain: output
+  shape: [6, 6]
+  include_endpoints: true
+
+objective:
+  cost: output_euclidean
+  heuristic: output_euclidean
+
+edge_validation:
+  samples: 17
+
+tasks:
+  source: fixed_output_pairs
+  output_tolerance: 100.0
+  pairs:
+    - start_q: [0.0, 0.0]
+      goal_q: [1.0, 1.0]
+
+algorithms: ["dijkstra", "astar"]

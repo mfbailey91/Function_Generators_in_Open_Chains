@@ -384,6 +384,16 @@ class ConstrainedInputGraph:
         """Number of lattice nodes that pass configuration validity."""
         return int(np.count_nonzero(self._node_valid))
 
+    @property
+    def node_count(self) -> int:
+        """Total number of lattice nodes (from the underlying grid).
+
+        Includes invalid nodes; see :attr:`valid_node_count` for the filtered
+        count. Added for the ``search.protocol.SearchGraph`` contract
+        (Sprint V2.1) via :class:`ConstrainedInputSearchAdapter`.
+        """
+        return self._grid.node_count
+
     def node_is_valid(self, i0: int, i1: int) -> bool:
         """Return whether lattice coordinates identify a valid node."""
         return bool(self._node_valid[self._grid.node_id(i0, i1)])
@@ -393,6 +403,17 @@ class ConstrainedInputGraph:
         if node_id < 0 or node_id >= self._grid.node_count:
             raise ValueError(f"node_id out of range: {node_id}")
         return bool(self._node_valid[node_id])
+
+    def neighbors_by_id(self, node_id: int) -> tuple[int, ...]:
+        """Valid neighbor flat node ids of ``node_id``.
+
+        Additive flat-id counterpart to :meth:`neighbors` (Sprint V2.1);
+        order matches ``neighbors(i0, i1)`` composed with
+        ``grid.node_id``. Returns an empty tuple when ``node_id`` itself is
+        invalid.
+        """
+        i0, i1 = self._grid.indices_from_id(node_id)
+        return tuple(self._grid.node_id(j0, j1) for j0, j1 in self.neighbors(i0, i1))
 
     def iter_valid_nodes(self) -> Iterator[GridNode]:
         """Iterate valid nodes in deterministic lattice order."""

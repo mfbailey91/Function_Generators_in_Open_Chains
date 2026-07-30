@@ -18,8 +18,8 @@ from inequality_mechanisms.mechanisms.population import (
     limits_from_fourbar_follower_ranges,
 )
 from inequality_mechanisms.search import astar, dijkstra, reverse_dijkstra
-from inequality_mechanisms.search.core import _cached_outputs
 from inequality_mechanisms.search.heuristics import output_euclidean_heuristic
+from inequality_mechanisms.search.v1_compat import _cached_outputs
 from inequality_mechanisms.spaces import OutputSpace, lift_bounded_revolute
 
 _CR = (1.0, 2.5, 2.0, 2.0)

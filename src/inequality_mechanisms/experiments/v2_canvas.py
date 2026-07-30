@@ -1,0 +1,665 @@
+"""HTML printout for a completed Version 2 run package.
+
+Derived viewer: reads ``manifest.json``, trial/failure rows, branch and
+diagnostic JSON, and ``figures/`` PNGs, then writes ``index.html`` beside
+them without mutating ``trials.jsonl``.
+"""
+
+from __future__ import annotations
+
+import html
+import json
+import math
+from pathlib import Path
+from typing import Any
+
+from inequality_mechanisms.experiments.canvas import _figure_grid, _fmt_num
+from inequality_mechanisms.experiments.registry import default_results_root
+
+_CANVAS_NAME = "index.html"
+_NULL_CONTROL_COSTS = frozenset({"uniform", "output_euclidean"})
+_TRIAL_COLUMNS: tuple[tuple[str, str], ...] = (
+    ("trial_index", "Trial"),
+    ("mechanism_id", "Mechanism"),
+    ("algorithm", "Algorithm"),
+    ("found", "Found"),
+    ("optimal_cost", "Cost"),
+    ("n_expanded", "Expanded"),
+    ("n_generated", "Generated"),
+    ("start_residual_norm", "Start resid"),
+    ("goal_residual_norm", "Goal resid"),
+    ("path_length_u", "Path U"),
+    ("path_length_q", "Path Q"),
+)
+
+
+class V2CanvasError(ValueError):
+    """Raised when a Version 2 run package cannot be resolved or rendered."""
+
+
+def _read_json(path: Path) -> dict[str, Any]:
+    data = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(data, dict):
+        raise V2CanvasError(f"expected JSON object in {path}")
+    return data
+
+
+def _read_jsonl(path: Path) -> list[dict[str, Any]]:
+    if not path.is_file():
+        return []
+    rows: list[dict[str, Any]] = []
+    for line in path.read_text(encoding="utf-8").splitlines():
+        if not line.strip():
+            continue
+        item = json.loads(line)
+        if isinstance(item, dict):
+            rows.append(item)
+    return rows
+
+
+def _is_v2_run_dir(path: Path) -> bool:
+    manifest_path = path / "manifest.json"
+    if not manifest_path.is_file():
+        return False
+    try:
+        manifest = _read_json(manifest_path)
+    except (OSError, json.JSONDecodeError, V2CanvasError):
+        return False
+    return int(manifest.get("architecture_version", 0)) == 2
+
+
+def resolve_v2_run_for_canvas(
+    run_id_or_path: str | Path | None = None,
+    *,
+    results_root: Path | str | None = None,
+) -> Path:
+    """Resolve a Version 2 run directory for canvas generation.
+
+    Parameters
+    ----------
+    run_id_or_path :
+        Run directory, run id under ``results_root``, or ``None`` to select
+        the latest Version 2 run.
+    results_root :
+        Parent of run directories (default: repository ``results/``).
+
+    Returns
+    -------
+    Path
+        Absolute path to a directory containing a Version 2 ``manifest.json``.
+
+    Raises
+    ------
+    FileNotFoundError
+        If no matching Version 2 run exists.
+    V2CanvasError
+        If the path exists but is not a Version 2 package.
+    """
+    root = Path(results_root) if results_root is not None else default_results_root()
+
+    if run_id_or_path is None:
+        if not root.is_dir():
+            raise FileNotFoundError(f"no results directory at {root}")
+        candidates = [p for p in root.iterdir() if p.is_dir() and _is_v2_run_dir(p)]
+        if not candidates:
+            raise FileNotFoundError(f"no Version 2 runs under {root}")
+
+        def _recency(path: Path) -> tuple[str, float]:
+            try:
+                created_raw = _read_json(path / "manifest.json").get("created_at")
+                created = str(created_raw or "")
+            except (OSError, json.JSONDecodeError, V2CanvasError):
+                created = ""
+            return (created, path.stat().st_mtime)
+
+        return max(candidates, key=_recency).resolve()
+
+    path = Path(run_id_or_path)
+    if not path.is_dir():
+        candidate = root / str(run_id_or_path)
+        if candidate.is_dir():
+            path = candidate
+        else:
+            raise FileNotFoundError(f"Version 2 run not found: {run_id_or_path}")
+    path = path.resolve()
+    if not _is_v2_run_dir(path):
+        raise V2CanvasError(
+            f"not a Version 2 run package (missing architecture_version: 2 "
+            f"manifest): {path}"
+        )
+    return path
+
+
+def _null_control_status(
+    *,
+    sampling_domain: str,
+    cost_type: str,
+    trial_rows: list[dict[str, Any]],
+) -> dict[str, Any]:
+    """Compare fourbar vs gearbox rows when null-control conditions apply."""
+    applicable = (
+        sampling_domain == "output" and str(cost_type) in _NULL_CONTROL_COSTS
+    )
+    if not applicable:
+        return {
+            "applicable": False,
+            "passed": None,
+            "detail": (
+                "Null-control equality applies only for shared uniform-Q "
+                "sampling with output_euclidean or uniform cost."
+            ),
+        }
+
+    by_key: dict[tuple[Any, Any, Any], dict[str, Any]] = {}
+    for row in trial_rows:
+        key = (row.get("trial_index"), row.get("algorithm"), row.get("mechanism_id"))
+        by_key[key] = row
+
+    trial_algos = {
+        (row.get("trial_index"), row.get("algorithm")) for row in trial_rows
+    }
+    mismatches: list[str] = []
+    compared = 0
+    for trial_index, algorithm in sorted(
+        trial_algos, key=lambda x: (str(x[0]), str(x[1]))
+    ):
+        a = by_key.get((trial_index, algorithm, "fourbar"))
+        b = by_key.get((trial_index, algorithm, "equivalent_affine_gearbox"))
+        if a is None or b is None:
+            continue
+        compared += 1
+        checks = (
+            ("found", a.get("found"), b.get("found")),
+            ("start_node_id", a.get("start_node_id"), b.get("start_node_id")),
+            ("goal_node_id", a.get("goal_node_id"), b.get("goal_node_id")),
+            ("path_node_ids", a.get("path_node_ids"), b.get("path_node_ids")),
+            (
+                "expanded_node_ids",
+                a.get("expanded_node_ids"),
+                b.get("expanded_node_ids"),
+            ),
+            ("n_expanded", a.get("n_expanded"), b.get("n_expanded")),
+            ("n_generated", a.get("n_generated"), b.get("n_generated")),
+            ("n_stale", a.get("n_stale"), b.get("n_stale")),
+        )
+        for name, va, vb in checks:
+            if va != vb:
+                mismatches.append(
+                    f"trial {trial_index} {algorithm}: {name} mismatch"
+                )
+        ca = a.get("optimal_cost")
+        cb = b.get("optimal_cost")
+        if isinstance(ca, (int, float)) and isinstance(cb, (int, float)):
+            if not (math.isfinite(float(ca)) and math.isfinite(float(cb))):
+                mismatches.append(
+                    f"trial {trial_index} {algorithm}: non-finite optimal_cost"
+                )
+            elif abs(float(ca) - float(cb)) > 1e-12:
+                mismatches.append(
+                    f"trial {trial_index} {algorithm}: optimal_cost mismatch"
+                )
+        elif ca != cb:
+            mismatches.append(
+                f"trial {trial_index} {algorithm}: optimal_cost mismatch"
+            )
+
+    if compared == 0:
+        return {
+            "applicable": True,
+            "passed": None,
+            "detail": "No paired fourbar/gearbox rows found to compare.",
+        }
+    if mismatches:
+        return {
+            "applicable": True,
+            "passed": False,
+            "detail": "; ".join(mismatches[:8]),
+            "n_compared": compared,
+            "n_mismatches": len(mismatches),
+        }
+    return {
+        "applicable": True,
+        "passed": True,
+        "detail": (
+            f"Paired rows match on cost, path, and expansions "
+            f"({compared} algorithm×trial pairs)."
+        ),
+        "n_compared": compared,
+        "n_mismatches": 0,
+    }
+
+
+def _trial_table_html(rows: list[dict[str, Any]]) -> str:
+    if not rows:
+        return "<p class='muted'>No trial rows.</p>"
+    parts = ["<table><thead><tr>"]
+    for _, label in _TRIAL_COLUMNS:
+        parts.append(f"<th>{html.escape(label)}</th>")
+    parts.append("</tr></thead><tbody>")
+    for row in rows:
+        parts.append("<tr>")
+        for key, _ in _TRIAL_COLUMNS:
+            parts.append(f"<td>{_fmt_num(row.get(key))}</td>")
+        parts.append("</tr>")
+    parts.append("</tbody></table>")
+    return "\n".join(parts)
+
+
+def _failures_html(rows: list[dict[str, Any]]) -> str:
+    if not rows:
+        return "<p class='muted'>No rejected tasks.</p>"
+    parts = [
+        "<table><thead><tr>",
+        "<th>Trial</th><th>Mechanism</th><th>Reason</th>"
+        "<th>Start resid</th><th>Goal resid</th>",
+        "</tr></thead><tbody>",
+    ]
+    for row in rows:
+        parts.append(
+            "<tr>"
+            f"<td>{_fmt_num(row.get('trial_index'))}</td>"
+            f"<td>{html.escape(str(row.get('mechanism_id', '')))}</td>"
+            f"<td>{html.escape(str(row.get('rejection_reason', '')))}</td>"
+            f"<td>{_fmt_num(row.get('start_residual_norm'))}</td>"
+            f"<td>{_fmt_num(row.get('goal_residual_norm'))}</td>"
+            "</tr>"
+        )
+    parts.append("</tbody></table>")
+    return "\n".join(parts)
+
+
+def _branch_sections(branches: dict[str, Any]) -> str:
+    if not branches:
+        return "<p class='muted'>No branch payloads.</p>"
+    parts: list[str] = []
+    for mechanism_id in sorted(branches.keys()):
+        data = branches[mechanism_id]
+        cert = data.get("certificate") if isinstance(data, dict) else None
+        if not isinstance(cert, dict):
+            cert = {}
+        parts.append(f"<h3>{html.escape(mechanism_id)}</h3>")
+        parts.append("<table>")
+        for label, key in (
+            ("branch_id", "branch_id"),
+            ("method", "certification_method"),
+            ("samples/axis", "certification_samples_per_axis"),
+            ("min |gain|", "min_abs_gain"),
+            ("max fwd-inv residual", "max_forward_inverse_residual"),
+            ("max inv-fwd residual", "max_inverse_forward_residual"),
+        ):
+            if key == "branch_id":
+                value = data.get("branch_id") if isinstance(data, dict) else None
+                if value is None and isinstance(data, dict):
+                    # branch_id may only live on the OperatingBranch object;
+                    # serialize often stores it separately in manifest.
+                    value = "(see manifest)"
+            else:
+                value = cert.get(key)
+            parts.append(
+                "<tr>"
+                f"<th>{html.escape(label)}</th>"
+                f"<td>{_fmt_num(value)}</td>"
+                "</tr>"
+            )
+        if isinstance(data, dict) and "branch_id" not in data:
+            # Prefer short hash from certificate file name context later.
+            pass
+        parts.append("</table>")
+        parts.append(
+            "<details><summary>Branch JSON</summary>"
+            f"<pre>{html.escape(json.dumps(data, indent=2, sort_keys=True))}</pre>"
+            "</details>"
+        )
+    return "\n".join(parts)
+
+
+def _diagnostics_sections(diagnostics: dict[str, Any]) -> str:
+    if not diagnostics:
+        return "<p class='muted'>No diagnostics payloads.</p>"
+    parts: list[str] = []
+    for mechanism_id in sorted(diagnostics.keys()):
+        data = diagnostics[mechanism_id]
+        parts.append(f"<h3>{html.escape(mechanism_id)}</h3>")
+        parts.append(
+            "<pre>"
+            f"{html.escape(json.dumps(data, indent=2, sort_keys=True))}"
+            "</pre>"
+        )
+    return "\n".join(parts)
+
+
+def collect_v2_canvas_payload(run_dir: Path | str) -> dict[str, Any]:
+    """Collect Version 2 run artifacts into a render payload."""
+    path = Path(run_dir).resolve()
+    if not _is_v2_run_dir(path):
+        raise V2CanvasError(f"not a Version 2 run package: {path}")
+
+    manifest = _read_json(path / "manifest.json")
+    trial_rows = _read_jsonl(path / "trials.jsonl")
+    failure_rows = _read_jsonl(path / "failures.jsonl")
+
+    branches: dict[str, Any] = {}
+    branches_dir = path / "branches"
+    if branches_dir.is_dir():
+        for file in sorted(branches_dir.glob("*.json")):
+            branches[file.stem] = _read_json(file)
+
+    diagnostics: dict[str, Any] = {}
+    diagnostics_dir = path / "diagnostics"
+    if diagnostics_dir.is_dir():
+        for file in sorted(diagnostics_dir.glob("*.json")):
+            diagnostics[file.stem] = _read_json(file)
+
+    figures: list[dict[str, str]] = []
+    figures_dir = path / "figures"
+    if figures_dir.is_dir():
+        for file in sorted(figures_dir.glob("*.png")):
+            figures.append(
+                {
+                    "name": file.stem,
+                    "src": f"figures/{file.name}",
+                    "caption": file.stem.replace("_", " "),
+                }
+            )
+
+    raw_objective = manifest.get("objective")
+    objective = raw_objective if isinstance(raw_objective, dict) else {}
+    cost_type = str(objective.get("cost") or "")
+    sampling_domain = str(manifest.get("sampling_domain") or "")
+    if trial_rows and not cost_type:
+        cost_type = str(trial_rows[0].get("cost_type") or "")
+
+    # Attach branch_id from manifest when branch JSON lacks it.
+    mech_manifest = manifest.get("mechanisms")
+    if isinstance(mech_manifest, dict):
+        for mechanism_id, meta in mech_manifest.items():
+            if mechanism_id in branches and isinstance(branches[mechanism_id], dict):
+                if "branch_id" not in branches[mechanism_id] and isinstance(meta, dict):
+                    if "branch_id" in meta:
+                        branches[mechanism_id] = {
+                            **branches[mechanism_id],
+                            "branch_id": meta["branch_id"],
+                        }
+
+    config_text = ""
+    config_path = path / "config.yaml"
+    if config_path.is_file():
+        config_text = config_path.read_text(encoding="utf-8")
+
+    return {
+        "run_dir": str(path),
+        "run_id": manifest.get("run_id", path.name),
+        "manifest": manifest,
+        "config_yaml": config_text,
+        "trial_rows": trial_rows,
+        "failure_rows": failure_rows,
+        "branches": branches,
+        "diagnostics": diagnostics,
+        "figures": figures,
+        "null_control": _null_control_status(
+            sampling_domain=sampling_domain,
+            cost_type=cost_type,
+            trial_rows=trial_rows,
+        ),
+    }
+
+
+def render_v2_canvas_html(payload: dict[str, Any]) -> str:
+    """Render a dark diagnostic HTML printout for a Version 2 run."""
+    raw_manifest = payload.get("manifest")
+    manifest = raw_manifest if isinstance(raw_manifest, dict) else {}
+    run_id = html.escape(str(payload.get("run_id", "")))
+    revision = (
+        manifest.get("revision") if isinstance(manifest.get("revision"), dict) else {}
+    )
+    objective = (
+        manifest.get("objective") if isinstance(manifest.get("objective"), dict) else {}
+    )
+    null_control = (
+        payload.get("null_control")
+        if isinstance(payload.get("null_control"), dict)
+        else {}
+    )
+    trial_rows = (
+        payload.get("trial_rows") if isinstance(payload.get("trial_rows"), list) else []
+    )
+    failure_rows = (
+        payload.get("failure_rows")
+        if isinstance(payload.get("failure_rows"), list)
+        else []
+    )
+    figures = (
+        payload.get("figures") if isinstance(payload.get("figures"), list) else []
+    )
+    branches = (
+        payload.get("branches") if isinstance(payload.get("branches"), dict) else {}
+    )
+    diagnostics = (
+        payload.get("diagnostics")
+        if isinstance(payload.get("diagnostics"), dict)
+        else {}
+    )
+
+    passed = null_control.get("passed")
+    if passed is True:
+        null_class = "pass"
+        null_label = "PASS"
+    elif passed is False:
+        null_class = "fail"
+        null_label = "FAIL"
+    else:
+        null_class = "muted"
+        null_label = "N/A"
+
+    git_commit = revision.get("git_commit") or revision.get("git_describe") or "—"
+    dirty = revision.get("git_dirty")
+    dirty_label = (
+        "dirty" if dirty is True else ("clean" if dirty is False else "unknown")
+    )
+
+    arch_v = html.escape(str(manifest.get("architecture_version", 2)))
+    schema_v = html.escape(str(manifest.get("result_schema_version", "—")))
+    sampling = html.escape(str(manifest.get("sampling_domain", "—")))
+    cost = html.escape(str(objective.get("cost", "—")))
+    heuristic = html.escape(str(objective.get("heuristic", "—")))
+    algorithms = html.escape(
+        ", ".join(str(a) for a in (manifest.get("algorithms") or []))
+    )
+    created = html.escape(str(manifest.get("created_at", "—")))
+    commit_esc = html.escape(str(git_commit))
+    dirty_esc = html.escape(dirty_label)
+    null_detail = html.escape(str(null_control.get("detail", "")))
+    config_yaml = html.escape(str(payload.get("config_yaml") or ""))
+    manifest_json = html.escape(json.dumps(manifest, indent=2, sort_keys=True))
+    trials_html = _trial_table_html(trial_rows)
+    failures_html = _failures_html(failure_rows)
+    branches_html = _branch_sections(branches)
+    diagnostics_html = _diagnostics_sections(diagnostics)
+    figures_html = _figure_grid(
+        figures, empty="No figures/ PNGs in this run package."
+    )
+
+    return f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<title>Version 2 run — {run_id}</title>
+<style>
+:root {{
+  --bg: #0f1419;
+  --panel: #1a2332;
+  --text: #e7ecf3;
+  --muted: #9aa7b8;
+  --accent: #6cb6ff;
+  --pass: #3dd68c;
+  --fail: #f07178;
+  --line: #2a3545;
+}}
+* {{ box-sizing: border-box; }}
+body {{
+  margin: 0;
+  font-family: "IBM Plex Sans", "Segoe UI", sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.45;
+}}
+header {{
+  padding: 1.5rem 2rem;
+  border-bottom: 1px solid var(--line);
+  background: linear-gradient(180deg, #162033, var(--bg));
+}}
+header h1 {{ margin: 0 0 0.35rem; font-size: 1.6rem; }}
+header .meta {{ color: var(--muted); font-size: 0.95rem; }}
+main {{ padding: 1.25rem 2rem 3rem; max-width: 1200px; }}
+section {{
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 1rem 1.25rem;
+  margin: 1rem 0;
+}}
+h2 {{ margin: 0 0 0.75rem; font-size: 1.15rem; color: var(--accent); }}
+h3 {{ margin: 1rem 0 0.5rem; font-size: 1rem; }}
+.muted {{ color: var(--muted); }}
+.kv {{ display: grid; grid-template-columns: 12rem 1fr; gap: 0.35rem 1rem; }}
+.kv div {{ border-bottom: 1px solid var(--line); padding: 0.2rem 0; }}
+.kv .k {{ color: var(--muted); }}
+table {{
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}}
+th, td {{
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+  padding: 0.35rem 0.5rem;
+  vertical-align: top;
+}}
+th {{ color: var(--muted); font-weight: 600; }}
+.pass {{ color: var(--pass); font-weight: 700; }}
+.fail {{ color: var(--fail); font-weight: 700; }}
+.grid {{
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 1rem;
+}}
+figure {{
+  margin: 0;
+  background: #0c1118;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 0.5rem;
+}}
+figure img {{ width: 100%; height: auto; display: block; }}
+figcaption {{ color: var(--muted); font-size: 0.85rem; margin-top: 0.4rem; }}
+pre {{
+  overflow: auto;
+  background: #0c1118;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 0.75rem;
+  font-size: 0.8rem;
+}}
+details {{ margin-top: 0.75rem; }}
+summary {{ cursor: pointer; color: var(--accent); }}
+</style>
+</head>
+<body>
+<header>
+  <h1>Version 2 experiment printout</h1>
+  <div class="meta">
+    run_id=<strong>{run_id}</strong>
+    · architecture_version={arch_v}
+    · result_schema_version={schema_v}
+  </div>
+</header>
+<main>
+  <section>
+    <h2>Run summary</h2>
+    <div class="kv">
+      <div class="k">Seed</div><div>{_fmt_num(manifest.get("seed"))}</div>
+      <div class="k">Sampling domain</div><div>{sampling}</div>
+      <div class="k">Objective cost</div><div>{cost}</div>
+      <div class="k">Heuristic</div><div>{heuristic}</div>
+      <div class="k">Algorithms</div><div>{algorithms}</div>
+      <div class="k">Trial rows</div>
+      <div>{_fmt_num(manifest.get("n_trial_rows"))}</div>
+      <div class="k">Failure rows</div>
+      <div>{_fmt_num(manifest.get("n_failure_rows"))}</div>
+      <div class="k">Created</div><div>{created}</div>
+      <div class="k">Revision</div>
+      <div>{commit_esc} ({dirty_esc})</div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Null-control gate</h2>
+    <p class="{null_class}">{null_label}</p>
+    <p class="muted">{null_detail}</p>
+  </section>
+
+  <section>
+    <h2>Trials</h2>
+    {trials_html}
+  </section>
+
+  <section>
+    <h2>Failures</h2>
+    {failures_html}
+  </section>
+
+  <section>
+    <h2>Branch certificates</h2>
+    {branches_html}
+  </section>
+
+  <section>
+    <h2>Diagnostics</h2>
+    {diagnostics_html}
+  </section>
+
+  <section>
+    <h2>Figures</h2>
+    {figures_html}
+  </section>
+
+  <section>
+    <h2>Config</h2>
+    <details open>
+      <summary>config.yaml</summary>
+      <pre>{config_yaml}</pre>
+    </details>
+  </section>
+
+  <section>
+    <h2>Manifest</h2>
+    <details>
+      <summary>manifest.json</summary>
+      <pre>{manifest_json}</pre>
+    </details>
+  </section>
+</main>
+</body>
+</html>
+"""
+
+
+
+def write_v2_canvas(
+    run_dir: Path | str,
+    *,
+    results_root: Path | str | None = None,
+    filename: str = _CANVAS_NAME,
+) -> Path:
+    """Write ``index.html`` consolidating a Version 2 run package.
+
+    Regenerating the canvas does not mutate ``trials.jsonl`` or other raw
+    result files.
+    """
+    del results_root  # Reserved for CLI symmetry; run_dir is authoritative.
+    path = Path(run_dir).resolve()
+    payload = collect_v2_canvas_payload(path)
+    html_text = render_v2_canvas_html(payload)
+    out = path / filename
+    out.write_text(html_text, encoding="utf-8")
+    return out.resolve()

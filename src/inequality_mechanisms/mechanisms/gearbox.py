@@ -328,6 +328,78 @@ class EquivalentGearbox(Mechanism):
         )
 
 
+def equivalent_gearbox_matching_endpoints(
+    *,
+    input_lower: ArrayLike,
+    input_upper: ArrayLike,
+    output_lower: ArrayLike,
+    output_upper: ArrayLike,
+    matching_rule: str = "span",
+    periodic: tuple[bool, ...] | None = None,
+    name: str = "equivalent_gearbox",
+    provenance: dict[str, Any] | None = None,
+) -> EquivalentGearbox:
+    """Build an ``EquivalentGearbox`` matched to per-axis input/output endpoints.
+
+    Additive helper for Sprint V2.2 operating branches
+    (``mechanisms.operating_branch.equivalent_gearbox_branch``): computes
+    ``r_i = (q_i_max - q_i_min) / (u_i_max - u_i_min)`` and references the
+    map at ``(u_ref, q_ref) = (input_lower, output_lower)``, so
+    ``q = q_ref + r * (u - u_ref)`` reproduces both endpoints exactly.
+
+    Parameters
+    ----------
+    input_lower, input_upper :
+        Per-axis input box; ``input_upper`` must exceed ``input_lower`` on
+        every axis (zero range is rejected).
+    output_lower, output_upper :
+        Per-axis output box to match.
+    matching_rule :
+        Matching criterion label stored on the mechanism (default
+        ``"span"``, matching a monotonic four-bar branch endpoint-to-endpoint).
+    periodic :
+        Per-axis input periodicity flags. Defaults to all ``True``.
+    name :
+        Identifier string.
+    provenance :
+        Optional matching metadata.
+
+    Raises
+    ------
+    ValueError
+        If any axis has zero input range, or the resulting ratio is zero
+        or non-finite.
+    """
+    u_lo = np.asarray(input_lower, dtype=np.float64)
+    u_hi = np.asarray(input_upper, dtype=np.float64)
+    q_lo = np.asarray(output_lower, dtype=np.float64)
+    q_hi = np.asarray(output_upper, dtype=np.float64)
+    if not (u_lo.shape == u_hi.shape == q_lo.shape == q_hi.shape):
+        raise ValueError(
+            "input_lower/input_upper/output_lower/output_upper must share a "
+            f"common shape, got {u_lo.shape}, {u_hi.shape}, {q_lo.shape}, {q_hi.shape}"
+        )
+    if u_lo.ndim != 1:
+        raise ValueError(f"bounds must be 1-D, got shape {u_lo.shape}")
+    du = u_hi - u_lo
+    if np.any(du <= 0.0):
+        raise ValueError(
+            "input_upper must exceed input_lower on every axis (zero range is invalid)"
+        )
+    ratios = (q_hi - q_lo) / du
+    if not np.all(np.isfinite(ratios)) or np.any(ratios == 0.0):
+        raise ValueError("matched ratio must be finite and nonzero on every axis")
+    return EquivalentGearbox(
+        ratios=ratios,
+        u_ref=u_lo,
+        q_ref=q_lo,
+        matching_rule=matching_rule,
+        periodic=periodic,
+        name=name,
+        provenance=provenance,
+    )
+
+
 def _parse_ref(value: ArrayLike, *, dim: int, name: str) -> NDArray[np.floating]:
     """Validate a reference vector of length ``dim``."""
     arr = np.asarray(value, dtype=np.float64)

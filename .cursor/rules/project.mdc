@@ -2,22 +2,27 @@
 description: Core architecture and scientific integrity rules
 alwaysApply: true
 ---
-
 # Inequality Mechanisms project rules
-
+- Read `docs/software/VERSION_MATRIX.md`, `docs/software/PROJECT_PLAN.md`, and `docs/software/planning/ACTIVE_SPRINT.md` before architecture work.
+- Use canonical documentation paths under `docs/software/`, `docs/research/`, and `docs/archive/`; do not create new moved-file redirect stubs.
 - This is scientific research software, not a product prototype.
 - Favor correctness, explicitness, and testability over clever abstractions.
-- Search state identity lives in input configuration space U.
-- Output configuration q and Cartesian state x are attached data, not node identity.
-- Preserve duplicate output preimages as distinct physical states.
-- Apply shared joint limits in output space Q.
+- Read `architecture_version` and the relevant ADR under `docs/software/architecture/adr/` before changing graph-state semantics.
+- Version 1 noninjective or full-cycle experiments preserve complete actuator-state identity in U.
+- Version 2 experiments may use output-state identity in Q only on a certified one-to-one operating branch with a unique actuator realization attached.
+- Never collapse duplicate output preimages into one plain Q node.
+- Apply shared joint limits and output-coordinate semantics through `OutputSpace`.
+- Keep graph topology, planning-state coordinates, actuator realization, sampling provenance, and transition parameterization explicit.
 - Do not silently change experiment definitions or mathematical conventions.
 - Do not add dependencies without explaining why they are needed.
-- Core kinematics and search algorithms must not live only in notebooks.
+- Core kinematics, graph construction, objectives, and search algorithms must not live only in notebooks.
 - Every implementation task must include tests.
 - Dijkstra and A* must use documented node-expansion semantics.
-- A* optimal cost must be validated against Dijkstra.
+- A* optimal cost must be validated against Dijkstra for every supported objective/heuristic pair.
+- Preserve Version 1 golden fixtures during Version 2 rearchitecture.
 - Use NumPy-style docstrings and Python type annotations.
-- Prefer small, composable modules.
+- Prefer small, composable modules and compatibility adapters over rename-only rewrites.
 - Never modify generated results to make an experiment look better.
-- Update the relevant ADR when changing a foundational decision.
+- Update or add the relevant ADR when changing a foundational decision.
+- Research documents under `docs/research/` motivate the work but do not create software requirements unless an accepted ADR, contract, or sprint explicitly adopts them.
+- Do not implement future-sprint work opportunistically when executing a numbered sprint issue.
