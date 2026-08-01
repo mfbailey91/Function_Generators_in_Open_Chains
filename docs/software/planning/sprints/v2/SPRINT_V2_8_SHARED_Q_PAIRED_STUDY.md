@@ -46,21 +46,28 @@ models every transmission as the unit gearbox.
 
 ## Experiment cardinality
 
-The fixed diagnostic study contains:
+The original sprint sketch contained:
 
 - 5 mechanism pairs;
 - 3 task sets;
 - 5 cost weights;
 - 2 mechanisms per pair.
 
-This produces 15 pair-task cases and 150 reference Dijkstra runs:
-
 \[
 5\times3\times5\times2=150.
 \]
 
-A* runs are additional and are permitted only after the blended heuristic passes
-admissibility tests.
+The active diagnostic package keeps only the `cross_range` task template and
+adds a `unit_gearbox` identity arm as a third mechanism (toggle:
+`study.include_unit_gearbox`, default true):
+
+\[
+5\times1\times5\times3=75
+\]
+
+Dijkstra trials with 50 paired comparisons (four-bar vs span-matched and
+four-bar vs unit). A* runs are additional and are permitted only after the
+blended heuristic passes admissibility tests.
 
 ## Mechanism pairs
 
@@ -293,11 +300,12 @@ Required hierarchy:
 
 ```text
 run
-└── task_set (3)
+└── task_set (cross_range)
     └── mechanism_pair (5)
         └── alpha (5)
             ├── fourbar
-            └── span_matched_gearbox
+            ├── span_matched_gearbox
+            └── unit_gearbox (identity control)
 ```
 
 ### V2-807 — Add comparison and path-divergence metrics

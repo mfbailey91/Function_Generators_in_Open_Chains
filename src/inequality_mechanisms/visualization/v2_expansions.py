@@ -20,7 +20,12 @@ def _require_matplotlib() -> Any:
 
 def _mechanism_ids_present(rows: Sequence[Mapping[str, Any]]) -> list[str]:
     present = {str(r.get("mechanism_id", "")) for r in rows}
-    order = ["fourbar", "span_matched_gearbox", "equivalent_affine_gearbox"]
+    order = [
+        "fourbar",
+        "span_matched_gearbox",
+        "equivalent_affine_gearbox",
+        "unit_gearbox",
+    ]
     ids = [m for m in order if m in present]
     if "span_matched_gearbox" in ids and "equivalent_affine_gearbox" in ids:
         ids = [m for m in ids if m != "equivalent_affine_gearbox"]
@@ -31,6 +36,7 @@ _LABELS = {
     "fourbar": "Four-bar",
     "span_matched_gearbox": "Span-matched gearbox",
     "equivalent_affine_gearbox": "Matched gearbox",
+    "unit_gearbox": "Unit gearbox",
 }
 
 
@@ -95,10 +101,11 @@ def plot_v2_expansions_by_alpha(
         }
     )
     mech_ids = _mechanism_ids_present(rows)
-    colors = ["C0", "C1", "C2"]
+    colors = ["C0", "C1", "C2", "C3"]
+    n_mech = max(len(mech_ids), 1)
 
     fig, ax = plt.subplots(figsize=(9.0, 4.8))
-    width = 0.35
+    width = 0.8 / n_mech
     positions: list[float] = []
     data: list[list[float]] = []
     xticks: list[float] = []
@@ -116,7 +123,7 @@ def plot_v2_expansions_by_alpha(
                 and abs(float(r["alpha"]) - alpha) < 1e-12
                 and isinstance(r.get("n_expanded"), (int, float))
             ]
-            pos = float(i) + (j - 0.5 * (len(mech_ids) - 1)) * width
+            pos = float(i) + (j - 0.5 * (n_mech - 1)) * width
             positions.append(pos)
             data.append(vals)
         xticks.append(float(i))
@@ -125,7 +132,7 @@ def plot_v2_expansions_by_alpha(
     if data:
         bp = ax.boxplot(data, positions=positions, widths=width * 0.9, showfliers=False)
         for idx, box in enumerate(bp.get("boxes", [])):
-            box.set_color(colors[idx % max(len(mech_ids), 1) % len(colors)])
+            box.set_color(colors[(idx % n_mech) % len(colors)])
 
     ax.set_xticks(xticks)
     ax.set_xticklabels(xticklabels)

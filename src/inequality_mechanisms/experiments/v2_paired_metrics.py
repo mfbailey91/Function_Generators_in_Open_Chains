@@ -181,13 +181,22 @@ def compare_paired_rows(
 def divergence_onset_by_alpha(
     comparisons: list[dict[str, Any]],
 ) -> dict[str, Any]:
-    """Return the largest alpha at which paired paths first diverge."""
-    by_key: dict[tuple[Any, Any], list[dict[str, Any]]] = {}
+    """Return the largest alpha at which paired paths first diverge.
+
+    Keys include mechanism ids so four-bar vs span-matched and four-bar vs
+    unit-gearbox comparisons are not collapsed together.
+    """
+    by_key: dict[tuple[Any, Any, Any, Any], list[dict[str, Any]]] = {}
     for row in comparisons:
-        key = (row.get("pair_id"), row.get("task_set_id"))
+        key = (
+            row.get("pair_id"),
+            row.get("task_set_id"),
+            row.get("mechanism_a"),
+            row.get("mechanism_b"),
+        )
         by_key.setdefault(key, []).append(row)
     onset: dict[str, Any] = {}
-    for (pair_id, task_set_id), rows in by_key.items():
+    for (pair_id, task_set_id, mech_a, mech_b), rows in by_key.items():
         ordered = sorted(
             rows,
             key=lambda r: float(r.get("alpha") if r.get("alpha") is not None else -1.0),
@@ -198,5 +207,5 @@ def divergence_onset_by_alpha(
             if not row.get("identical_path", True):
                 first = row.get("alpha")
                 break
-        onset[f"{pair_id}:{task_set_id}"] = first
+        onset[f"{pair_id}:{task_set_id}:{mech_a}_vs_{mech_b}"] = first
     return onset

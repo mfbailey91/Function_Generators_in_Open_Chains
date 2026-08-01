@@ -7,6 +7,7 @@ recomputing forward/inverse maps independently.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
@@ -58,6 +59,97 @@ def _axis_curve(
         q_axis[i] = float(branch.forward(u_full)[axis])
         dqdu_axis[i] = float(branch.jacobian(u_full)[axis, axis])
     return u_samples, q_axis, dqdu_axis
+
+
+def _axis_transmission_curve(
+    branch: OperatingBranch,
+    axis: int,
+    *,
+    n_samples: int,
+) -> tuple[NDArray[np.floating], NDArray[np.floating]]:
+    """Return ``(u_samples, q_axis)`` for one axis, NaN where forward fails."""
+    cert = branch.certificate
+    base = _axis_probe_base(branch)
+    u_lo = float(cert.input_lower[axis])
+    u_hi = float(cert.input_upper[axis])
+    u_samples = np.linspace(u_lo, u_hi, int(n_samples))
+    q_axis = np.full(u_samples.shape[0], np.nan, dtype=np.float64)
+    for i, u_i in enumerate(u_samples):
+        u_full = base.copy()
+        u_full[axis] = u_i
+        try:
+            q_axis[i] = float(branch.forward(u_full)[axis])
+        except ValueError:
+            continue
+    return u_samples, q_axis
+
+
+def plot_branch_axis_transmission(
+    labeled_branches: Mapping[str, OperatingBranch],
+    path_out: Path | str,
+    *,
+    n_samples: int = 201,
+    title: str | None = None,
+) -> Path:
+    """Overlay per-axis ``q_i(u_i)`` curves for one or more operating branches.
+
+    Each branch is swept over its own certified input extent. Other axes are
+    held at the branch input-box midpoint. Non-assembling samples are omitted.
+
+    Parameters
+    ----------
+    labeled_branches :
+        Ordered mapping of legend label to certified ``OperatingBranch``.
+    path_out :
+        Destination PNG path.
+    n_samples :
+        Sweep samples per axis (must be ``>= 2``).
+    title :
+        Optional figure super-title.
+    """
+    plt = _require_matplotlib()
+    out = Path(path_out)
+    out.parent.mkdir(parents=True, exist_ok=True)
+
+    if not labeled_branches:
+        raise ValueError("labeled_branches must be non-empty")
+    if int(n_samples) < 2:
+        raise ValueError(f"n_samples must be >= 2, got {n_samples}")
+
+    items = list(labeled_branches.items())
+    dims = [int(branch.mechanism.input_dim) for _label, branch in items]
+    if len(set(dims)) != 1:
+        raise ValueError(f"all branches must share input dim, got {dims}")
+    dim = dims[0]
+
+    fig, axes = plt.subplots(1, dim, figsize=(5.0 * dim, 4.2), squeeze=False)
+    for axis in range(dim):
+        ax = axes[0, axis]
+        for idx, (label, branch) in enumerate(items):
+            u_samples, q_axis = _axis_transmission_curve(
+                branch, axis, n_samples=int(n_samples)
+            )
+            finite = np.isfinite(q_axis)
+            if not np.any(finite):
+                continue
+            ax.plot(
+                u_samples[finite],
+                q_axis[finite],
+                color=f"C{idx % 10}",
+                linewidth=2.0,
+                label=label,
+            )
+        ax.set_xlabel(rf"$u_{{{axis}}}$")
+        ax.set_ylabel(rf"$q_{{{axis}}}$")
+        ax.set_title(rf"axis {axis}: $q(u)$")
+        ax.grid(True, alpha=0.35)
+        ax.legend(loc="best", fontsize=8)
+
+    fig.suptitle(title or "Axis transmission maps $q(u)$", fontsize=11)
+    fig.tight_layout()
+    fig.savefig(out, dpi=150)
+    plt.close(fig)
+    return out
 
 
 def _inverse_residual_curve(

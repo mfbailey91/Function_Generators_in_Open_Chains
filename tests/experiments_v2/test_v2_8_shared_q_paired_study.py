@@ -13,6 +13,10 @@ from inequality_mechanisms.experiments.v2_shared_q_fixtures import (
     TASK_TEMPLATES,
     fractions_to_q,
 )
+from inequality_mechanisms.experiments.v2_runner import (
+    UNIT_GEARBOX_MECHANISM_ID,
+    unit_gearbox_branch,
+)
 from inequality_mechanisms.experiments.v2_shared_q_paired_study import (
     load_shared_q_paired_study_config,
     run_shared_q_paired_study,
@@ -212,18 +216,63 @@ class TestSharedQPairedStudySmoke:
         result = run_shared_q_paired_study(
             cfg, results_root=tmp_path, run_id="v28_smoke", write_figures=True
         )
-        assert result.n_trial_rows == 4  # 1 pair × 1 task × 2 alpha × 2 mechs
+        assert result.n_trial_rows == 6  # 1 pair × 1 task × 2 alpha × 3 mechs
+        assert result.n_pair_comparisons == 4  # 2 alphas × 2 partners
         assert (result.path / "index.html").is_file()
         assert (result.path / "pair_comparisons.jsonl").is_file()
         assert (result.path / "pair_invariants.json").is_file()
         assert (result.path / "figures" / "expansions_raw.png").is_file()
         assert list((result.path / "figures" / "paths").glob("*_q.png"))
         assert list((result.path / "figures" / "paths").glob("*_x.png"))
+        assert list((result.path / "figures").glob("*/u_unit_gearbox.png"))
+        assert list((result.path / "figures").glob("*/qu_axis_maps.png"))
         html = (result.path / "index.html").read_text(encoding="utf-8")
         assert "Expansions" in html
         assert "Cartesian paths" in html
+        assert "Identity control" in html
+        assert "Transmission maps" in html
         assert "joint1_dominant" not in html
         assert "joint2_dominant" not in html
         trials = (result.path / "trials.jsonl").read_text(encoding="utf-8")
         assert "span_matched_gearbox" in trials
+        assert "unit_gearbox" in trials
         assert "q_u_blend" in trials
+
+        # Unit arm path/expansions are invariant across alphas.
+        import json
+
+        trial_rows = [
+            json.loads(line)
+            for line in (result.path / "trials.jsonl").read_text().splitlines()
+            if line.strip()
+        ]
+        unit_rows = [
+            r for r in trial_rows if r.get("mechanism_id") == UNIT_GEARBOX_MECHANISM_ID
+        ]
+        assert len(unit_rows) == 2
+        assert unit_rows[0]["path_node_ids"] == unit_rows[1]["path_node_ids"]
+        assert unit_rows[0]["n_expanded"] == unit_rows[1]["n_expanded"]
+        fb_a1 = next(
+            r
+            for r in trial_rows
+            if r.get("mechanism_id") == "fourbar" and float(r.get("alpha")) == 1.0
+        )
+        unit_a1 = next(r for r in unit_rows if float(r.get("alpha")) == 1.0)
+        assert fb_a1["path_node_ids"] == unit_a1["path_node_ids"]
+        assert fb_a1["n_expanded"] == unit_a1["n_expanded"]
+
+
+class TestUnitGearboxBranch:
+    def test_unit_branch_identity_round_trip(self) -> None:
+        fourbar = fourbar_2d_branch()
+        unit = unit_gearbox_branch(fourbar, name=UNIT_GEARBOX_MECHANISM_ID)
+        cert = unit.certificate
+        assert np.allclose(cert.input_lower, fourbar.certificate.output_lower)
+        assert np.allclose(cert.input_upper, fourbar.certificate.output_upper)
+        mid = 0.5 * (
+            np.asarray(cert.input_lower) + np.asarray(cert.input_upper)
+        )
+        assert unit.forward(mid) == pytest.approx(mid, abs=1e-9)
+        assert unit.inverse(mid) == pytest.approx(mid, abs=1e-9)
+        jac = unit.mechanism.output_jacobian(mid)
+        assert jac == pytest.approx(np.eye(len(mid)), abs=1e-12)
