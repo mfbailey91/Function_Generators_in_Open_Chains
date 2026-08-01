@@ -13,7 +13,7 @@ Robotic manipulators are commonly modeled as chains of directly commanded revolu
 
 We introduce the provisional term **inequality mechanism** for a transmission whose geometry assigns unequal physical significance to otherwise uniform increments of actuator motion. A fixed-ratio gearbox creates a constant inequality. A four-bar linkage creates a configuration-dependent inequality, simultaneously reshaping output speed, torque, resolution, configuration-space distance, and the topology of valid motion under joint limits. The mechanism therefore does more than transmit a command. It reshapes the planning problem encountered by the controller.
 
-A planar 2R manipulator provides the initial setting. Its actuator space $\mathcal U$, output joint space $\mathcal Q$, and Cartesian space $\mathcal X$ are treated as distinct spaces connected by a mechanism map and manipulator forward kinematics. Graph search is performed on a discretized input-side graph while edge costs are measured in output space. An early Monte Carlo pilot found substantially fewer node expansions for randomly sampled four-bar mechanisms than for matched unit-ratio gearboxes. The result is preliminary and confounded by graph size, periodicity, multiple input preimages, and joint-limit topology, but it motivates a controlled software study.
+A planar 2R manipulator provides the initial setting. Its actuator space $\mathcal U$, output joint space $\mathcal Q$, and Cartesian space $\mathcal X$ are treated as distinct spaces connected by a mechanism map and manipulator forward kinematics. Two complementary graph views are used. A uniform input graph mapped into output space reveals how the function generator turns equal actuator increments into unequal joint motion. A common uniform output graph, equipped with mechanism-specific inverse embeddings and actuator-aware edge costs, provides an apples-to-apples comparison of how different transmissions value the same possible arm motions. An early Monte Carlo pilot found substantially fewer node expansions for randomly sampled four-bar mechanisms than for matched unit-ratio gearboxes. The result is preliminary and confounded by graph size, periodicity, multiple input preimages, joint-limit topology, and representation choice, but it motivates a controlled software study.
 
 The broader research program extends the graph formulation to intrinsic capability fields including speed, torque, resolution, energy, and terminal-state quality. It then asks whether mechanism-induced graph shaping can reduce reinforcement-learning sample complexity. Surgical and prosthetic joint mechanisms provide a bridge to a final conjecture in embodied intelligence: morphology may act as a physically encoded prior that structures the state-transition problems intelligence must solve.
 
@@ -258,6 +258,129 @@ J_g(\mathbf u)
 $$
 
 This matrix carries the central inequalities of the project.
+
+### 4.2 Two complementary views of the mechanism map
+
+The distinction between input space and output space supports two complementary representations. They should not be treated as competing definitions of the robot. They expose different parts of the same mechanism relationship.
+
+A conventional manipulator model usually begins directly in output joint coordinates. The planner is given a configuration
+
+$$
+\mathbf q\in\mathcal Q
+$$
+
+and the transmission that produced that configuration is left implicit. In the ordinary direct-joint model,
+
+$$
+\mathbf q=\mathbf u,
+$$
+
+so the hidden transmission is the identity map: a unit gearbox at every revolute joint. Because the input and output coordinates coincide, the mechanism layer disappears from view. A uniform grid in $\mathcal Q$ then appears to be a neutral description of the arm, even though it has already assumed a particular transmission.
+
+The reader can be brought into the more general formulation in two stages.
+
+#### Mechanism view: uniform input mapped into output
+
+First sample the actuator-side coordinates uniformly:
+
+$$
+\mathbf u_{\mathbf i}
+=
+\mathbf u_{\min}+\mathbf i\odot\Delta\mathbf u,
+$$
+
+and map those samples through the mechanism:
+
+$$
+\mathbf q_{\mathbf i}=g_m(\mathbf u_{\mathbf i}).
+$$
+
+The graph remains regular in $\mathcal U$, but its image in $\mathcal Q$ is generally nonuniform. Locally,
+
+$$
+d\mathbf q=J_{g_m}(\mathbf u)d\mathbf u.
+$$
+
+Equal actuator increments therefore become unequal output increments whenever $J_{g_m}$ varies with configuration. This is the **mechanism view**:
+
+> A uniform input graph reveals what motion the function generator physically generates.
+
+For the unit gearbox, the mapped graph remains uniform. For a fixed gearbox, it is uniformly scaled. For a four-bar, it stretches, compresses, and may fold. This view makes the function-generator effect visible before planning costs or search algorithms are introduced.
+
+#### Planning-control view: uniform output with mechanism-dependent weights
+
+The complementary experiment begins with a common output grid:
+
+$$
+\mathbf q_{\mathbf j}
+=
+\mathbf q_{\min}+\mathbf j\odot\Delta\mathbf q.
+$$
+
+Different mechanisms then share the same nominal arm configurations, adjacency, joint limits, start state, goal state, and output resolution. The mechanism enters through the input states and costs required to traverse each output-space edge.
+
+On a locally invertible branch,
+
+$$
+\mathbf u=g_m^{-1}(\mathbf q),
+$$
+
+so an output edge $\mathbf q_a\leftrightarrow\mathbf q_b$ can be assigned a mechanism-dependent actuator-travel cost
+
+$$
+c_m(a,b)
+=
+\left\|
+ g_m^{-1}(\mathbf q_b)-g_m^{-1}(\mathbf q_a)
+\right\|_{W_u}.
+$$
+
+The two mechanisms can therefore have the same nodes and edges but different edge weights:
+
+$$
+G_m=(V_Q,E_Q,c_m).
+$$
+
+A planner may then select different output-space and Cartesian paths because the transmissions assign different actuator-side significance to the same possible arm motions. This is the **planning-control view**:
+
+> A uniform output graph reveals how different transmissions value the same possible arm motions.
+
+The uniform output representation initially obscures the function generator because the node geometry is identical across mechanisms. The mechanism becomes visible again only when inverse kinematics, branch state, feasibility, or mechanism-dependent cost is attached to the graph. Without those additions, a uniform $\mathcal Q$ graph silently models every joint as though it were driven through the unit gearbox.
+
+These views should remain paired throughout the paper:
+
+$$
+\boxed{
+\text{uniform }\mathcal U
+\xrightarrow{g_m}
+\text{deformed }\mathcal Q
+}
+\qquad
+\text{mechanism view},
+$$
+
+$$
+\boxed{
+\text{uniform }\mathcal Q
+\xrightarrow{g_m^{-1}}
+\text{nonuniform }\mathcal U
+\text{ with mechanism-dependent cost}
+}
+\qquad
+\text{planning-control view}.
+$$
+
+The first explains the generated inequality. The second provides a controlled comparison of its planning consequences.
+
+A mapped uniform-$\mathcal U$ graph and a separately sampled uniform-$\mathcal Q$ graph are not generally the same discrete graph. They are different samplings of the same continuous mechanism relationship. Only an affine map such as a fixed-ratio gearbox preserves uniform spacing in both coordinates.
+
+For a non-injective mechanism, $g_m^{-1}(\mathbf q)$ is set-valued. The planning-control state must then be lifted to include the preimage or branch label,
+
+$$
+(\mathbf q,\sigma),
+$$
+
+so physically distinct mechanism states are not collapsed merely because they share an output coordinate. The simple uniform-$\mathcal Q$ comparison is therefore cleanest on a monotonic branch; the full-cycle case requires a lifted output graph.
 
 ---
 
@@ -660,6 +783,104 @@ This is the most direct mathematical interpretation of an inequality mechanism:
 
 > It transforms equal actuator increments into unequal physical distances and capabilities.
 
+### 7.1 The same physical cost in either coordinate view
+
+Sampling and cost are separate choices. A graph may be sampled uniformly in one coordinate space while its edge cost is defined by motion in another.
+
+If actuator-side displacement is the physical cost,
+
+$$
+ds_U^2
+=
+d\mathbf u^\mathsf T W_u d\mathbf u,
+$$
+
+then, on an invertible branch,
+
+$$
+d\mathbf u
+=
+J_g(\mathbf u)^{-1}d\mathbf q.
+$$
+
+The same cost expressed on a uniform output graph is
+
+$$
+ds_U^2
+=
+d\mathbf q^\mathsf T
+J_g(\mathbf u)^{-\mathsf T}
+W_u
+J_g(\mathbf u)^{-1}
+d\mathbf q.
+$$
+
+Define the mechanism-dependent output-coordinate metric
+
+$$
+M_Q(\mathbf q)
+=
+J_g^{-\mathsf T}W_uJ_g^{-1},
+$$
+
+with $\mathbf u=g^{-1}(\mathbf q)$ on the selected branch. Thus the two descriptions are dual:
+
+$$
+M_U(\mathbf u)
+=
+J_g^\mathsf T W_q J_g
+$$
+
+pulls output cost back onto an input graph, while
+
+$$
+M_Q(\mathbf q)
+=
+J_g^{-\mathsf T}W_uJ_g^{-1}
+$$
+
+expresses actuator cost on an output-coordinate graph.
+
+A controlled planning comparison can retain both distances through a normalized additive objective:
+
+$$
+c_\alpha(e)
+=
+\alpha\frac{d_Q(e)}{s_Q}
++
+(1-\alpha)\frac{d_U(e)}{s_U},
+\qquad
+0\le\alpha\le1,
+$$
+
+where $s_Q$ and $s_U$ are declared characteristic scales. The endpoint $\alpha=1$ removes the mechanism from the cost and becomes a pure-output null control. The endpoint $\alpha=0$ measures actuator travel alone. Intermediate values ask when a transmission-dependent valuation becomes strong enough to alter the selected arm path.
+
+The underlying path objective can therefore be written independently of the selected graph coordinates. For a physical mechanism path
+
+$$
+\gamma(t)
+=
+\bigl(\mathbf u(t),\mathbf q(t)\bigr),
+\qquad
+\mathbf q(t)=g(\mathbf u(t)),
+$$
+
+define
+
+$$
+C[\gamma]
+=
+\int_0^T
+L\left(
+\mathbf u,
+\mathbf q,
+\dot{\mathbf u},
+\dot{\mathbf q}
+\right)dt.
+$$
+
+A uniform-$\mathcal U$ graph and a uniform-$\mathcal Q$ graph can then approximate the same continuous cost functional even though they have different nodes, edge lengths, and discretization errors. In the fine-grid limit, their optimal physical costs should converge when they preserve the same mechanism branch, feasibility rules, and objective. Their node-expansion counts need not converge to the same value because search effort depends on the chosen discretization.
+
 ---
 
 ## 8. Joint limits and hidden mechanism state
@@ -713,7 +934,7 @@ $$
 
 so the unfiltered input domain is toroidal. Output joint limits carve valid regions from this torus, potentially creating multiple sheets or disconnected components.
 
-### 8.3 Why search belongs in input space
+### 8.3 Why non-injective search belongs in input or lifted state
 
 If two input states share the same output coordinate, an output-only graph may collapse them into one node. That can create false connectivity: the planner may enter the merged node through an edge belonging to one physical state and leave through an edge belonging to the other.
 
@@ -723,10 +944,12 @@ $$
 v=
 \left(
 u_1,u_2,q_1,q_2,\text{assembly state}
-\right).
+\right),
 $$
 
-Search should occur in input space, while output and Cartesian spaces provide costs, constraints, and interpretation.
+or an equivalent lifted output state such as $(\mathbf q,\sigma)$ that preserves the missing preimage label. Full-cycle and non-injective planning should therefore retain input or lifted-state identity.
+
+On a certified monotonic branch, however, $g^{-1}(q)$ is unique and the output coordinate is a complete kinematic state. A uniform-$\mathcal Q$ graph is then valid, provided that every node and transition retains its mechanism-specific actuator realization.
 
 ---
 
@@ -1482,7 +1705,64 @@ Relevant less as proof of a four-bar elbow and more as evidence that linked surg
 **[16] Thakur et al. — physical artificial intelligence.**  
 A recent broad framing source. It is useful for vocabulary and field positioning, but it should not replace the more specific mechanism, morphology, and planning literature above.
 
-### 19.2 Questions to carry into the reading
+### 19.2 Conceptual framing and narrative order
+
+The literature should be read through a two-view structure that also organizes the paper's explanation.
+
+#### Mechanism view
+
+Begin with the conventional identity transmission,
+
+$$
+q=u,
+$$
+
+and make explicit that the ordinary revolute-joint model already contains a hidden **unit gearbox**. Because conventional kinematics usually begins in output coordinates $q$, the actuator-to-joint map is obscured. The identity case appears neutral only because its input and output coordinates coincide.
+
+Next introduce the general map
+
+$$
+\mathcal U\xrightarrow{g_m}\mathcal Q.
+$$
+
+Sample $\mathcal U$ uniformly and map those samples into $\mathcal Q$. This makes the function generator visible: equal actuator increments become equal, uniformly scaled, or configuration-dependent output increments for the unit gearbox, fixed gearbox, and four-bar respectively. The reader should see the deformation before being asked to interpret a graph-search result.
+
+> A uniform input graph reveals what motion the function generator physically generates.
+
+#### Planning-control view
+
+After the deformation is understood, return to a common uniform output graph. Give each mechanism the same output nodes, adjacency, output limits, start, goal, and nominal resolution. Reintroduce the mechanism through the inverse map, preimage state, feasibility, and edge weights.
+
+On an invertible branch,
+
+$$
+M_Q(q)
+=
+J_g^{-\mathsf T}W_uJ_g^{-1}
+$$
+
+expresses actuator-side cost in output coordinates. Two arms can therefore share the same $Q$ graph while assigning different costs to its edges and selecting different paths.
+
+> A uniform output graph reveals how different transmissions value the same possible arm motions.
+
+This second view is the controlled apples-to-apples comparison. It should also make clear why the function generator is easy to overlook: a uniform $Q$ graph without mechanism-dependent weights or hidden-state labels silently reduces every transmission to the unit gearbox abstraction.
+
+#### Proposed reader walk-up
+
+The narrative order should be:
+
+1. the familiar arm represented directly in $Q$;
+2. recognition that $q=u$ is an identity transmission rather than the absence of a transmission;
+3. explicit separation of $\mathcal U\to\mathcal Q\to\mathcal X$;
+4. a uniform-$U$ graph mapped into $Q$ to reveal the generated inequality;
+5. gearbox and four-bar examples as constant and variable cases;
+6. the induced metric and local speed, torque, and resolution consequences;
+7. a uniform-$Q$ graph with mechanism-dependent costs as the controlled planning comparison;
+8. lifted output state $(q,\sigma)$ when the mechanism is not globally invertible.
+
+This sequence lets the argument move from the familiar abstraction to the generalized mechanism without asking the reader to accept the full graph-theoretic formulation at once.
+
+### 19.3 Questions to carry into the reading
 
 1. Does the literature treat kinematic mappings themselves as computational structure, or primarily focus on compliance, dynamics, materials, and actuator placement?
 2. Has anyone explicitly measured path-planning node expansions as a function of transmission geometry?
@@ -1492,7 +1772,7 @@ A recent broad framing source. It is useful for vocabulary and field positioning
 6. Which morphology–control papers measure learning speed or sample complexity rather than only final task performance?
 7. Where does added morphological inequality make control or learning worse?
 
-### 19.3 Reading-note template
+### 19.4 Reading-note template
 
 For each source, preserve notes in this form:
 

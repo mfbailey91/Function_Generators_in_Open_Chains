@@ -15,10 +15,13 @@ from inequality_mechanisms.search import astar
 from inequality_mechanisms.spaces.limits import OutputJointLimits
 from inequality_mechanisms.visualization.paths import (
     cost_from_start,
+    lattice_edge_weights,
     path_inputs,
     path_outputs,
     plot_cartesian_path,
+    plot_input_graph_weights,
     plot_input_path,
+    plot_output_graph_weights,
     plot_output_path,
 )
 
@@ -69,6 +72,41 @@ class TestPathPlots:
             title="test cartesian",
         )
         for path in (u_png, q_png, x_png):
+            assert path.is_file()
+            assert path.stat().st_size > 0
+
+    def test_weighted_graph_plots(self, tmp_path: Path) -> None:
+        graph = _tiny_gearbox_graph()
+        valid = [n.node_id for n in graph.iter_valid_nodes()]
+        start, goal = valid[0], valid[-1]
+        result = astar(graph, start, goal)
+        assert result.found
+
+        edges, u_w, q_w = lattice_edge_weights(graph)
+        assert len(edges) == len(u_w) == len(q_w)
+        assert len(edges) > 0
+        assert np.all(np.isfinite(u_w))
+        assert np.all(np.isfinite(q_w))
+        assert np.all(u_w > 0)
+        assert np.all(q_w > 0)
+
+        u_png = plot_input_graph_weights(
+            graph,
+            result.path,
+            tmp_path / "input_weights.png",
+            start=start,
+            goal=goal,
+            title="weighted U",
+        )
+        q_png = plot_output_graph_weights(
+            graph,
+            result.path,
+            tmp_path / "output_weights.png",
+            start=start,
+            goal=goal,
+            title="weighted Q",
+        )
+        for path in (u_png, q_png):
             assert path.is_file()
             assert path.stat().st_size > 0
 

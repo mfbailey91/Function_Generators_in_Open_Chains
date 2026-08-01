@@ -26,6 +26,10 @@ import typer  # noqa: E402
 from inequality_mechanisms.experiments.v2_runner import (  # noqa: E402
     run_v2_experiment_from_path,
 )
+from inequality_mechanisms.experiments.v2_shared_q_paired_study import (  # noqa: E402
+    is_shared_q_paired_study_mapping,
+    run_shared_q_paired_study_from_path,
+)
 
 app = typer.Typer(
     add_completion=False,
@@ -60,11 +64,28 @@ def main(
     ),
 ) -> None:
     """Run the Version 2 pipeline and print the resulting run package path."""
+    import yaml  # type: ignore[import-untyped]
+
     cfg_path = (
         config if config is not None else _REPO_ROOT / "configs" / "v2" / "smoke.yaml"
     )
     if not cfg_path.is_file():
         raise typer.BadParameter(f"config not found: {cfg_path}")
+
+    raw = yaml.safe_load(cfg_path.read_text(encoding="utf-8"))
+    if isinstance(raw, dict) and is_shared_q_paired_study_mapping(raw):
+        result = run_shared_q_paired_study_from_path(
+            cfg_path,
+            results_root=results_root,
+            run_id=run_id,
+            write_figures=not no_figures,
+        )
+        typer.echo(f"run_id={result.run_id}")
+        typer.echo(f"path={result.path}")
+        typer.echo(f"n_trial_rows={result.n_trial_rows}")
+        typer.echo(f"n_failure_rows={result.n_failure_rows}")
+        typer.echo(f"n_pair_comparisons={result.n_pair_comparisons}")
+        return
 
     result = run_v2_experiment_from_path(
         cfg_path,

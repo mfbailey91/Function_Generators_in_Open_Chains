@@ -1072,6 +1072,11 @@ def equivalent_gearbox_branch(
 
     cert = reference.certificate
     dim = len(cert.input_lower)
+    u_lo = np.asarray(cert.input_lower, dtype=np.float64)
+    u_hi = np.asarray(cert.input_upper, dtype=np.float64)
+    q_lo = np.asarray(cert.output_lower, dtype=np.float64)
+    q_hi = np.asarray(cert.output_upper, dtype=np.float64)
+    r_eq = (q_hi - q_lo) / (u_hi - u_lo)
     mech = equivalent_gearbox_matching_endpoints(
         input_lower=cert.input_lower,
         input_upper=cert.input_upper,
@@ -1080,7 +1085,16 @@ def equivalent_gearbox_branch(
         matching_rule=matching_rule,
         periodic=tuple(False for _ in range(dim)),
         name=name,
-        provenance={"reference_branch_id": reference.branch_id},
+        provenance={
+            "reference_branch_id": reference.branch_id,
+            "matching_rule": matching_rule,
+            "r_eq": [float(x) for x in r_eq],
+            "u_min": [float(x) for x in u_lo],
+            "u_max": [float(x) for x in u_hi],
+            "q_min": [float(x) for x in q_lo],
+            "q_max": [float(x) for x in q_hi],
+            "label": "span_matched_gearbox",
+        },
     )
     return affine_operating_branch(
         mech,

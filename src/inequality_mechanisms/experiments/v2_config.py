@@ -36,8 +36,15 @@ CostName = Literal[
     "input_euclidean",
     "actuator_travel",
     "gain_resolution",
+    "q_u_blend",
 ]
-HeuristicName = Literal["zero", "uniform_step", "output_euclidean", "input_euclidean"]
+HeuristicName = Literal[
+    "zero",
+    "uniform_step",
+    "output_euclidean",
+    "input_euclidean",
+    "q_u_blend",
+]
 TaskSourceName = Literal["fixed_output_pairs"]
 MatchingRuleName = Literal["span", "total_variation", "rms_gain"]
 AlgorithmName = Literal["dijkstra", "astar"]
@@ -49,6 +56,7 @@ _DEFAULT_HEURISTIC: dict[str, str] = {
     "input_euclidean": "input_euclidean",
     "actuator_travel": "input_euclidean",
     "gain_resolution": "zero",
+    "q_u_blend": "zero",
 }
 
 #: Allowed heuristic names for each cost name (``zero`` always allowed).
@@ -58,6 +66,7 @@ _COMPATIBLE_HEURISTICS: dict[str, frozenset[str]] = {
     "input_euclidean": frozenset({"input_euclidean", "zero"}),
     "actuator_travel": frozenset({"input_euclidean", "zero"}),
     "gain_resolution": frozenset({"zero"}),
+    "q_u_blend": frozenset({"q_u_blend", "zero"}),
 }
 
 
@@ -92,6 +101,10 @@ class V2MechanismsConfig(BaseModel):
     four-bar operating branch against its endpoint-matched equivalent
     affine gearbox branch (the null-control pair per
     ``docs/software/PROJECT_PLAN.md``).
+
+    When ``fourbars`` is provided it must have length ``dim`` (one crank-
+    rocker per axis). Otherwise the single ``fourbar`` link set is
+    replicated across all axes (legacy V2.4 behavior).
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -99,7 +112,26 @@ class V2MechanismsConfig(BaseModel):
     comparison: MechanismComparisonName
     dim: int = Field(default=2, ge=1)
     fourbar: FourBarLinkConfig = Field(default_factory=_default_fourbar)
+    fourbars: list[FourBarLinkConfig] | None = None
     matching_rule: MatchingRuleName = "span"
+    gearbox_mechanism_id: Literal[
+        "equivalent_affine_gearbox", "span_matched_gearbox"
+    ] = "equivalent_affine_gearbox"
+
+    @model_validator(mode="after")
+    def _fourbars_length(self) -> V2MechanismsConfig:
+        if self.fourbars is not None and len(self.fourbars) != self.dim:
+            raise ValueError(
+                f"mechanisms.fourbars length ({len(self.fourbars)}) must "
+                f"match mechanisms.dim ({self.dim})"
+            )
+        return self
+
+    def resolved_fourbars(self) -> list[FourBarLinkConfig]:
+        """Return one four-bar link config per axis."""
+        if self.fourbars is not None:
+            return list(self.fourbars)
+        return [self.fourbar for _ in range(self.dim)]
 
 
 class V2BranchConfig(BaseModel):
@@ -150,12 +182,13 @@ class V2SamplingConfig(BaseModel):
 
 
 class V2ObjectiveConfig(BaseModel):
-    """Edge cost and compatible A* heuristic selection (V2-404)."""
+    """Edge cost and compatible A* heuristic selection (V2-404 / ADR-017)."""
 
     model_config = ConfigDict(extra="forbid")
 
     cost: CostName
     heuristic: HeuristicName | None = None
+    alpha: float | None = Field(default=None, ge=0.0, le=1.0)
 
     @model_validator(mode="after")
     def _heuristic_compatible(self) -> V2ObjectiveConfig:
@@ -166,6 +199,10 @@ class V2ObjectiveConfig(BaseModel):
                 f"heuristic {requested!r} is incompatible with cost "
                 f"{self.cost!r}; allowed: {sorted(allowed)}"
             )
+        if self.cost == "q_u_blend" and self.alpha is None:
+            raise ValueError("objective.alpha is required when cost is q_u_blend")
+        if self.cost != "q_u_blend" and self.alpha is not None:
+            raise ValueError("objective.alpha is only valid for cost q_u_blend")
         return self
 
     def resolved_heuristic(self) -> str:

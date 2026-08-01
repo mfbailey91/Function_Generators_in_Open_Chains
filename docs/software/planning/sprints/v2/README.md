@@ -9,8 +9,9 @@
 5. [Sprint V2.4 — Versioned Experiment Pipeline](SPRINT_V2_4_EXPERIMENT_PIPELINE.md)
 6. [Sprint V2.5 — Controlled 2R Study](SPRINT_V2_5_CONTROLLED_2R_STUDY.md)
 7. [Sprint V2.6 — Exact Query Overlays and Initial Capability Objectives](SPRINT_V2_6_QUERY_OVERLAYS_AND_CAPABILITIES.md)
+8. [Sprint V2.8 — Shared-Q Paired Mechanism Study](SPRINT_V2_8_SHARED_Q_PAIRED_STUDY.md)
 
-After V2.6: evaluate 2R results (including the Version 2 HTML run printout) before any higher-dimension work.
+V2.8 is the active 2R evidence sprint. It freezes five monotonic four-bar / span-matched gearbox pairs, reuses them across three exact task sets, and compares mechanism-dependent planning on shared uniform-Q graphs before any higher-dimension work.
 
 ## Deferred
 
@@ -27,7 +28,9 @@ V2.0 Contract + V1 baseline
                           └── V2.5 Controlled 2R study
                                 └── V2.6 Exact tasks + capabilities
                                       └── 2R evaluation / printout review
-                                            └── (deferred) V2.7 3R extension
+                                            └── V2.8 Shared-Q paired study
+                                                  └── evidence review
+                                                        └── (deferred) V2.7 3R extension
 ```
 
 V2.1 and early V2.2 design work may overlap after ADR acceptance, but V2.3 implementation must not begin until both contracts are stable.
@@ -41,8 +44,9 @@ V2.1 and early V2.2 design work may overlap after ADR acceptance, but V2.3 imple
 | Operating branch certificate passes | all Version 2 graphs |
 | Shared uniform-Q graph invariant passes | Version 2 runner promotion |
 | Search-level null control passes | controlled 2R study |
-| Grid convergence and exact-task controls pass | capability claims and any future 3R work |
-| 2R architecture is dimension-independent **and** 2R evidence reviewed | 3R implementation (deferred) |
+| Grid convergence and exact-task controls pass | capability claims and V2.8 |
+| Shared-Q pair invariants and pure-Q null controls pass | V2.8 interpretation |
+| V2.8 2R evidence reviewed | 3R implementation (deferred) |
 
 ## Scope boundary
 

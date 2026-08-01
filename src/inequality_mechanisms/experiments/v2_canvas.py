@@ -17,19 +17,24 @@ from inequality_mechanisms.experiments.canvas import _figure_grid, _fmt_num
 from inequality_mechanisms.experiments.registry import default_results_root
 
 _CANVAS_NAME = "index.html"
-_NULL_CONTROL_COSTS = frozenset({"uniform", "output_euclidean"})
+_NULL_CONTROL_COSTS = frozenset({"uniform", "output_euclidean", "q_u_blend"})
+_GEARBOX_IDS = ("equivalent_affine_gearbox", "span_matched_gearbox")
 _TRIAL_COLUMNS: tuple[tuple[str, str], ...] = (
     ("trial_index", "Trial"),
+    ("pair_id", "Pair"),
+    ("task_set_id", "Task"),
+    ("alpha", "Alpha"),
     ("mechanism_id", "Mechanism"),
     ("algorithm", "Algorithm"),
     ("found", "Found"),
     ("optimal_cost", "Cost"),
     ("n_expanded", "Expanded"),
     ("n_generated", "Generated"),
-    ("start_residual_norm", "Start resid"),
-    ("goal_residual_norm", "Goal resid"),
+    ("cost_norm_q", "Norm Q"),
+    ("cost_norm_u", "Norm U"),
     ("path_length_u", "Path U"),
     ("path_length_q", "Path Q"),
+    ("path_length_x", "Path X"),
 )
 
 
@@ -137,34 +142,66 @@ def _null_control_status(
     trial_rows: list[dict[str, Any]],
 ) -> dict[str, Any]:
     """Compare fourbar vs gearbox rows when null-control conditions apply."""
-    applicable = (
-        sampling_domain == "output" and str(cost_type) in _NULL_CONTROL_COSTS
-    )
+    applicable = sampling_domain == "output" and str(cost_type) in _NULL_CONTROL_COSTS
+    if cost_type == "q_u_blend":
+        # Only alpha=1 rows are pure-Q null controls.
+        trial_rows = [
+            row
+            for row in trial_rows
+            if row.get("alpha") is None or float(row.get("alpha", -1.0)) == 1.0
+        ]
+        if not trial_rows:
+            return {
+                "applicable": True,
+                "passed": None,
+                "detail": "No alpha=1 q_u_blend rows found for null-control check.",
+            }
     if not applicable:
         return {
             "applicable": False,
             "passed": None,
             "detail": (
                 "Null-control equality applies only for shared uniform-Q "
-                "sampling with output_euclidean or uniform cost."
+                "sampling with output_euclidean, uniform, or q_u_blend(alpha=1)."
             ),
         }
 
-    by_key: dict[tuple[Any, Any, Any], dict[str, Any]] = {}
+    by_key: dict[tuple[Any, ...], dict[str, Any]] = {}
     for row in trial_rows:
-        key = (row.get("trial_index"), row.get("algorithm"), row.get("mechanism_id"))
+        key = (
+            row.get("pair_id"),
+            row.get("task_set_id"),
+            row.get("trial_index"),
+            row.get("algorithm"),
+            row.get("alpha"),
+            row.get("mechanism_id"),
+        )
         by_key[key] = row
 
     trial_algos = {
-        (row.get("trial_index"), row.get("algorithm")) for row in trial_rows
+        (
+            row.get("pair_id"),
+            row.get("task_set_id"),
+            row.get("trial_index"),
+            row.get("algorithm"),
+            row.get("alpha"),
+        )
+        for row in trial_rows
     }
     mismatches: list[str] = []
     compared = 0
-    for trial_index, algorithm in sorted(
-        trial_algos, key=lambda x: (str(x[0]), str(x[1]))
+    for pair_id, task_set_id, trial_index, algorithm, alpha in sorted(
+        trial_algos,
+        key=lambda x: (str(x[0]), str(x[1]), str(x[2]), str(x[3]), str(x[4])),
     ):
-        a = by_key.get((trial_index, algorithm, "fourbar"))
-        b = by_key.get((trial_index, algorithm, "equivalent_affine_gearbox"))
+        a = by_key.get((pair_id, task_set_id, trial_index, algorithm, alpha, "fourbar"))
+        b = None
+        for gearbox_id in _GEARBOX_IDS:
+            b = by_key.get(
+                (pair_id, task_set_id, trial_index, algorithm, alpha, gearbox_id)
+            )
+            if b is not None:
+                break
         if a is None or b is None:
             continue
         compared += 1
@@ -184,9 +221,7 @@ def _null_control_status(
         )
         for name, va, vb in checks:
             if va != vb:
-                mismatches.append(
-                    f"trial {trial_index} {algorithm}: {name} mismatch"
-                )
+                mismatches.append(f"trial {trial_index} {algorithm}: {name} mismatch")
         ca = a.get("optimal_cost")
         cb = b.get("optimal_cost")
         if isinstance(ca, (int, float)) and isinstance(cb, (int, float)):
@@ -199,9 +234,7 @@ def _null_control_status(
                     f"trial {trial_index} {algorithm}: optimal_cost mismatch"
                 )
         elif ca != cb:
-            mismatches.append(
-                f"trial {trial_index} {algorithm}: optimal_cost mismatch"
-            )
+            mismatches.append(f"trial {trial_index} {algorithm}: optimal_cost mismatch")
 
     if compared == 0:
         return {
@@ -227,6 +260,174 @@ def _null_control_status(
         "n_compared": compared,
         "n_mismatches": 0,
     }
+
+
+def _pair_comparisons_html(rows: list[dict[str, Any]]) -> str:
+    if not rows:
+        return "<p class='muted'>No pair comparison rows.</p>"
+    cols = (
+        ("pair_id", "Pair"),
+        ("task_set_id", "Task"),
+        ("alpha", "Alpha"),
+        ("cost_delta", "Cost Δ"),
+        ("expansion_delta", "Exp Δ"),
+        ("node_jaccard", "Node Jac"),
+        ("edge_jaccard", "Edge Jac"),
+        ("identical_path", "Same path"),
+        ("actuator_travel_ratio", "U ratio"),
+        ("max_separation", "Max X sep"),
+        ("null_control_equal", "Null α=1"),
+    )
+    parts = ["<table><thead><tr>"]
+    for _, label in cols:
+        parts.append(f"<th>{html.escape(label)}</th>")
+    parts.append("</tr></thead><tbody>")
+    for row in rows:
+        parts.append("<tr>")
+        for key, _ in cols:
+            parts.append(f"<td>{_fmt_num(row.get(key))}</td>")
+        parts.append("</tr>")
+    parts.append("</tbody></table>")
+    return "\n".join(parts)
+
+
+_TASK_DISPLAY_NAMES: dict[str, str] = {
+    "cross_range": "Cross-range",
+}
+
+
+def _filter_figures(
+    figures: list[dict[str, Any]],
+    *,
+    kind: str,
+) -> list[dict[str, Any]]:
+    """Filter discovered figures by dashboard section kind."""
+    out: list[dict[str, Any]] = []
+    for fig in figures:
+        src = str(fig.get("src") or "")
+        name = str(fig.get("name") or "")
+        if kind == "expansions":
+            if "expansions" in name or "expansions" in src:
+                out.append(fig)
+        elif kind == "lattices":
+            if "/paths/" in src:
+                continue
+            if "expansions" in name:
+                continue
+            if (
+                name.endswith("q_lattice")
+                or name.endswith("u_fourbar")
+                or name.endswith("u_span_matched_gearbox")
+                or "/pair_" in src
+            ):
+                out.append(fig)
+        elif kind == "paths_q":
+            if "/paths/" in src and name.endswith("_q"):
+                out.append(fig)
+        elif kind == "paths_u":
+            if "/paths/" in src and name.endswith("_u"):
+                out.append(fig)
+        elif kind == "paths_x":
+            if "/paths/" in src and name.endswith("_x"):
+                out.append(fig)
+    return out
+
+
+def _study_sections_html(payload: dict[str, Any]) -> str:
+    """Render pair / alpha cards for the active study (cross-range only)."""
+    manifest = (
+        payload.get("manifest") if isinstance(payload.get("manifest"), dict) else {}
+    )
+    study = manifest.get("study") if isinstance(manifest.get("study"), dict) else None
+    if study is None:
+        return ""
+    trial_rows = (
+        payload.get("trial_rows") if isinstance(payload.get("trial_rows"), list) else []
+    )
+    raw_task_ids = [str(x) for x in (study.get("task_template_ids") or [])]
+    # Drop joint-dominant templates from the dashboard display.
+    task_ids = [
+        tid
+        for tid in raw_task_ids
+        if tid not in {"joint1_dominant", "joint2_dominant"}
+    ]
+    if not task_ids and "cross_range" in raw_task_ids:
+        task_ids = ["cross_range"]
+    if not task_ids:
+        task_ids = ["cross_range"]
+    pair_ids = [str(x) for x in (study.get("mechanism_pair_ids") or [])]
+    alphas = [float(a) for a in (study.get("alphas") or [])]
+    parts = [
+        "<section>",
+        "<h2>Shared-Q paired study</h2>",
+        "<p class='muted'>Hold output motions fixed; compare four-bar vs "
+        "span-matched gearbox under normalized Q/U cost.</p>",
+        "<div class='kv'>",
+        f"<div class='k'>Study</div><div>{html.escape(str(study.get('name', '')))}</div>",
+        f"<div class='k'>Pairs</div><div>{html.escape(', '.join(pair_ids))}</div>",
+        (
+            "<div class='k'>Task</div><div>"
+            f"{html.escape(', '.join(_TASK_DISPLAY_NAMES.get(t, t) for t in task_ids))}"
+            "</div>"
+        ),
+        (
+            "<div class='k'>Alphas</div><div>"
+            f"{html.escape(', '.join(str(a) for a in alphas))}"
+            "</div>"
+        ),
+        "</div>",
+    ]
+    for task_id in task_ids:
+        display = _TASK_DISPLAY_NAMES.get(task_id, task_id)
+        parts.append(f"<h3>Task: {html.escape(display)}</h3>")
+        parts.append("<div class='grid'>")
+        for pair_id in pair_ids:
+            rows = [
+                r
+                for r in trial_rows
+                if r.get("task_set_id") == task_id and r.get("pair_id") == pair_id
+            ]
+            if not rows:
+                # Also accept rows without task_set_id when only one task remains.
+                rows = [
+                    r
+                    for r in trial_rows
+                    if r.get("pair_id") == pair_id
+                    and (
+                        r.get("task_set_id") in (None, task_id)
+                        or r.get("task_set_id") == task_id
+                    )
+                ]
+            if not rows:
+                continue
+            parts.append("<div>")
+            parts.append(f"<h3>{html.escape(pair_id)}</h3>")
+            parts.append("<table><thead><tr>")
+            for label in ("α", "Mech", "Cost", "Exp", "Path U", "Path Q", "Path X"):
+                parts.append(f"<th>{label}</th>")
+            parts.append("</tr></thead><tbody>")
+            for row in sorted(
+                rows,
+                key=lambda r: (
+                    float(r.get("alpha") if r.get("alpha") is not None else -1),
+                    str(r.get("mechanism_id")),
+                ),
+            ):
+                parts.append(
+                    "<tr>"
+                    f"<td>{_fmt_num(row.get('alpha'))}</td>"
+                    f"<td>{html.escape(str(row.get('mechanism_id', '')))}</td>"
+                    f"<td>{_fmt_num(row.get('optimal_cost'))}</td>"
+                    f"<td>{_fmt_num(row.get('n_expanded'))}</td>"
+                    f"<td>{_fmt_num(row.get('path_length_u'))}</td>"
+                    f"<td>{_fmt_num(row.get('path_length_q'))}</td>"
+                    f"<td>{_fmt_num(row.get('path_length_x'))}</td>"
+                    "</tr>"
+                )
+            parts.append("</tbody></table></div>")
+        parts.append("</div>")
+    parts.append("</section>")
+    return "\n".join(parts)
 
 
 def _trial_table_html(rows: list[dict[str, Any]]) -> str:
@@ -296,10 +497,7 @@ def _branch_sections(branches: dict[str, Any]) -> str:
             else:
                 value = cert.get(key)
             parts.append(
-                "<tr>"
-                f"<th>{html.escape(label)}</th>"
-                f"<td>{_fmt_num(value)}</td>"
-                "</tr>"
+                f"<tr><th>{html.escape(label)}</th><td>{_fmt_num(value)}</td></tr>"
             )
         if isinstance(data, dict) and "branch_id" not in data:
             # Prefer short hash from certificate file name context later.
@@ -321,9 +519,7 @@ def _diagnostics_sections(diagnostics: dict[str, Any]) -> str:
         data = diagnostics[mechanism_id]
         parts.append(f"<h3>{html.escape(mechanism_id)}</h3>")
         parts.append(
-            "<pre>"
-            f"{html.escape(json.dumps(data, indent=2, sort_keys=True))}"
-            "</pre>"
+            f"<pre>{html.escape(json.dumps(data, indent=2, sort_keys=True))}</pre>"
         )
     return "\n".join(parts)
 
@@ -337,6 +533,13 @@ def collect_v2_canvas_payload(run_dir: Path | str) -> dict[str, Any]:
     manifest = _read_json(path / "manifest.json")
     trial_rows = _read_jsonl(path / "trials.jsonl")
     failure_rows = _read_jsonl(path / "failures.jsonl")
+    pair_comparisons = _read_jsonl(path / "pair_comparisons.jsonl")
+    pair_invariants: list[dict[str, Any]] = []
+    inv_path = path / "pair_invariants.json"
+    if inv_path.is_file():
+        raw_inv = json.loads(inv_path.read_text(encoding="utf-8"))
+        if isinstance(raw_inv, list):
+            pair_invariants = [x for x in raw_inv if isinstance(x, dict)]
 
     branches: dict[str, Any] = {}
     branches_dir = path / "branches"
@@ -353,11 +556,12 @@ def collect_v2_canvas_payload(run_dir: Path | str) -> dict[str, Any]:
     figures: list[dict[str, str]] = []
     figures_dir = path / "figures"
     if figures_dir.is_dir():
-        for file in sorted(figures_dir.glob("*.png")):
+        for file in sorted(figures_dir.rglob("*.png")):
+            rel = file.relative_to(path).as_posix()
             figures.append(
                 {
                     "name": file.stem,
-                    "src": f"figures/{file.name}",
+                    "src": rel,
                     "caption": file.stem.replace("_", " "),
                 }
             )
@@ -393,6 +597,8 @@ def collect_v2_canvas_payload(run_dir: Path | str) -> dict[str, Any]:
         "config_yaml": config_text,
         "trial_rows": trial_rows,
         "failure_rows": failure_rows,
+        "pair_comparisons": pair_comparisons,
+        "pair_invariants": pair_invariants,
         "branches": branches,
         "diagnostics": diagnostics,
         "figures": figures,
@@ -428,9 +634,7 @@ def render_v2_canvas_html(payload: dict[str, Any]) -> str:
         if isinstance(payload.get("failure_rows"), list)
         else []
     )
-    figures = (
-        payload.get("figures") if isinstance(payload.get("figures"), list) else []
-    )
+    figures = payload.get("figures") if isinstance(payload.get("figures"), list) else []
     branches = (
         payload.get("branches") if isinstance(payload.get("branches"), dict) else {}
     )
@@ -475,8 +679,39 @@ def render_v2_canvas_html(payload: dict[str, Any]) -> str:
     failures_html = _failures_html(failure_rows)
     branches_html = _branch_sections(branches)
     diagnostics_html = _diagnostics_sections(diagnostics)
-    figures_html = _figure_grid(
-        figures, empty="No figures/ PNGs in this run package."
+    study_html = _study_sections_html(payload)
+    pair_rows = (
+        payload.get("pair_comparisons")
+        if isinstance(payload.get("pair_comparisons"), list)
+        else []
+    )
+    pair_html = _pair_comparisons_html(pair_rows)
+    onset = manifest.get("divergence_onset_by_alpha")
+    onset_html = (
+        f"<pre>{html.escape(json.dumps(onset, indent=2, sort_keys=True))}</pre>"
+        if isinstance(onset, dict)
+        else "<p class='muted'>No divergence-onset summary.</p>"
+    )
+
+    expansions_html = _figure_grid(
+        _filter_figures(figures, kind="expansions"),
+        empty="No expansion figures.",
+    )
+    lattices_html = _figure_grid(
+        _filter_figures(figures, kind="lattices"),
+        empty="No shared Q/U lattice figures.",
+    )
+    paths_q_html = _figure_grid(
+        _filter_figures(figures, kind="paths_q"),
+        empty="No Q-path overlays.",
+    )
+    paths_u_html = _figure_grid(
+        _filter_figures(figures, kind="paths_u"),
+        empty="No U-path overlays.",
+    )
+    paths_x_html = _figure_grid(
+        _filter_figures(figures, kind="paths_x"),
+        empty="No Cartesian path figures.",
     )
 
     return f"""<!DOCTYPE html>
@@ -510,7 +745,7 @@ header {{
 }}
 header h1 {{ margin: 0 0 0.35rem; font-size: 1.6rem; }}
 header .meta {{ color: var(--muted); font-size: 0.95rem; }}
-main {{ padding: 1.25rem 2rem 3rem; max-width: 1200px; }}
+main {{ padding: 1.25rem 2rem 3rem; max-width: 1400px; }}
 section {{
   background: var(--panel);
   border: 1px solid var(--line);
@@ -527,7 +762,7 @@ h3 {{ margin: 1rem 0 0.5rem; font-size: 1rem; }}
 table {{
   width: 100%;
   border-collapse: collapse;
-  font-size: 0.9rem;
+  font-size: 0.85rem;
 }}
 th, td {{
   border-bottom: 1px solid var(--line);
@@ -592,10 +827,49 @@ summary {{ cursor: pointer; color: var(--accent); }}
     </div>
   </section>
 
+  {study_html}
+
+  <section>
+    <h2>Expansions</h2>
+    <p class="muted">Node expansions across pairs for four-bar vs span-matched gearbox.</p>
+    {expansions_html}
+  </section>
+
+  <section>
+    <h2>Shared Q and U lattices</h2>
+    <p class="muted">Common output graph and mechanism-specific actuator embeddings.</p>
+    {lattices_html}
+  </section>
+
+  <section>
+    <h2>Q paths</h2>
+    <p class="muted">Selected paths and expansions on the shared output lattice.</p>
+    {paths_q_html}
+  </section>
+
+  <section>
+    <h2>U paths</h2>
+    <p class="muted">Selected paths in each mechanism's actuator embedding.</p>
+    {paths_u_html}
+  </section>
+
+  <section>
+    <h2>Cartesian paths</h2>
+    <p class="muted">End-effector trajectories with start and goal poses.</p>
+    {paths_x_html}
+  </section>
+
   <section>
     <h2>Null-control gate</h2>
     <p class="{null_class}">{null_label}</p>
     <p class="muted">{null_detail}</p>
+  </section>
+
+  <section>
+    <h2>Paired comparisons</h2>
+    {pair_html}
+    <h3>Path divergence onset vs alpha</h3>
+    {onset_html}
   </section>
 
   <section>
@@ -619,13 +893,8 @@ summary {{ cursor: pointer; color: var(--accent); }}
   </section>
 
   <section>
-    <h2>Figures</h2>
-    {figures_html}
-  </section>
-
-  <section>
     <h2>Config</h2>
-    <details open>
+    <details>
       <summary>config.yaml</summary>
       <pre>{config_yaml}</pre>
     </details>
@@ -642,7 +911,6 @@ summary {{ cursor: pointer; color: var(--accent); }}
 </body>
 </html>
 """
-
 
 
 def write_v2_canvas(

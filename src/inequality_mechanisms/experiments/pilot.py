@@ -75,11 +75,16 @@ from inequality_mechanisms.visualization.expansions import (
     plot_paired_log_ratios,
     plot_raw_expansions,
 )
+from inequality_mechanisms.visualization.path_lengths import (
+    plot_path_length_q,
+    plot_path_length_x,
+)
 from inequality_mechanisms.visualization.paths import (
     cost_from_start,
     path_outputs,
     plot_cartesian_path,
-    plot_input_path,
+    plot_input_graph_weights,
+    plot_output_graph_weights,
     plot_output_path,
 )
 
@@ -244,14 +249,13 @@ def _write_path_sample(
     fb_costs = cost_from_start(paired.fourbar, task.fourbar.start_node_id)
 
     figures = {
-        "gearbox_input": plot_input_path(
+        "gearbox_input": plot_input_graph_weights(
             paired.gearbox,
             gb_res.path,
             out / "gearbox_input.png",
-            costs=gb_costs,
             start=task.gearbox.start_node_id,
             goal=task.gearbox.goal_node_id,
-            title=f"Trial {trial_index} gearbox U",
+            title=f"Trial {trial_index} gearbox U (weighted)",
         ),
         "gearbox_output": plot_output_path(
             paired.gearbox,
@@ -262,20 +266,27 @@ def _write_path_sample(
             goal=task.gearbox.goal_node_id,
             title=f"Trial {trial_index} gearbox Q",
         ),
+        "gearbox_output_weights": plot_output_graph_weights(
+            paired.gearbox,
+            gb_res.path,
+            out / "gearbox_output_weights.png",
+            start=task.gearbox.start_node_id,
+            goal=task.gearbox.goal_node_id,
+            title=f"Trial {trial_index} gearbox Q weights",
+        ),
         "gearbox_cartesian": plot_cartesian_path(
             path_outputs(paired.gearbox, gb_res.path),
             out / "gearbox_cartesian.png",
             plant=plant,
             title=f"Trial {trial_index} gearbox Cartesian",
         ),
-        "fourbar_input": plot_input_path(
+        "fourbar_input": plot_input_graph_weights(
             paired.fourbar,
             fb_res.path,
             out / "fourbar_input.png",
-            costs=fb_costs,
             start=task.fourbar.start_node_id,
             goal=task.fourbar.goal_node_id,
-            title=f"Trial {trial_index} four-bar U",
+            title=f"Trial {trial_index} four-bar U (weighted)",
         ),
         "fourbar_output": plot_output_path(
             paired.fourbar,
@@ -285,6 +296,14 @@ def _write_path_sample(
             start=task.fourbar.start_node_id,
             goal=task.fourbar.goal_node_id,
             title=f"Trial {trial_index} four-bar Q",
+        ),
+        "fourbar_output_weights": plot_output_graph_weights(
+            paired.fourbar,
+            fb_res.path,
+            out / "fourbar_output_weights.png",
+            start=task.fourbar.start_node_id,
+            goal=task.fourbar.goal_node_id,
+            title=f"Trial {trial_index} four-bar Q weights",
         ),
         "fourbar_cartesian": plot_cartesian_path(
             path_outputs(paired.fourbar, fb_res.path),
@@ -423,24 +442,32 @@ def _write_plots(
     *,
     figures_dir: Path | None,
 ) -> dict[str, Path]:
-    """Write expansion PNGs under the run outputs (and optional copy dir)."""
+    """Write expansion and path-length PNGs under the run outputs."""
     outputs = run.outputs_dir
     raw_path = outputs / "expansions_raw.png"
     norm_path = outputs / "expansions_normalized.png"
     ratio_path = outputs / "expansions_ratio.png"
+    length_q_path = outputs / "path_length_q.png"
+    length_x_path = outputs / "path_length_x.png"
 
     plot_raw_expansions(rows, raw_path)
     plot_normalized_expansions(rows, norm_path)
     plot_paired_log_ratios(rows, ratio_path)
+    plot_path_length_q(rows, length_q_path)
+    plot_path_length_x(rows, length_x_path)
 
     run.register_output("expansions_raw", "outputs/expansions_raw.png")
     run.register_output("expansions_normalized", "outputs/expansions_normalized.png")
     run.register_output("expansions_ratio", "outputs/expansions_ratio.png")
+    run.register_output("path_length_q", "outputs/path_length_q.png")
+    run.register_output("path_length_x", "outputs/path_length_x.png")
 
     written = {
         "expansions_raw": raw_path,
         "expansions_normalized": norm_path,
         "expansions_ratio": ratio_path,
+        "path_length_q": length_q_path,
+        "path_length_x": length_x_path,
     }
     if figures_dir is not None:
         figures_dir = Path(figures_dir)

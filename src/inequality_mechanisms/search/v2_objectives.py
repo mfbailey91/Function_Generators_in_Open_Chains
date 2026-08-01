@@ -31,14 +31,22 @@ class _V2GraphLike(Protocol):
 
     def edge_trace(self, a: int, b: int, n_samples: int = 17) -> Any: ...
 
+
 V2CostName = Literal[
     "uniform",
     "output_euclidean",
     "input_euclidean",
     "actuator_travel",
     "gain_resolution",
+    "q_u_blend",
 ]
-V2HeuristicName = Literal["zero", "uniform_step", "output_euclidean", "input_euclidean"]
+V2HeuristicName = Literal[
+    "zero",
+    "uniform_step",
+    "output_euclidean",
+    "input_euclidean",
+    "q_u_blend",
+]
 
 KNOWN_V2_COST_TYPES: frozenset[str] = frozenset(
     {
@@ -47,6 +55,7 @@ KNOWN_V2_COST_TYPES: frozenset[str] = frozenset(
         "input_euclidean",
         "actuator_travel",
         "gain_resolution",
+        "q_u_blend",
     }
 )
 
@@ -57,6 +66,7 @@ _DEFAULT_HEURISTIC: dict[str, str] = {
     "input_euclidean": "input_euclidean",
     "actuator_travel": "input_euclidean",
     "gain_resolution": "zero",
+    "q_u_blend": "zero",
 }
 
 #: Allowed heuristic names for each cost name (``zero`` always allowed).
@@ -66,6 +76,7 @@ _COMPATIBLE: dict[str, frozenset[str]] = {
     "input_euclidean": frozenset({"input_euclidean", "zero"}),
     "actuator_travel": frozenset({"input_euclidean", "zero"}),
     "gain_resolution": frozenset({"zero"}),
+    "q_u_blend": frozenset({"q_u_blend", "zero"}),
 }
 
 
@@ -161,6 +172,199 @@ def gain_resolution_edge_cost(
     return cost
 
 
+@dataclass(frozen=True, slots=True)
+class QUBlendComponents:
+    """Raw and normalized Q/U components for one edge or path (ADR-017)."""
+
+    d_q: float
+    d_u: float
+    norm_q: float
+    norm_u: float
+    combined: float
+    alpha: float
+    s_q: float
+    s_u: float
+
+    def to_dict(self) -> dict[str, float]:
+        """Serialize component fields."""
+        return {
+            "d_q": float(self.d_q),
+            "d_u": float(self.d_u),
+            "norm_q": float(self.norm_q),
+            "norm_u": float(self.norm_u),
+            "combined": float(self.combined),
+            "alpha": float(self.alpha),
+            "s_q": float(self.s_q),
+            "s_u": float(self.s_u),
+        }
+
+
+def pair_box_scales(
+    q_lower: NDArray[np.float64],
+    q_upper: NDArray[np.float64],
+    u_lower: NDArray[np.float64],
+    u_upper: NDArray[np.float64],
+) -> tuple[float, float]:
+    """Return ``(s_Q, s_U)`` as Euclidean diagonals of the certified boxes."""
+    s_q = float(np.linalg.norm(np.asarray(q_upper) - np.asarray(q_lower)))
+    s_u = float(np.linalg.norm(np.asarray(u_upper) - np.asarray(u_lower)))
+    if not (np.isfinite(s_q) and s_q > 0.0 and np.isfinite(s_u) and s_u > 0.0):
+        raise ValueError(
+            f"pair scales must be finite and positive, got s_q={s_q}, s_u={s_u}"
+        )
+    return s_q, s_u
+
+
+def integrate_trace_arc_lengths(
+    graph: _V2GraphLike, a: int, b: int, *, edge_n_samples: int = 17
+) -> tuple[float, float]:
+    """Integrate ``d_Q`` and ``d_U`` along an output-linear edge trace."""
+    trace = graph.edge_trace(a, b, n_samples=edge_n_samples)
+    valid = trace.branch_valid
+    d_q = 0.0
+    d_u = 0.0
+    for k in range(edge_n_samples - 1):
+        if not (bool(valid[k]) and bool(valid[k + 1])):
+            continue
+        d_q += float(np.linalg.norm(trace.q[k + 1] - trace.q[k]))
+        d_u += float(np.linalg.norm(trace.u[k + 1] - trace.u[k]))
+    return float(d_q), float(d_u)
+
+
+def q_u_blend_components(
+    d_q: float,
+    d_u: float,
+    *,
+    alpha: float,
+    s_q: float,
+    s_u: float,
+) -> QUBlendComponents:
+    """Assemble normalized additive components for ADR-017."""
+    if not (0.0 <= float(alpha) <= 1.0):
+        raise ValueError(f"alpha must lie in [0, 1], got {alpha}")
+    if not (np.isfinite(s_q) and s_q > 0.0 and np.isfinite(s_u) and s_u > 0.0):
+        raise ValueError(
+            f"scales must be finite and positive, got s_q={s_q}, s_u={s_u}"
+        )
+    norm_q = float(d_q) / float(s_q)
+    norm_u = float(d_u) / float(s_u)
+    combined = float(alpha) * norm_q + (1.0 - float(alpha)) * norm_u
+    return QUBlendComponents(
+        d_q=float(d_q),
+        d_u=float(d_u),
+        norm_q=norm_q,
+        norm_u=norm_u,
+        combined=combined,
+        alpha=float(alpha),
+        s_q=float(s_q),
+        s_u=float(s_u),
+    )
+
+
+def q_u_blend_edge_cost(
+    graph: _V2GraphLike,
+    *,
+    alpha: float,
+    s_q: float,
+    s_u: float,
+    edge_n_samples: int = 17,
+) -> EdgeCost:
+    """Build the ADR-017 normalized additive Q/U edge cost.
+
+    For ``alpha == 1`` the actuator integral is skipped (pure-Q null control).
+    Edge evaluations are memoized because Dijkstra may request the same
+    undirected lattice edge from both endpoints during expansions.
+    """
+    cache: dict[tuple[int, int], float] = {}
+
+    def cost(a: int, b: int) -> float:
+        key = (a, b) if a <= b else (b, a)
+        cached = cache.get(key)
+        if cached is not None:
+            return cached
+        if float(alpha) == 1.0:
+            d_q = float(np.linalg.norm(graph.q_state(b) - graph.q_state(a)))
+            value = d_q / float(s_q)
+        elif float(alpha) == 0.0:
+            _d_q, d_u = integrate_trace_arc_lengths(
+                graph, a, b, edge_n_samples=edge_n_samples
+            )
+            value = d_u / float(s_u)
+        else:
+            d_q, d_u = integrate_trace_arc_lengths(
+                graph, a, b, edge_n_samples=edge_n_samples
+            )
+            value = q_u_blend_components(
+                d_q, d_u, alpha=alpha, s_q=s_q, s_u=s_u
+            ).combined
+        cache[key] = value
+        return value
+
+    return cost
+
+
+def q_u_blend_edge_components(
+    graph: _V2GraphLike,
+    a: int,
+    b: int,
+    *,
+    alpha: float,
+    s_q: float,
+    s_u: float,
+    edge_n_samples: int = 17,
+) -> QUBlendComponents:
+    """Return component breakdown for one edge under ``q_u_blend``."""
+    d_q, d_u = integrate_trace_arc_lengths(graph, a, b, edge_n_samples=edge_n_samples)
+    return q_u_blend_components(d_q, d_u, alpha=alpha, s_q=s_q, s_u=s_u)
+
+
+def path_q_u_blend_components(
+    graph: _V2GraphLike,
+    path: tuple[int, ...],
+    *,
+    alpha: float,
+    s_q: float,
+    s_u: float,
+    edge_n_samples: int = 17,
+) -> QUBlendComponents:
+    """Sum raw arc lengths along ``path`` and renormalize once (ADR-017)."""
+    d_q = 0.0
+    d_u = 0.0
+    if len(path) >= 2:
+        for a, b in zip(path[:-1], path[1:]):
+            dq, du = integrate_trace_arc_lengths(
+                graph, a, b, edge_n_samples=edge_n_samples
+            )
+            d_q += dq
+            d_u += du
+    return q_u_blend_components(d_q, d_u, alpha=alpha, s_q=s_q, s_u=s_u)
+
+
+def q_u_blend_heuristic_v2(
+    graph: _V2GraphLike,
+    goal: int,
+    *,
+    alpha: float,
+    s_q: float,
+    s_u: float,
+) -> Heuristic:
+    """Straight-line blended lower bound (ADR-017).
+
+    Enable only after admissibility tests against reverse Dijkstra.
+    """
+    q_goal = graph.q_state(goal)
+    u_goal = graph.u_state(goal)
+
+    def h(node_id: int) -> float:
+        dq = float(np.linalg.norm(graph.q_state(node_id) - q_goal))
+        du = float(np.linalg.norm(graph.u_state(node_id) - u_goal))
+        return float(alpha) * (dq / float(s_q)) + (1.0 - float(alpha)) * (
+            du / float(s_u)
+        )
+
+    return h
+
+
 def output_euclidean_heuristic_v2(graph: _V2GraphLike, goal: int) -> Heuristic:
     """Build ``h(n) = d_Q(q_n, q_goal)``; admissible/consistent for output cost."""
     output_space = graph.branch.output_space
@@ -199,13 +403,22 @@ def uniform_step_heuristic_v2(graph: _V2GraphLike, goal: int) -> Heuristic:
     return h
 
 
-def build_v2_edge_cost(graph: _V2GraphLike, cost_name: str) -> EdgeCost:
+def build_v2_edge_cost(
+    graph: _V2GraphLike,
+    cost_name: str,
+    *,
+    alpha: float | None = None,
+    s_q: float | None = None,
+    s_u: float | None = None,
+    edge_n_samples: int = 17,
+) -> EdgeCost:
     """Return the named Version 2 edge cost bound to ``graph``.
 
     Raises
     ------
     ValueError
-        If ``cost_name`` is not a known Version 2 cost.
+        If ``cost_name`` is not a known Version 2 cost, or ``q_u_blend``
+        is requested without ``alpha``, ``s_q``, and ``s_u``.
     """
     name = str(cost_name)
     if name == "uniform":
@@ -217,7 +430,19 @@ def build_v2_edge_cost(graph: _V2GraphLike, cost_name: str) -> EdgeCost:
     if name == "actuator_travel":
         return actuator_travel_edge_cost(graph)
     if name == "gain_resolution":
-        return gain_resolution_edge_cost(graph)
+        return gain_resolution_edge_cost(graph, edge_n_samples=edge_n_samples)
+    if name == "q_u_blend":
+        if alpha is None or s_q is None or s_u is None:
+            raise ValueError(
+                "q_u_blend requires alpha, s_q, and s_u (ADR-017 pair scales)"
+            )
+        return q_u_blend_edge_cost(
+            graph,
+            alpha=float(alpha),
+            s_q=float(s_q),
+            s_u=float(s_u),
+            edge_n_samples=edge_n_samples,
+        )
     raise ValueError(
         f"unknown Version 2 cost {name!r}; expected one of "
         + ", ".join(sorted(KNOWN_V2_COST_TYPES))
@@ -239,7 +464,13 @@ def compatible_v2_heuristic_names(cost_name: str) -> frozenset[str]:
 
 
 def _build_v2_heuristic(
-    graph: _V2GraphLike, goal: int, heuristic_name: str
+    graph: _V2GraphLike,
+    goal: int,
+    heuristic_name: str,
+    *,
+    alpha: float | None = None,
+    s_q: float | None = None,
+    s_u: float | None = None,
 ) -> Heuristic:
     name = str(heuristic_name)
     if name == "zero":
@@ -250,6 +481,12 @@ def _build_v2_heuristic(
         return output_euclidean_heuristic_v2(graph, goal)
     if name == "input_euclidean":
         return input_euclidean_heuristic_v2(graph, goal)
+    if name == "q_u_blend":
+        if alpha is None or s_q is None or s_u is None:
+            raise ValueError("q_u_blend heuristic requires alpha, s_q, and s_u")
+        return q_u_blend_heuristic_v2(
+            graph, goal, alpha=float(alpha), s_q=float(s_q), s_u=float(s_u)
+        )
     raise ValueError(f"unknown Version 2 heuristic name {name!r}")
 
 
@@ -265,12 +502,17 @@ class V2PlanningObjective:
         Admissible cost-to-go estimate ``h(node_id)`` anchored at ``goal``.
     cost_name, heuristic_name :
         Registry names of the resolved metric and heuristic.
+    alpha, s_q, s_u :
+        Optional ADR-017 blend parameters (``None`` for non-blend costs).
     """
 
     edge_cost: EdgeCost
     heuristic: Heuristic
     cost_name: str
     heuristic_name: str
+    alpha: float | None = None
+    s_q: float | None = None
+    s_u: float | None = None
 
 
 def resolve_v2_objective(
@@ -278,6 +520,11 @@ def resolve_v2_objective(
     goal: int,
     cost_name: str,
     heuristic_name: str | None = None,
+    *,
+    alpha: float | None = None,
+    s_q: float | None = None,
+    s_u: float | None = None,
+    edge_n_samples: int = 17,
 ) -> V2PlanningObjective:
     """Resolve a compatible ``(edge_cost, heuristic)`` pair from names.
 
@@ -292,6 +539,10 @@ def resolve_v2_objective(
     heuristic_name :
         Optional heuristic override. Defaults to the compatible A*
         heuristic for ``cost_name``.
+    alpha, s_q, s_u :
+        Required for ``q_u_blend`` (ADR-017).
+    edge_n_samples :
+        Trace sample count for path-integral costs.
 
     Returns
     -------
@@ -310,7 +561,14 @@ def resolve_v2_objective(
             f"unknown Version 2 cost {cost!r}; expected one of "
             + ", ".join(sorted(KNOWN_V2_COST_TYPES))
         )
-    edge_cost = build_v2_edge_cost(graph, cost)
+    edge_cost = build_v2_edge_cost(
+        graph,
+        cost,
+        alpha=alpha,
+        s_q=s_q,
+        s_u=s_u,
+        edge_n_samples=edge_n_samples,
+    )
     allowed = compatible_v2_heuristic_names(cost)
     h_name = (
         default_v2_heuristic_name(cost)
@@ -322,10 +580,13 @@ def resolve_v2_objective(
             f"heuristic {h_name!r} is incompatible with cost {cost!r}; "
             f"allowed: {', '.join(sorted(allowed))}"
         )
-    heuristic = _build_v2_heuristic(graph, goal, h_name)
+    heuristic = _build_v2_heuristic(graph, goal, h_name, alpha=alpha, s_q=s_q, s_u=s_u)
     return V2PlanningObjective(
         edge_cost=edge_cost,
         heuristic=heuristic,
         cost_name=cost,
         heuristic_name=h_name,
+        alpha=None if alpha is None else float(alpha),
+        s_q=None if s_q is None else float(s_q),
+        s_u=None if s_u is None else float(s_u),
     )

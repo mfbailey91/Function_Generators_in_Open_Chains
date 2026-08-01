@@ -182,6 +182,12 @@ class TestMonteCarloCanvas:
         assert out.name == "index.html"
         text = out.read_text(encoding="utf-8")
         assert "dijkstra" in text
+        assert "path_length_q.png" in text
+        assert "path_length_x.png" in text
+        assert "Joint path length" in text
+        assert "End-effector path length" in text
+        assert (run_path / "outputs" / "path_length_q.png").is_file()
+        assert (run_path / "outputs" / "path_length_x.png").is_file()
 
         # Regeneration overwrites derived HTML only; summary untouched.
         summary_before = (run_path / "outputs" / "summary.json").read_text()
@@ -190,6 +196,18 @@ class TestMonteCarloCanvas:
         assert again.read_text(encoding="utf-8").startswith("<!DOCTYPE html>")
         assert (run_path / "outputs" / "summary.json").read_text() == summary_before
 
+    def test_write_canvas_emits_path_length_plots_from_trials(
+        self, tmp_path: Path
+    ) -> None:
+        run_path = _completed_synthetic_run(tmp_path)
+        # No pre-registered path-length PNGs; canvas regen must write them.
+        assert not (run_path / "outputs" / "path_length_q.png").is_file()
+        write_monte_carlo_canvas(run_path)
+        assert (run_path / "outputs" / "path_length_q.png").stat().st_size > 0
+        assert (run_path / "outputs" / "path_length_x.png").stat().st_size > 0
+        html_text = (run_path / "index.html").read_text(encoding="utf-8")
+        assert 'src="outputs/path_length_q.png"' in html_text
+        assert 'src="outputs/path_length_x.png"' in html_text
     def test_resolve_latest(self, tmp_path: Path) -> None:
         import time
 

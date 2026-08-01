@@ -54,6 +54,7 @@ from inequality_mechanisms.graphs.embedded import (
     UniformOutputLattice,
 )
 from inequality_mechanisms.graphs.query_overlay import QueryOverlayGraph
+from inequality_mechanisms.graphs.pair_invariants import assert_shared_q_pair_invariants
 from inequality_mechanisms.kinematics import Planar2R
 from inequality_mechanisms.mechanisms.branch_selection import (
     select_fourbar_monotonic_branch,
@@ -65,12 +66,20 @@ from inequality_mechanisms.mechanisms.operating_branch import (
 )
 from inequality_mechanisms.search.core import best_first_search
 from inequality_mechanisms.search.result import SearchResult
-from inequality_mechanisms.search.v2_objectives import resolve_v2_objective
+from inequality_mechanisms.search.v2_objectives import (
+    pair_box_scales,
+    path_q_u_blend_components,
+    resolve_v2_objective,
+)
 
 FOURBAR_MECHANISM_ID = "fourbar"
 GEARBOX_MECHANISM_ID = "equivalent_affine_gearbox"
+SPAN_MATCHED_GEARBOX_MECHANISM_ID = "span_matched_gearbox"
+_GEARBOX_IDS = frozenset({GEARBOX_MECHANISM_ID, SPAN_MATCHED_GEARBOX_MECHANISM_ID})
 
-_NULL_CONTROL_COSTS: frozenset[str] = frozenset({"uniform", "output_euclidean"})
+_NULL_CONTROL_COSTS: frozenset[str] = frozenset(
+    {"uniform", "output_euclidean", "q_u_blend"}
+)
 
 
 class V2RunnerError(RuntimeError):
@@ -116,20 +125,29 @@ def build_mechanism_branches(
 
     Implements ``mechanisms.comparison: fourbar_vs_equivalent_affine_gearbox``,
     the only comparison Version 2.4 supports: ``config.mechanisms.dim``
-    independent crank-rockers built from ``config.mechanisms.fourbar``, a
+    independent crank-rockers from ``fourbars`` (or replicated ``fourbar``), a
     monotonic operating branch selected per ``config.branch``, and an
     endpoint-matched
     :class:`~inequality_mechanisms.mechanisms.gearbox.EquivalentGearbox`
     branch sharing the four-bar's certified output chart (the null-control
-    pair, ADR-014/ADR-015).
+    pair, ADR-014/ADR-015). The gearbox mechanism id defaults to
+    ``equivalent_affine_gearbox`` and may be set to ``span_matched_gearbox``
+    (ADR-017 / Sprint V2.8).
     """
     mech_cfg = config.mechanisms
     branch_cfg = config.branch
-    fb = mech_cfg.fourbar
     bars = [
-        PlanarFourBar(a=fb.a, b=fb.b, c=fb.c, d=fb.d, branch=fb.branch, name=f"bar{i}")
-        for i in range(mech_cfg.dim)
+        PlanarFourBar(
+            a=fb.a,
+            b=fb.b,
+            c=fb.c,
+            d=fb.d,
+            branch=fb.branch,
+            name=f"bar{i}",
+        )
+        for i, fb in enumerate(mech_cfg.resolved_fourbars())
     ]
+    gearbox_id = str(mech_cfg.gearbox_mechanism_id)
     fourbar_mech = IndependentFourBars(bars, name=FOURBAR_MECHANISM_ID)
     fourbar_branch = select_fourbar_monotonic_branch(
         fourbar_mech,
@@ -146,14 +164,14 @@ def build_mechanism_branches(
     gearbox_branch = equivalent_gearbox_branch(
         fourbar_branch,
         matching_rule=mech_cfg.matching_rule,
-        name=GEARBOX_MECHANISM_ID,
+        name=gearbox_id,
         certification_samples_per_axis=branch_cfg.certification_samples_per_axis,
         min_abs_gain=branch_cfg.minimum_abs_gain,
         residual_tol=branch_cfg.inverse_tolerance,
     )
     return {
         FOURBAR_MECHANISM_ID: fourbar_branch,
-        GEARBOX_MECHANISM_ID: gearbox_branch,
+        gearbox_id: gearbox_branch,
     }
 
 
@@ -276,12 +294,14 @@ def _assert_null_control_invariant(
     """Enforce the shared uniform-Q null-control hard gate at run time.
 
     Only applies when sampling is uniform-``Q`` (shared lattice) and the
-    edge cost is a pure function of ``q`` (``uniform`` or
-    ``output_euclidean``); ``input_euclidean`` on a shared ``Q`` lattice is
-    the deliberately mechanism-dependent actuator-metric cell of the
-    experimental matrix and must *not* be forced equal.
+    edge cost is a pure function of ``q`` (``uniform``, ``output_euclidean``,
+    or ``q_u_blend`` with ``alpha == 1``). Mechanism-dependent actuator
+    metrics must *not* be forced equal.
     """
-    if config.objective.cost not in _NULL_CONTROL_COSTS:
+    cost = config.objective.cost
+    if cost not in _NULL_CONTROL_COSTS:
+        return
+    if cost == "q_u_blend" and float(config.objective.alpha or 0.0) != 1.0:
         return
     if len(per_mechanism_results) != 2:
         return
@@ -307,6 +327,22 @@ def _assert_null_control_invariant(
                 f"path={result_a.path}/{result_b.path}, "
                 f"n_expanded={result_a.n_expanded}/{result_b.n_expanded})"
             )
+
+
+def _objective_scales(
+    config: V2ExperimentConfig, reference_branch: OperatingBranch
+) -> tuple[float | None, float | None, float | None]:
+    """Return ``(alpha, s_q, s_u)`` for the configured objective."""
+    if config.objective.cost != "q_u_blend":
+        return None, None, None
+    cert = reference_branch.certificate
+    s_q, s_u = pair_box_scales(
+        np.asarray(cert.output_lower, dtype=np.float64),
+        np.asarray(cert.output_upper, dtype=np.float64),
+        np.asarray(cert.input_lower, dtype=np.float64),
+        np.asarray(cert.input_upper, dtype=np.float64),
+    )
+    return float(config.objective.alpha), s_q, s_u
 
 
 def _write_run_package(
@@ -465,7 +501,18 @@ def run_v2_experiment(
 
     mechanism_branches = build_mechanism_branches(config)
     graphs = build_graphs(config, mechanism_branches)
-    reference_output_space = next(iter(mechanism_branches.values())).output_space
+    if config.sampling.domain == "output" and len(graphs) == 2:
+        g_a, g_b = list(graphs.values())
+        assert_shared_q_pair_invariants(
+            g_a,
+            g_b,
+            residual_tol=config.branch.inverse_tolerance,
+            edge_n_samples=config.edge_validation.samples,
+            raise_on_failure=True,
+        )
+    reference_branch = next(iter(mechanism_branches.values()))
+    reference_output_space = reference_branch.output_space
+    alpha, s_q, s_u = _objective_scales(config, reference_branch)
     tasks = _resolve_tasks(config, reference_output_space)
 
     trial_rows: list[dict[str, Any]] = []
@@ -623,7 +670,14 @@ def run_v2_experiment(
                     else config.objective.resolved_heuristic()
                 )
                 objective = resolve_v2_objective(
-                    graph, goal_id, config.objective.cost, heuristic_name
+                    graph,
+                    goal_id,
+                    config.objective.cost,
+                    heuristic_name,
+                    alpha=alpha,
+                    s_q=s_q,
+                    s_u=s_u,
+                    edge_n_samples=config.edge_validation.samples,
                 )
                 result = best_first_search(
                     graph,
@@ -636,8 +690,35 @@ def run_v2_experiment(
                 algo_results[algorithm] = result
                 length_u, length_q, length_x = _path_metrics(branch, graph, result.path)
 
+                cost_d_q = cost_d_u = cost_norm_q = cost_norm_u = None
+                if (
+                    config.objective.cost == "q_u_blend"
+                    and alpha is not None
+                    and s_q is not None
+                    and s_u is not None
+                    and result.found
+                ):
+                    comps = path_q_u_blend_components(
+                        graph,
+                        result.path,
+                        alpha=alpha,
+                        s_q=s_q,
+                        s_u=s_u,
+                        edge_n_samples=config.edge_validation.samples,
+                    )
+                    cost_d_q = comps.d_q
+                    cost_d_u = comps.d_u
+                    cost_norm_q = comps.norm_q
+                    cost_norm_u = comps.norm_u
+
                 start_q_real = np.asarray(graph.q_state(start_id), dtype=np.float64)
                 goal_q_real = np.asarray(graph.q_state(goal_id), dtype=np.float64)
+                valid_node_count = int(np.sum(graph.valid_nodes))
+                expansion_fraction = (
+                    float(result.n_expanded) / float(valid_node_count)
+                    if valid_node_count > 0
+                    else None
+                )
                 row = V2ResultRow(
                     architecture_version=2,
                     result_schema_version=RESULT_SCHEMA_VERSION_V2,
@@ -650,11 +731,18 @@ def run_v2_experiment(
                     transition_parameterization=graph.transition_parameterization.value,
                     graph_shape=tuple(graph.topology.shape),
                     node_count=graph.node_count,
-                    valid_node_count=int(np.sum(graph.valid_nodes)),
+                    valid_node_count=valid_node_count,
                     valid_edge_count=valid_edge_count,
                     algorithm=algorithm,
                     cost_type=objective.cost_name,
                     heuristic_type=objective.heuristic_name,
+                    alpha=alpha,
+                    s_q=s_q,
+                    s_u=s_u,
+                    cost_d_q=cost_d_q,
+                    cost_d_u=cost_d_u,
+                    cost_norm_q=cost_norm_q,
+                    cost_norm_u=cost_norm_u,
                     requested_start_q=list(task.requested_start_q),
                     requested_goal_q=list(task.requested_goal_q),
                     realized_start_q=list(start_q_real),
@@ -676,6 +764,9 @@ def run_v2_experiment(
                     path_length_u=length_u,
                     path_length_q=length_q,
                     path_length_x=length_x,
+                    expansion_fraction=expansion_fraction,
+                    pair_id=None,
+                    task_set_id=None,
                     q_spacing_summary=q_spacing,
                     u_spacing_summary=u_spacing,
                     seed=config.seed,
@@ -707,7 +798,7 @@ def run_v2_experiment(
     return V2RunResult(
         run_id=rid,
         path=run_dir.resolve(),
-        mechanism_ids=(FOURBAR_MECHANISM_ID, GEARBOX_MECHANISM_ID),
+        mechanism_ids=tuple(mechanism_branches.keys()),  # type: ignore[arg-type]
         n_tasks=len(tasks),
         n_trial_rows=len(trial_rows),
         n_failure_rows=len(failure_rows),
