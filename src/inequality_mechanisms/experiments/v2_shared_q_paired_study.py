@@ -4,11 +4,12 @@ Runs the fixed hierarchy:
 
 ```text
 run
-└── task_set (3)
+└── task_set
     └── mechanism_pair (5)
         └── alpha (5)
             ├── fourbar
-            └── span_matched_gearbox
+            ├── span_matched_gearbox
+            └── unit_gearbox (optional identity control)
 ```
 
 Reuses Version 2 graph construction, query overlays, Dijkstra search, and the
@@ -59,11 +60,13 @@ from inequality_mechanisms.experiments.v2_results import (
 from inequality_mechanisms.experiments.v2_runner import (
     FOURBAR_MECHANISM_ID,
     SPAN_MATCHED_GEARBOX_MECHANISM_ID,
+    UNIT_GEARBOX_MECHANISM_ID,
     V2RunnerError,
     _path_metrics,
     _utc_now_iso,
     build_graphs,
     build_mechanism_branches,
+    unit_gearbox_branch,
 )
 from inequality_mechanisms.experiments.v2_shared_q_fixtures import (
     FROZEN_MECHANISM_PAIRS,
@@ -89,6 +92,12 @@ from inequality_mechanisms.search.v2_objectives import (
     resolve_v2_objective,
 )
 
+_ARM_LABELS = {
+    FOURBAR_MECHANISM_ID: "Four-bar",
+    SPAN_MATCHED_GEARBOX_MECHANISM_ID: "Span-matched gearbox",
+    UNIT_GEARBOX_MECHANISM_ID: "Unit gearbox",
+}
+
 
 class V2SharedQStudyError(ValueError):
     """Raised when a shared-Q paired study config is invalid."""
@@ -105,6 +114,7 @@ class V2StudyMeta(BaseModel):
     alphas: list[float]
     reference_algorithm: str = "dijkstra"
     optional_algorithms: list[str] = Field(default_factory=list)
+    include_unit_gearbox: bool = True
 
     @field_validator("alphas")
     @classmethod
@@ -275,6 +285,9 @@ def run_shared_q_paired_study(
                 plot_embedded_u_path,
                 plot_output_graph,
             )
+            from inequality_mechanisms.visualization.branches import (
+                plot_branch_axis_transmission,
+            )
             from inequality_mechanisms.visualization.paths import plot_cartesian_path
             from inequality_mechanisms.visualization.v2_expansions import (
                 plot_v2_expansions_by_alpha,
@@ -285,6 +298,7 @@ def run_shared_q_paired_study(
         else:
             plotters = {
                 "plot_actuator_samples": plot_actuator_samples,
+                "plot_branch_axis_transmission": plot_branch_axis_transmission,
                 "plot_embedded_q_path": plot_embedded_q_path,
                 "plot_embedded_u_path": plot_embedded_u_path,
                 "plot_output_graph": plot_output_graph,
@@ -310,37 +324,53 @@ def run_shared_q_paired_study(
         )
         # Placeholder tasks are overwritten per template after we know the box.
         mechanism_branches = build_mechanism_branches(probe_cfg)
-        graphs = build_graphs(probe_cfg, mechanism_branches)
-        g_fb = graphs[FOURBAR_MECHANISM_ID]
-        g_gb = graphs[SPAN_MATCHED_GEARBOX_MECHANISM_ID]
-        # Shared feasible set: only plan on Q nodes both mechanisms realize.
-        shared_valid = np.asarray(
-            np.logical_and(g_fb.valid_nodes, g_gb.valid_nodes), dtype=np.bool_
-        )
-        g_fb = replace(g_fb, valid_nodes=shared_valid)
-        g_gb = replace(g_gb, valid_nodes=shared_valid.copy())
-        graphs = {
-            FOURBAR_MECHANISM_ID: g_fb,
-            SPAN_MATCHED_GEARBOX_MECHANISM_ID: g_gb,
-        }
-        try:
-            inv = assert_shared_q_pair_invariants(
-                g_fb,
-                g_gb,
+        if config.study.include_unit_gearbox:
+            mechanism_branches[UNIT_GEARBOX_MECHANISM_ID] = unit_gearbox_branch(
+                mechanism_branches[FOURBAR_MECHANISM_ID],
+                name=UNIT_GEARBOX_MECHANISM_ID,
+                certification_samples_per_axis=(
+                    config.branch.certification_samples_per_axis
+                ),
+                min_abs_gain=config.branch.minimum_abs_gain,
                 residual_tol=config.branch.inverse_tolerance,
-                edge_n_samples=config.edge_validation.samples,
-                raise_on_failure=True,
+                max_abs_gain=config.branch.max_abs_gain,
             )
-        except SharedQPairInvariantError as exc:
+        graphs = build_graphs(probe_cfg, mechanism_branches)
+        # Shared feasible set: only plan on Q nodes every arm realizes.
+        shared_valid = np.asarray(
+            np.logical_and.reduce([g.valid_nodes for g in graphs.values()]),
+            dtype=np.bool_,
+        )
+        graphs = {
+            mid: replace(g, valid_nodes=shared_valid.copy())
+            for mid, g in graphs.items()
+        }
+        g_fb = graphs[FOURBAR_MECHANISM_ID]
+        comparison_partners = [
+            mid for mid in graphs if mid != FOURBAR_MECHANISM_ID
+        ]
+        for partner_id in comparison_partners:
+            try:
+                inv = assert_shared_q_pair_invariants(
+                    g_fb,
+                    graphs[partner_id],
+                    residual_tol=config.branch.inverse_tolerance,
+                    edge_n_samples=config.edge_validation.samples,
+                    raise_on_failure=True,
+                )
+            except SharedQPairInvariantError as exc:
+                invariant_reports.append(
+                    {
+                        "pair_id": pair_id,
+                        "partner_id": partner_id,
+                        "passed": False,
+                        "failures": [str(exc)],
+                    }
+                )
+                raise V2RunnerError(f"pair {pair_id} vs {partner_id}: {exc}") from exc
             invariant_reports.append(
-                {
-                    "pair_id": pair_id,
-                    "passed": False,
-                    "failures": [str(exc)],
-                }
+                {"pair_id": pair_id, "partner_id": partner_id, **inv.to_dict()}
             )
-            raise V2RunnerError(f"pair {pair_id}: {exc}") from exc
-        invariant_reports.append({"pair_id": pair_id, **inv.to_dict()})
 
         if plotters is not None:
             pair_fig = figures_root / pair_id
@@ -350,15 +380,19 @@ def run_shared_q_paired_study(
                 pair_fig / "q_lattice.png",
                 title=f"{pair_id}: shared Q lattice",
             )
-            plotters["plot_actuator_samples"](
-                g_fb,
-                pair_fig / "u_fourbar.png",
-                title=f"{pair_id}: four-bar U embedding",
-            )
-            plotters["plot_actuator_samples"](
-                g_gb,
-                pair_fig / "u_span_matched_gearbox.png",
-                title=f"{pair_id}: span-matched gearbox U",
+            for mid, graph in graphs.items():
+                plotters["plot_actuator_samples"](
+                    graph,
+                    pair_fig / f"u_{mid}.png",
+                    title=f"{pair_id}: {mid} U embedding",
+                )
+            plotters["plot_branch_axis_transmission"](
+                {
+                    _ARM_LABELS.get(mid, mid): branch
+                    for mid, branch in mechanism_branches.items()
+                },
+                pair_fig / "qu_axis_maps.png",
+                title=f"{pair_id}: axis transmission $q(u)$",
             )
 
         ref_branch = mechanism_branches[FOURBAR_MECHANISM_ID]
@@ -449,16 +483,17 @@ def run_shared_q_paired_study(
             if not overlay_ok:
                 continue
 
-            try:
-                assert_identical_query_overlays(
-                    overlays[FOURBAR_MECHANISM_ID],
-                    overlays[SPAN_MATCHED_GEARBOX_MECHANISM_ID],
-                    raise_on_failure=True,
-                )
-            except SharedQPairInvariantError as exc:
-                raise V2RunnerError(
-                    f"pair {pair_id} task {task_set_id}: {exc}"
-                ) from exc
+            for partner_id in comparison_partners:
+                try:
+                    assert_identical_query_overlays(
+                        overlays[FOURBAR_MECHANISM_ID],
+                        overlays[partner_id],
+                        raise_on_failure=True,
+                    )
+                except SharedQPairInvariantError as exc:
+                    raise V2RunnerError(
+                        f"pair {pair_id} task {task_set_id} vs {partner_id}: {exc}"
+                    ) from exc
 
             alpha_rows: dict[float, dict[str, dict[str, Any]]] = {}
             for alpha in config.study.alphas:
@@ -662,32 +697,36 @@ def run_shared_q_paired_study(
                                 n_pose_samples=8,
                             )
 
-                    # Null-control hard gate at alpha=1.
-                    if float(alpha) == 1.0 and len(alpha_rows[1.0]) == 2:
+                    # Null-control hard gate at alpha=1 vs every partner arm.
+                    if (
+                        float(alpha) == 1.0
+                        and FOURBAR_MECHANISM_ID in alpha_rows[1.0]
+                        and all(
+                            mid in alpha_rows[1.0] for mid in comparison_partners
+                        )
+                    ):
                         ra = alpha_rows[1.0][FOURBAR_MECHANISM_ID]
-                        rb = alpha_rows[1.0][SPAN_MATCHED_GEARBOX_MECHANISM_ID]
-                        if (
-                            ra["found"] != rb["found"]
-                            or ra["path_node_ids"] != rb["path_node_ids"]
-                            or abs(
-                                float(ra["optimal_cost"]) - float(rb["optimal_cost"])
-                            )
-                            > 1e-12
-                            or ra["n_expanded"] != rb["n_expanded"]
-                        ):
-                            raise V2RunnerError(
-                                "alpha=1 null-control failed for "
-                                f"{pair_id}/{task_set_id}"
-                            )
+                        for partner_id in comparison_partners:
+                            rb = alpha_rows[1.0][partner_id]
+                            if (
+                                ra["found"] != rb["found"]
+                                or ra["path_node_ids"] != rb["path_node_ids"]
+                                or abs(
+                                    float(ra["optimal_cost"])
+                                    - float(rb["optimal_cost"])
+                                )
+                                > 1e-12
+                                or ra["n_expanded"] != rb["n_expanded"]
+                            ):
+                                raise V2RunnerError(
+                                    "alpha=1 null-control failed for "
+                                    f"{pair_id}/{task_set_id} vs {partner_id}"
+                                )
 
-                # Paired comparison once both mechanisms finished this alpha.
+                # Paired comparisons: four-bar vs each partner arm.
                 mech_map = alpha_rows[float(alpha)]
-                if (
-                    FOURBAR_MECHANISM_ID in mech_map
-                    and SPAN_MATCHED_GEARBOX_MECHANISM_ID in mech_map
-                ):
+                if FOURBAR_MECHANISM_ID in mech_map:
                     ra = mech_map[FOURBAR_MECHANISM_ID]
-                    rb = mech_map[SPAN_MATCHED_GEARBOX_MECHANISM_ID]
                     q_path_a = (
                         np.asarray(
                             [
@@ -699,26 +738,30 @@ def run_shared_q_paired_study(
                         if ra.get("path_node_ids")
                         else None
                     )
-                    q_path_b = (
-                        np.asarray(
-                            [
-                                overlays[SPAN_MATCHED_GEARBOX_MECHANISM_ID].q_state(n)
-                                for n in rb.get("path_node_ids") or []
-                            ],
-                            dtype=np.float64,
-                        ).reshape(-1, 2)
-                        if rb.get("path_node_ids")
-                        else None
-                    )
                     if q_path_a is not None and q_path_a.size == 0:
                         q_path_a = None
-                    if q_path_b is not None and q_path_b.size == 0:
-                        q_path_b = None
-                    pair_comparisons.append(
-                        compare_paired_rows(
-                            ra, rb, q_path_a=q_path_a, q_path_b=q_path_b
+                    for partner_id in comparison_partners:
+                        if partner_id not in mech_map:
+                            continue
+                        rb = mech_map[partner_id]
+                        q_path_b = (
+                            np.asarray(
+                                [
+                                    overlays[partner_id].q_state(n)
+                                    for n in rb.get("path_node_ids") or []
+                                ],
+                                dtype=np.float64,
+                            ).reshape(-1, 2)
+                            if rb.get("path_node_ids")
+                            else None
                         )
-                    )
+                        if q_path_b is not None and q_path_b.size == 0:
+                            q_path_b = None
+                        pair_comparisons.append(
+                            compare_paired_rows(
+                                ra, rb, q_path_a=q_path_a, q_path_b=q_path_b
+                            )
+                        )
                 trial_index += 1
 
     # Write immutable package artifacts into the already-created run directory.
@@ -755,7 +798,13 @@ def run_shared_q_paired_study(
         "revision": revision,
         "environment": environment,
         "comparison": {
-            "linear_control": "span_matched_gearbox",
+            "linear_control": SPAN_MATCHED_GEARBOX_MECHANISM_ID,
+            "identity_control": (
+                UNIT_GEARBOX_MECHANISM_ID
+                if config.study.include_unit_gearbox
+                else None
+            ),
+            "include_unit_gearbox": bool(config.study.include_unit_gearbox),
             "require_identical_q_topology": True,
             "reject_on_pair_invariant_failure": True,
         },

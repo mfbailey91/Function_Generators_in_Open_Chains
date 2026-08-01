@@ -82,6 +82,7 @@ from inequality_mechanisms.visualization.path_lengths import (
 from inequality_mechanisms.visualization.paths import (
     cost_from_start,
     path_outputs,
+    plot_axis_transmission,
     plot_cartesian_path,
     plot_input_graph_weights,
     plot_output_graph_weights,
@@ -310,6 +311,14 @@ def _write_path_sample(
             out / "fourbar_cartesian.png",
             plant=plant,
             title=f"Trial {trial_index} four-bar Cartesian",
+        ),
+        "qu_axis_maps": plot_axis_transmission(
+            {
+                "four-bar": paired.fourbar,
+                "gearbox": paired.gearbox,
+            },
+            out / "qu_axis_maps.png",
+            title=f"Trial {trial_index}: axis transmission $q(u)$",
         ),
     }
     for name, path in figures.items():

@@ -18,7 +18,11 @@ from inequality_mechanisms.experiments.registry import default_results_root
 
 _CANVAS_NAME = "index.html"
 _NULL_CONTROL_COSTS = frozenset({"uniform", "output_euclidean", "q_u_blend"})
-_GEARBOX_IDS = ("equivalent_affine_gearbox", "span_matched_gearbox")
+_GEARBOX_IDS = (
+    "equivalent_affine_gearbox",
+    "span_matched_gearbox",
+    "unit_gearbox",
+)
 _TRIAL_COLUMNS: tuple[tuple[str, str], ...] = (
     ("trial_index", "Trial"),
     ("pair_id", "Pair"),
@@ -195,46 +199,42 @@ def _null_control_status(
         key=lambda x: (str(x[0]), str(x[1]), str(x[2]), str(x[3]), str(x[4])),
     ):
         a = by_key.get((pair_id, task_set_id, trial_index, algorithm, alpha, "fourbar"))
-        b = None
+        if a is None:
+            continue
         for gearbox_id in _GEARBOX_IDS:
             b = by_key.get(
                 (pair_id, task_set_id, trial_index, algorithm, alpha, gearbox_id)
             )
-            if b is not None:
-                break
-        if a is None or b is None:
-            continue
-        compared += 1
-        checks = (
-            ("found", a.get("found"), b.get("found")),
-            ("start_node_id", a.get("start_node_id"), b.get("start_node_id")),
-            ("goal_node_id", a.get("goal_node_id"), b.get("goal_node_id")),
-            ("path_node_ids", a.get("path_node_ids"), b.get("path_node_ids")),
-            (
-                "expanded_node_ids",
-                a.get("expanded_node_ids"),
-                b.get("expanded_node_ids"),
-            ),
-            ("n_expanded", a.get("n_expanded"), b.get("n_expanded")),
-            ("n_generated", a.get("n_generated"), b.get("n_generated")),
-            ("n_stale", a.get("n_stale"), b.get("n_stale")),
-        )
-        for name, va, vb in checks:
-            if va != vb:
-                mismatches.append(f"trial {trial_index} {algorithm}: {name} mismatch")
-        ca = a.get("optimal_cost")
-        cb = b.get("optimal_cost")
-        if isinstance(ca, (int, float)) and isinstance(cb, (int, float)):
-            if not (math.isfinite(float(ca)) and math.isfinite(float(cb))):
-                mismatches.append(
-                    f"trial {trial_index} {algorithm}: non-finite optimal_cost"
-                )
-            elif abs(float(ca) - float(cb)) > 1e-12:
-                mismatches.append(
-                    f"trial {trial_index} {algorithm}: optimal_cost mismatch"
-                )
-        elif ca != cb:
-            mismatches.append(f"trial {trial_index} {algorithm}: optimal_cost mismatch")
+            if b is None:
+                continue
+            compared += 1
+            label = f"trial {trial_index} {algorithm} vs {gearbox_id}"
+            checks = (
+                ("found", a.get("found"), b.get("found")),
+                ("start_node_id", a.get("start_node_id"), b.get("start_node_id")),
+                ("goal_node_id", a.get("goal_node_id"), b.get("goal_node_id")),
+                ("path_node_ids", a.get("path_node_ids"), b.get("path_node_ids")),
+                (
+                    "expanded_node_ids",
+                    a.get("expanded_node_ids"),
+                    b.get("expanded_node_ids"),
+                ),
+                ("n_expanded", a.get("n_expanded"), b.get("n_expanded")),
+                ("n_generated", a.get("n_generated"), b.get("n_generated")),
+                ("n_stale", a.get("n_stale"), b.get("n_stale")),
+            )
+            for name, va, vb in checks:
+                if va != vb:
+                    mismatches.append(f"{label}: {name} mismatch")
+            ca = a.get("optimal_cost")
+            cb = b.get("optimal_cost")
+            if isinstance(ca, (int, float)) and isinstance(cb, (int, float)):
+                if not (math.isfinite(float(ca)) and math.isfinite(float(cb))):
+                    mismatches.append(f"{label}: non-finite optimal_cost")
+                elif abs(float(ca) - float(cb)) > 1e-12:
+                    mismatches.append(f"{label}: optimal_cost mismatch")
+            elif ca != cb:
+                mismatches.append(f"{label}: optimal_cost mismatch")
 
     if compared == 0:
         return {
@@ -255,7 +255,7 @@ def _null_control_status(
         "passed": True,
         "detail": (
             f"Paired rows match on cost, path, and expansions "
-            f"({compared} algorithm×trial pairs)."
+            f"({compared} four-bar×partner pairs)."
         ),
         "n_compared": compared,
         "n_mismatches": 0,
@@ -268,6 +268,7 @@ def _pair_comparisons_html(rows: list[dict[str, Any]]) -> str:
     cols = (
         ("pair_id", "Pair"),
         ("task_set_id", "Task"),
+        ("mechanism_b", "Partner"),
         ("alpha", "Alpha"),
         ("cost_delta", "Cost Δ"),
         ("expansion_delta", "Exp Δ"),
@@ -288,6 +289,66 @@ def _pair_comparisons_html(rows: list[dict[str, Any]]) -> str:
             parts.append(f"<td>{_fmt_num(row.get(key))}</td>")
         parts.append("</tr>")
     parts.append("</tbody></table>")
+    return "\n".join(parts)
+
+
+def _identity_control_html(trial_rows: list[dict[str, Any]]) -> str:
+    """Summarize unit-gearbox invariance across alphas."""
+    unit_rows = [
+        r
+        for r in trial_rows
+        if isinstance(r, dict) and r.get("mechanism_id") == "unit_gearbox"
+    ]
+    if not unit_rows:
+        return ""
+    by_key: dict[tuple[Any, Any], list[dict[str, Any]]] = {}
+    for row in unit_rows:
+        key = (row.get("pair_id"), row.get("task_set_id"))
+        by_key.setdefault(key, []).append(row)
+    parts = [
+        "<section>",
+        "<h2>Identity control (unit gearbox)</h2>",
+        "<p class='muted'>For q=u, edge integrals satisfy d_U=d_Q so blended "
+        "cost is a positive scalar times d_Q. Expansions and d_U=d_Q must hold "
+        "at every alpha; selected paths may differ among equal-cost optima.</p>",
+        "<table><thead><tr>",
+        "<th>Pair</th><th>Task</th><th>Alphas</th>"
+        "<th>d_U=d_Q</th><th>Expansions invariant</th>"
+        "<th>Paths</th>",
+        "</tr></thead><tbody>",
+    ]
+    for (pair_id, task_set_id), rows in sorted(
+        by_key.items(), key=lambda item: (str(item[0][0]), str(item[0][1]))
+    ):
+        found = [r for r in rows if r.get("found")]
+        paths = {tuple(r.get("path_node_ids") or ()) for r in found}
+        exps = {r.get("n_expanded") for r in found}
+        alphas = sorted({float(r.get("alpha", -1)) for r in rows})
+        du_eq = True
+        for r in found:
+            dq = r.get("cost_d_q")
+            du = r.get("cost_d_u")
+            if not isinstance(dq, (int, float)) or not isinstance(du, (int, float)):
+                du_eq = False
+                break
+            if abs(float(dq) - float(du)) > 1e-9:
+                du_eq = False
+                break
+        if len(paths) <= 1:
+            path_label = "identical"
+        else:
+            path_label = "equal-cost ties"
+        parts.append(
+            "<tr>"
+            f"<td>{html.escape(str(pair_id))}</td>"
+            f"<td>{html.escape(str(task_set_id))}</td>"
+            f"<td>{html.escape(', '.join(str(a) for a in alphas))}</td>"
+            f"<td>{'yes' if du_eq else 'NO'}</td>"
+            f"<td>{'yes' if len(exps) <= 1 else 'NO'}</td>"
+            f"<td>{html.escape(path_label)}</td>"
+            "</tr>"
+        )
+    parts.append("</tbody></table></section>")
     return "\n".join(parts)
 
 
@@ -314,12 +375,19 @@ def _filter_figures(
                 continue
             if "expansions" in name:
                 continue
+            if name.startswith("qu_"):
+                continue
             if (
                 name.endswith("q_lattice")
                 or name.endswith("u_fourbar")
                 or name.endswith("u_span_matched_gearbox")
+                or name.endswith("u_unit_gearbox")
+                or name.startswith("u_")
                 or "/pair_" in src
             ):
+                out.append(fig)
+        elif kind == "transmission":
+            if name == "qu_axis_maps":
                 out.append(fig)
         elif kind == "paths_q":
             if "/paths/" in src and name.endswith("_q"):
@@ -361,7 +429,8 @@ def _study_sections_html(payload: dict[str, Any]) -> str:
         "<section>",
         "<h2>Shared-Q paired study</h2>",
         "<p class='muted'>Hold output motions fixed; compare four-bar vs "
-        "span-matched gearbox under normalized Q/U cost.</p>",
+        "span-matched gearbox under normalized Q/U cost. When enabled, a "
+        "unit-gearbox identity arm is the all-alpha sanity control.</p>",
         "<div class='kv'>",
         f"<div class='k'>Study</div><div>{html.escape(str(study.get('name', '')))}</div>",
         f"<div class='k'>Pairs</div><div>{html.escape(', '.join(pair_ids))}</div>",
@@ -373,6 +442,11 @@ def _study_sections_html(payload: dict[str, Any]) -> str:
         (
             "<div class='k'>Alphas</div><div>"
             f"{html.escape(', '.join(str(a) for a in alphas))}"
+            "</div>"
+        ),
+        (
+            "<div class='k'>Unit gearbox</div><div>"
+            f"{'included' if study.get('include_unit_gearbox', True) else 'off'}"
             "</div>"
         ),
         "</div>",
@@ -686,6 +760,7 @@ def render_v2_canvas_html(payload: dict[str, Any]) -> str:
         else []
     )
     pair_html = _pair_comparisons_html(pair_rows)
+    identity_html = _identity_control_html(trial_rows)
     onset = manifest.get("divergence_onset_by_alpha")
     onset_html = (
         f"<pre>{html.escape(json.dumps(onset, indent=2, sort_keys=True))}</pre>"
@@ -700,6 +775,10 @@ def render_v2_canvas_html(payload: dict[str, Any]) -> str:
     lattices_html = _figure_grid(
         _filter_figures(figures, kind="lattices"),
         empty="No shared Q/U lattice figures.",
+    )
+    transmission_html = _figure_grid(
+        _filter_figures(figures, kind="transmission"),
+        empty="No transmission q(u) figures.",
     )
     paths_q_html = _figure_grid(
         _filter_figures(figures, kind="paths_q"),
@@ -831,7 +910,7 @@ summary {{ cursor: pointer; color: var(--accent); }}
 
   <section>
     <h2>Expansions</h2>
-    <p class="muted">Node expansions across pairs for four-bar vs span-matched gearbox.</p>
+    <p class="muted">Node expansions across pairs for four-bar, span-matched gearbox, and unit gearbox when present.</p>
     {expansions_html}
   </section>
 
@@ -839,6 +918,13 @@ summary {{ cursor: pointer; color: var(--accent); }}
     <h2>Shared Q and U lattices</h2>
     <p class="muted">Common output graph and mechanism-specific actuator embeddings.</p>
     {lattices_html}
+  </section>
+
+  <section>
+    <h2>Transmission maps q(u)</h2>
+    <p class="muted">Per-pair axis transmission: for each arm, q_i(u_i) over its
+    own certified u extent (map is fixed per pair; independent of alpha/task).</p>
+    {transmission_html}
   </section>
 
   <section>
@@ -864,6 +950,8 @@ summary {{ cursor: pointer; color: var(--accent); }}
     <p class="{null_class}">{null_label}</p>
     <p class="muted">{null_detail}</p>
   </section>
+
+  {identity_html}
 
   <section>
     <h2>Paired comparisons</h2>

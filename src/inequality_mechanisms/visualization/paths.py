@@ -501,6 +501,123 @@ def plot_output_graph_weights(
     return out
 
 
+def axis_transmission_curve(
+    graph: ConstrainedInputGraph,
+    axis: int,
+    *,
+    n_samples: int = 201,
+) -> tuple[NDArray[np.floating], NDArray[np.floating], NDArray[np.bool_]]:
+    """Sweep one input axis and return ``(u_i, q_i, valid_mask)``.
+
+    Other axes are held at the midpoint of their grid ranges. ``q_i`` is
+    taken from ``graph.output(u)`` so the curve matches the mapping search
+    consumes. ``valid_mask`` is ``True`` where the mechanism assembles and
+    the canonicalized output lies in the shared chart.
+    """
+    dim = len(graph.grid.ranges)
+    if axis < 0 or axis >= dim:
+        raise ValueError(f"axis {axis} out of range for dim {dim}")
+    if n_samples < 2:
+        raise ValueError(f"n_samples must be >= 2, got {n_samples}")
+
+    mid = np.asarray(
+        [0.5 * (lo + hi) for lo, hi in graph.grid.ranges], dtype=np.float64
+    )
+    lo_i, hi_i = graph.grid.ranges[axis]
+    u_axis = np.linspace(float(lo_i), float(hi_i), int(n_samples), dtype=np.float64)
+    q_axis = np.full(u_axis.shape[0], np.nan, dtype=np.float64)
+    valid = np.zeros(u_axis.shape[0], dtype=np.bool_)
+    for k, u_i in enumerate(u_axis):
+        u = mid.copy()
+        u[axis] = float(u_i)
+        try:
+            if not graph.mechanism.valid_input(u):
+                continue
+            q = np.asarray(graph.output(u), dtype=np.float64)
+            if not np.all(np.isfinite(q)):
+                continue
+            q_axis[k] = float(q[axis])
+            valid[k] = True
+        except Exception:  # pragma: no cover — defensive for singular maps
+            continue
+    return u_axis, q_axis, valid
+
+
+def plot_axis_transmission(
+    labeled_graphs: Mapping[str, ConstrainedInputGraph],
+    path_out: Path | str,
+    *,
+    title: str | None = None,
+    n_samples: int = 201,
+) -> Path:
+    """Write per-axis ``q_i(u_i)`` curves for one or more mechanisms.
+
+    Parameters
+    ----------
+    labeled_graphs :
+        Ordered mapping of legend label to ``ConstrainedInputGraph``. All
+        graphs must share the same input dimension.
+    path_out :
+        Destination PNG path.
+    title :
+        Optional figure super-title.
+    n_samples :
+        Sweep samples per axis.
+    """
+    plt = _require_matplotlib()
+    out = Path(path_out)
+    out.parent.mkdir(parents=True, exist_ok=True)
+
+    if not labeled_graphs:
+        raise ValueError("labeled_graphs must be non-empty")
+    items = list(labeled_graphs.items())
+    dims = []
+    for _label, graph in items:
+        dim = len(graph.grid.ranges)
+        dims.append(dim)
+    if len(set(dims)) != 1:
+        raise ValueError(f"all graphs must share input dim, got {dims}")
+    dim = dims[0]
+
+    fig, axes = plt.subplots(1, dim, figsize=(5.0 * dim, 4.2), squeeze=False)
+    for axis in range(dim):
+        ax = axes[0, axis]
+        for idx, (label, graph) in enumerate(items):
+            u_axis, q_axis, valid = axis_transmission_curve(
+                graph, axis, n_samples=n_samples
+            )
+            color = f"C{idx % 10}"
+            if np.any(valid):
+                ax.plot(
+                    u_axis[valid],
+                    q_axis[valid],
+                    color=color,
+                    linewidth=2.0,
+                    label=label,
+                )
+                if idx == 0:
+                    u_valid = u_axis[valid]
+                    ax.axvspan(
+                        float(u_valid.min()),
+                        float(u_valid.max()),
+                        color="0.85",
+                        alpha=0.35,
+                        zorder=0,
+                        label="valid u extent",
+                    )
+        ax.set_xlabel(rf"$u_{{{axis + 1}}}$")
+        ax.set_ylabel(rf"$q_{{{axis + 1}}}$")
+        ax.set_title(rf"axis {axis + 1}: $q(u)$")
+        ax.grid(True, alpha=0.35)
+        ax.legend(loc="best", fontsize=8)
+
+    fig.suptitle(title or "Axis transmission maps $q(u)$", fontsize=11)
+    fig.tight_layout()
+    fig.savefig(out, dpi=150)
+    plt.close(fig)
+    return out
+
+
 def plot_cartesian_path(
     q_path: ArrayLike,
     path_out: Path | str,

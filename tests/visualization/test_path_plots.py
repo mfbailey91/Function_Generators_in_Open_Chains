@@ -14,10 +14,12 @@ from inequality_mechanisms.mechanisms import UnitGearbox
 from inequality_mechanisms.search import astar
 from inequality_mechanisms.spaces.limits import OutputJointLimits
 from inequality_mechanisms.visualization.paths import (
+    axis_transmission_curve,
     cost_from_start,
     lattice_edge_weights,
     path_inputs,
     path_outputs,
+    plot_axis_transmission,
     plot_cartesian_path,
     plot_input_graph_weights,
     plot_input_path,
@@ -109,6 +111,20 @@ class TestPathPlots:
         for path in (u_png, q_png):
             assert path.is_file()
             assert path.stat().st_size > 0
+
+    def test_axis_transmission_unit_gearbox_is_identity(self, tmp_path: Path) -> None:
+        graph = _tiny_gearbox_graph()
+        u_axis, q_axis, valid = axis_transmission_curve(graph, 0, n_samples=41)
+        assert np.any(valid)
+        assert np.allclose(q_axis[valid], u_axis[valid], atol=1e-9)
+
+        png = plot_axis_transmission(
+            {"gearbox": graph},
+            tmp_path / "qu.png",
+            title="unit gearbox q(u)",
+        )
+        assert png.is_file()
+        assert png.stat().st_size > 0
 
     def test_path_coordinate_helpers(self) -> None:
         graph = _tiny_gearbox_graph()

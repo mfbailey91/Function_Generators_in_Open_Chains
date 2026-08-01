@@ -60,8 +60,10 @@ from inequality_mechanisms.mechanisms.branch_selection import (
     select_fourbar_monotonic_branch,
 )
 from inequality_mechanisms.mechanisms.fourbar import IndependentFourBars, PlanarFourBar
+from inequality_mechanisms.mechanisms.gearbox import UnitGearbox
 from inequality_mechanisms.mechanisms.operating_branch import (
     OperatingBranch,
+    affine_operating_branch,
     equivalent_gearbox_branch,
 )
 from inequality_mechanisms.search.core import best_first_search
@@ -75,7 +77,10 @@ from inequality_mechanisms.search.v2_objectives import (
 FOURBAR_MECHANISM_ID = "fourbar"
 GEARBOX_MECHANISM_ID = "equivalent_affine_gearbox"
 SPAN_MATCHED_GEARBOX_MECHANISM_ID = "span_matched_gearbox"
-_GEARBOX_IDS = frozenset({GEARBOX_MECHANISM_ID, SPAN_MATCHED_GEARBOX_MECHANISM_ID})
+UNIT_GEARBOX_MECHANISM_ID = "unit_gearbox"
+_GEARBOX_IDS = frozenset(
+    {GEARBOX_MECHANISM_ID, SPAN_MATCHED_GEARBOX_MECHANISM_ID, UNIT_GEARBOX_MECHANISM_ID}
+)
 
 _NULL_CONTROL_COSTS: frozenset[str] = frozenset(
     {"uniform", "output_euclidean", "q_u_blend"}
@@ -173,6 +178,40 @@ def build_mechanism_branches(
         FOURBAR_MECHANISM_ID: fourbar_branch,
         gearbox_id: gearbox_branch,
     }
+
+
+def unit_gearbox_branch(
+    reference: OperatingBranch,
+    *,
+    name: str = UNIT_GEARBOX_MECHANISM_ID,
+    certification_samples_per_axis: int = 9,
+    min_abs_gain: float = 1e-9,
+    residual_tol: float = 1e-9,
+    max_abs_gain: float | None = None,
+) -> OperatingBranch:
+    """Build an identity ``UnitGearbox`` branch on the reference output chart.
+
+    The actuator box equals the certified output box so ``q = u`` realizes
+    every shared-Q node. Used by Sprint V2.8 as an identity sanity control
+    alongside the span-matched affine gearbox.
+    """
+    cert = reference.certificate
+    dim = len(cert.output_lower)
+    mech = UnitGearbox(
+        dim=dim,
+        periodic=tuple(False for _ in range(dim)),
+        name=name,
+    )
+    return affine_operating_branch(
+        mech,
+        input_lower=cert.output_lower,
+        input_upper=cert.output_upper,
+        output_space=reference.output_space,
+        certification_samples_per_axis=certification_samples_per_axis,
+        min_abs_gain=min_abs_gain,
+        max_abs_gain=max_abs_gain,
+        residual_tol=residual_tol,
+    )
 
 
 def build_graphs(

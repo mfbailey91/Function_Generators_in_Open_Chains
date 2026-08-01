@@ -1,6 +1,9 @@
 """Plotting and figure helpers for analysis notebooks."""
 
-from inequality_mechanisms.visualization.branches import plot_operating_branch
+from inequality_mechanisms.visualization.branches import (
+    plot_branch_axis_transmission,
+    plot_operating_branch,
+)
 from inequality_mechanisms.visualization.embedded_graphs import (
     plot_actuator_samples,
     plot_axis_mapping,
@@ -21,9 +24,11 @@ from inequality_mechanisms.visualization.path_lengths import (
     plot_path_length_x,
 )
 from inequality_mechanisms.visualization.paths import (
+    axis_transmission_curve,
     cost_from_start,
     path_inputs,
     path_outputs,
+    plot_axis_transmission,
     plot_cartesian_path,
     plot_input_graph_weights,
     plot_input_path,
@@ -36,11 +41,14 @@ from inequality_mechanisms.visualization.v2_expansions import (
 )
 
 __all__ = [
+    "axis_transmission_curve",
     "cost_from_start",
     "path_inputs",
     "path_outputs",
     "plot_actuator_samples",
     "plot_axis_mapping",
+    "plot_axis_transmission",
+    "plot_branch_axis_transmission",
     "plot_cartesian_path",
     "plot_edge_trace",
     "plot_embedded_q_path",
