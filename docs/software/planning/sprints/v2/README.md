@@ -12,12 +12,13 @@
 8. [Sprint V2.8 — Shared-Q Paired Mechanism Study](SPRINT_V2_8_SHARED_Q_PAIRED_STUDY.md) (completed)
 9. [Sprint V2.9 — Shared-Q Paired Mechanism Study (U-distance only)](SPRINT_V2_9_SHARED_Q_PAIRED_STUDY.md) (completed diagnostic)
 10. [Sprint V2.10 — Production Monte Carlo Orchestration: Dijkstra Campaign](SPRINT_V2_10_PRODUCTION_MONTE_CARLO_ORCHESTRATION.md) (completed; [evidence report](../../../experiments/reports/V2_10_PRODUCTION_DIJKSTRA_SUMMARY.md))
+11. [Sprint V2.11 — A* Paired Campaign](SPRINT_V2_11_ASTAR_PAIRED_CAMPAIGN.md) (completed; [evidence report](../../../experiments/reports/V2_11_ASTAR_PAIRED_CAMPAIGN_SUMMARY.md))
 
-V2.10 is complete. Dijkstra production evidence and the frozen sample bank `configs/v2/sample_banks/production_v1.json` are the handoff for later A* on the same bank. V2.7 remains held pending review of this 2R production evidence.
+V2.11 is complete on the frozen V2.10 bank. V2.7 remains held pending review of the paired Dijkstra/A* 2R solver evidence.
 
 ## Deferred
 
-- [Sprint V2.7 — 3R Planar Extension](SPRINT_V2_7_3R_EXTENSION.md) — **held** pending review of trusted 2R V2.10 production evidence. Do not start until entry gates below and that review are both satisfied.
+- [Sprint V2.7 — 3R Planar Extension](SPRINT_V2_7_3R_EXTENSION.md) — **held** pending review of trusted 2R Dijkstra + A* solver evidence. Do not start until entry gates below and that review are both satisfied.
 
 ## Dependency map
 
@@ -33,9 +34,9 @@ V2.0 Contract + V1 baseline
                                             └── V2.8 Shared-Q paired study
                                                   └── V2.9 U-distance-only paired study
                                                         └── V2.10 Production Monte Carlo (Dijkstra)
-                                                              └── evidence review
-                                                                    └── (deferred) V2.7 3R extension
-                                                                    └── later A* campaign on frozen bank
+                                                              └── V2.11 paired A* campaign
+                                                                    └── paired solver evidence review
+                                                                          └── (deferred) V2.7 3R extension
 ```
 
 V2.1 and early V2.2 design work may overlap after ADR acceptance, but V2.3 implementation must not begin until both contracts are stable.
@@ -53,7 +54,8 @@ V2.1 and early V2.2 design work may overlap after ADR acceptance, but V2.3 imple
 | Shared-Q pair invariants and pure-Q null controls pass | V2.8 interpretation |
 | V2.8 2R evidence reviewed | V2.9 U-distance-only revision |
 | V2.9 U-distance diagnostic reviewed | V2.10 Dijkstra production Monte Carlo |
-| V2.10 production evidence reviewed | 3R implementation (deferred) and later A* campaign |
+| V2.10 production evidence reviewed | V2.11 paired A* campaign |
+| V2.11 paired solver evidence reviewed | 3R implementation (deferred) |
 
 ## Scope boundary
 

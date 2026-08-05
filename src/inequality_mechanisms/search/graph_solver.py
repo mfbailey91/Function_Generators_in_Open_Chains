@@ -1,8 +1,8 @@
 """Narrow graph-solver protocol for sequenced production campaigns.
 
-Sprint V2.10 implements Dijkstra only. Later campaigns may add A* or
-sampling-based solvers that satisfy the same protocol without changing the
-production runner's one-solver-per-campaign rule.
+Sprint V2.10 implements Dijkstra and V2.11 adds A*. Each campaign still
+selects exactly one solver so solver effects remain isolated. Sampling-based
+solvers remain deferred behind the same protocol.
 """
 
 from __future__ import annotations
@@ -70,6 +70,43 @@ class DijkstraGraphSolver:
         )
 
 
+class AStarGraphSolver:
+    """Exact A* using the frozen admissible input-Euclidean heuristic."""
+
+    solver_id = "astar"
+    heuristic_id = "input_euclidean"
+    solver_schema_version = 1
+
+    def solve(
+        self,
+        graph: SearchGraph,
+        start: int,
+        goal: int,
+        objective: V2PlanningObjective,
+        *,
+        record_expanded: bool = False,
+    ) -> SearchResult:
+        from inequality_mechanisms.search.core import best_first_search
+
+        return best_first_search(
+            graph,
+            start,
+            goal,
+            edge_cost=objective.edge_cost,
+            heuristic=objective.heuristic,
+            record_expanded=record_expanded,
+        )
+
+
+def production_graph_solver(algorithm: str) -> GraphSolver:
+    """Resolve the single exact graph solver selected for one campaign."""
+    if algorithm == "dijkstra":
+        return DijkstraGraphSolver()
+    if algorithm == "astar":
+        return AStarGraphSolver()
+    raise ValueError(f"unknown production graph solver {algorithm!r}")
+
+
 def production_dijkstra_solver() -> DijkstraGraphSolver:
-    """Return the only solver permitted in the V2.10 production campaign."""
+    """Backward-compatible V2.10 Dijkstra factory."""
     return DijkstraGraphSolver()

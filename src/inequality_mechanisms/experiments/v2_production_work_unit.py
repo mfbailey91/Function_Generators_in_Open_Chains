@@ -1,4 +1,4 @@
-"""One mechanism-pair Dijkstra work unit (V2-904)."""
+"""One mechanism-pair exact-search work unit (V2.10 Dijkstra / V2.11 A*)."""
 
 from __future__ import annotations
 
@@ -39,7 +39,7 @@ from inequality_mechanisms.graphs.pair_invariants import (
     assert_shared_q_pair_invariants,
 )
 from inequality_mechanisms.graphs.query_overlay import QueryOverlayGraph
-from inequality_mechanisms.search.graph_solver import production_dijkstra_solver
+from inequality_mechanisms.search.graph_solver import production_graph_solver
 from inequality_mechanisms.search.v2_objectives import (
     pair_box_scales,
     resolve_v2_objective,
@@ -94,7 +94,10 @@ def _pair_experiment_config(
             shape=list(shape),
             include_endpoints=True,
         ),
-        objective=V2ObjectiveConfig(cost="actuator_travel", heuristic="zero"),
+        objective=V2ObjectiveConfig(
+            cost="actuator_travel",
+            heuristic=config.search.resolved_heuristic,
+        ),
         edge_validation=config.edge_validation,
         tasks=V2TasksConfig(
             source="fixed_output_pairs",
@@ -102,7 +105,7 @@ def _pair_experiment_config(
             use_query_overlays=True,
             pairs=[V2OutputPair(start_q=[0.0, 0.0], goal_q=[1.0, 1.0])],
         ),
-        algorithms=["dijkstra"],
+        algorithms=[config.search.algorithm],
         seed=config.seed,
         trials=1,
     )
@@ -124,9 +127,9 @@ def run_mechanism_pair_work_unit(
     retain_paths: bool = False,
     code_revision: str | None = None,
 ) -> MechanismPairWorkResult:
-    """Execute all bank tasks serially for one mechanism pair under Dijkstra."""
+    """Execute all bank tasks serially for one mechanism pair and one solver."""
     graph_shape = tuple(int(x) for x in (shape or tuple(config.sampling.shape)))
-    solver = production_dijkstra_solver()
+    solver = production_graph_solver(config.search.algorithm)
     exp_cfg = _pair_experiment_config(config, mechanism, shape=graph_shape)
     t0 = time.perf_counter()
     try:
@@ -245,7 +248,7 @@ def run_mechanism_pair_work_unit(
                 graph,  # type: ignore[arg-type]
                 goal_id,
                 "actuator_travel",
-                "zero",
+                config.search.resolved_heuristic,
             )
             search_t0 = time.perf_counter()
             result = solver.solve(graph, start_id, goal_id, objective)
@@ -280,7 +283,7 @@ def run_mechanism_pair_work_unit(
                 "objective_id": "actuator_travel",
                 "objective_parameters": {},
                 "cost_type": "actuator_travel",
-                "algorithm": "dijkstra",
+                "algorithm": config.search.algorithm,
                 "start_q": list(map(float, requested.requested_start_q)),
                 "goal_q": list(map(float, requested.requested_goal_q)),
                 "requested_start_q": list(map(float, requested.requested_start_q)),
@@ -296,6 +299,7 @@ def run_mechanism_pair_work_unit(
                 "n_generated": int(result.n_generated),
                 "n_reopened": 0,
                 "n_stale": int(result.n_stale),
+                "n_heuristic_calls": int(result.n_generated),
                 "reachable_node_count": reachable,
                 "valid_node_count": valid_count,
                 "expansion_fraction": expansion_fraction,

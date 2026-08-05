@@ -1,11 +1,12 @@
 # Project Note — Sequenced Search-Algorithm Expansion
 
-**Status:** Planned future work
+**Status:** Active sequencing note (V2.10 Dijkstra and V2.11 A* campaigns completed)
 **Applies to:** Version 2 and later experiment architecture
-**Current implementation priority:** Dijkstra-only production Monte Carlo
+**Current implementation priority:** Review paired Dijkstra/A* 2R evidence before bidirectional exact search
 **Decision date:** 2026-08-04
 
-**First implementation sprint:** [Sprint V2.10 — Production Monte Carlo Orchestration: Dijkstra Campaign](../../planning/sprints/v2/SPRINT_V2_10_PRODUCTION_MONTE_CARLO_ORCHESTRATION.md)
+**First implementation sprint:** [Sprint V2.10 — Production Monte Carlo Orchestration: Dijkstra Campaign](../../planning/sprints/v2/SPRINT_V2_10_PRODUCTION_MONTE_CARLO_ORCHESTRATION.md)  
+**Second implementation sprint:** [Sprint V2.11 — A* Paired Campaign](../../planning/sprints/v2/SPRINT_V2_11_ASTAR_PAIRED_CAMPAIGN.md)
 
 Issue slug: `production_monte_carlo_orchestration_v2_9` (filed before the U-distance diagnostic consumed the V2.9 number).
 
@@ -13,7 +14,7 @@ Issue slug: `production_monte_carlo_orchestration_v2_9` (filed before the U-dist
 
 Preserve the long-term planner-comparison program without turning the first production Monte Carlo into a solver factorial.
 
-The immediate research program will evaluate **one graph solver at a time**. The first production campaign uses Dijkstra only. A* and later search families will reuse the accepted mechanism population, task bank, graph semantics, objective, resolution, and result schema in later campaigns.
+The immediate research program evaluates **one graph solver at a time**. Dijkstra (V2.10) and A* (V2.11) now share the accepted mechanism population, task bank, graph semantics, objective, resolution, and result schema. Later search families must reuse that same frozen basis.
 
 This sequence keeps the causal question legible:
 
@@ -67,9 +68,9 @@ The first production result should therefore establish:
 
 ## A* campaign contract
 
-A* is the next exact solver, but it is not part of the Dijkstra production sprint.
+A* is the second exact solver. [Sprint V2.11](../../planning/sprints/v2/SPRINT_V2_11_ASTAR_PAIRED_CAMPAIGN.md) executed that campaign; it was not part of the Dijkstra production sprint.
 
-The later A* campaign must reuse:
+The A* campaign must reuse (and did reuse):
 
 - the identical accepted mechanism-pair bank;
 - the identical task bank and task IDs;

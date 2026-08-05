@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run a Version 2 Dijkstra production Monte Carlo campaign."""
+"""Run a Version 2 single-solver production Monte Carlo campaign."""
 
 from __future__ import annotations
 
@@ -20,7 +20,7 @@ from inequality_mechanisms.experiments.v2_production_runner import (  # noqa: E4
 
 app = typer.Typer(
     add_completion=False,
-    help="Run a Version 2 Dijkstra production Monte Carlo config.",
+    help="Run a Version 2 single-solver production Monte Carlo config.",
 )
 
 

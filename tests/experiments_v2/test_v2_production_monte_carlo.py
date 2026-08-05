@@ -84,10 +84,10 @@ class TestProductionConfig:
         with pytest.raises(V2ProductionConfigError, match="algorithms lists"):
             validate_v2_production_config_mapping(raw)
 
-    def test_non_dijkstra_rejected(self) -> None:
+    def test_unknown_solver_rejected(self) -> None:
         raw = yaml.safe_load(SMOKE_CONFIG.read_text())
-        raw["search"] = {"algorithm": "astar"}
-        with pytest.raises(V2ProductionConfigError, match="dijkstra"):
+        raw["search"] = {"algorithm": "not_a_solver"}
+        with pytest.raises(V2ProductionConfigError, match="dijkstra.*astar"):
             validate_v2_production_config_mapping(raw)
 
     def test_alpha_rejected(self) -> None:
