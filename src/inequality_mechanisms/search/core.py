@@ -173,6 +173,7 @@ def best_first_search(
                 n_generated=n_generated,
                 n_stale=n_stale,
                 expanded_nodes=tuple(expanded_order) if record_expanded else (),
+                selected_goal_node_id=selected_goal,
             )
 
         for v in graph.neighbors(u):
@@ -204,4 +205,5 @@ def best_first_search(
         n_generated=n_generated,
         n_stale=n_stale,
         expanded_nodes=tuple(expanded_order) if record_expanded else (),
+        selected_goal_node_id=None,
     )

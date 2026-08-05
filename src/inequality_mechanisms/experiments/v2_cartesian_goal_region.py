@@ -52,9 +52,11 @@ class CartesianGoalRegionRunConfig:
     experiment_id: str
     seed: int
     task_count: int
+    solver_policy: str
     algorithms: tuple[str, ...]
     record_expanded: bool
     base_experiment: V2ExperimentConfig
+    base_experiment_source: dict[str, Any]
     domain: CartesianAnnularSectorDomain
 
 
@@ -82,9 +84,37 @@ def load_cartesian_goal_region_config(
     root = _require_mapping(raw, "config root")
     if int(root.get("experiment_b_schema_version", -1)) != 1:
         raise ValueError("experiment_b_schema_version must equal 1")
-    base = validate_v2_config_mapping(
+    base_source = dict(
         _require_mapping(root.get("base_experiment"), "base_experiment")
     )
+    forbidden_schema_carriers = {"seed", "trials", "objective", "tasks", "algorithms"}
+    present_carriers = sorted(forbidden_schema_carriers.intersection(base_source))
+    if present_carriers:
+        raise ValueError(
+            "base_experiment contains Experiment-B-irrelevant schema fields: "
+            + ", ".join(present_carriers)
+        )
+    # V2 graph builders currently accept V2ExperimentConfig. Inject private,
+    # deterministic schema-carrier values here rather than exposing duplicate
+    # task/solver/heuristic semantics in the public Experiment B YAML.
+    base_for_validation = dict(base_source)
+    base_for_validation.update(
+        {
+            "seed": int(root["seed"]),
+            "trials": 1,
+            "objective": {
+                "cost": "actuator_travel",
+                "heuristic": "input_euclidean",
+            },
+            "tasks": {
+                "source": "fixed_output_pairs",
+                "output_tolerance": 0.0,
+                "pairs": [{"start_q": [0.0, 0.0], "goal_q": [0.0, 0.0]}],
+            },
+            "algorithms": ["dijkstra"],
+        }
+    )
+    base = validate_v2_config_mapping(base_for_validation)
     if base.mechanisms.dim != 2:
         raise ValueError("Experiment B kickoff requires a planar 2R base experiment")
     if base.sampling.domain != "output":
@@ -107,11 +137,15 @@ def load_cartesian_goal_region_config(
         L1=float(domain_raw.get("L1", 1.0)),
         L2=float(domain_raw.get("L2", 1.0)),
     )
-    algorithms = tuple(str(a) for a in root.get("algorithms", ["dijkstra", "astar"]))
-    if not algorithms or len(set(algorithms)) != len(algorithms):
-        raise ValueError("algorithms must be non-empty and unique")
-    if any(a not in {"dijkstra", "astar"} for a in algorithms):
-        raise ValueError("Experiment B kickoff supports dijkstra and astar only")
+    solver_policy = str(root.get("solver_policy", ""))
+    if solver_policy != "smoke_oracle_pair_v1":
+        raise ValueError("solver_policy must equal 'smoke_oracle_pair_v1'")
+    algorithms = tuple(str(a) for a in root.get("algorithms", ()))
+    if algorithms != ("dijkstra", "astar"):
+        raise ValueError(
+            "smoke_oracle_pair_v1 requires algorithms: [dijkstra, astar] "
+            "in that order"
+        )
     task_count = int(root.get("task_count", 0))
     if task_count < 1:
         raise ValueError("task_count must be positive")
@@ -119,9 +153,11 @@ def load_cartesian_goal_region_config(
         experiment_id=str(root.get("experiment_id", "experiment_b_cartesian_goal_region")),
         seed=int(root["seed"]),
         task_count=task_count,
+        solver_policy=solver_policy,
         algorithms=algorithms,
         record_expanded=bool(root.get("record_expanded", False)),
         base_experiment=base,
+        base_experiment_source=base_source,
         domain=domain,
     )
 
@@ -247,7 +283,11 @@ def run_cartesian_goal_region(
                         }
                     )
                     continue
-                selected_goal = int(result.path[-1])
+                if result.selected_goal_node_id is None:
+                    raise AssertionError(
+                        "found goal-set result did not record selected_goal_node_id"
+                    )
+                selected_goal = int(result.selected_goal_node_id)
                 selected_x = fk.forward(graph.q_state(selected_goal))
                 row = {
                     "experiment_id": config.experiment_id,
@@ -261,6 +301,7 @@ def run_cartesian_goal_region(
                     "selected_start_q": graph.q_state(reference.start_node_id).tolist(),
                     "selected_start_u": graph.u_state(reference.start_node_id).tolist(),
                     "selected_start_ik_family": reference.selected_start_ik_family,
+                    "start_attachment_policy": reference.start_attachment_policy,
                     "requested_start_x": task.requested_start_x.tolist(),
                     "requested_goal_x": task.requested_goal_x.tolist(),
                     "goal_radius_x": config.domain.goal_radius,
@@ -301,10 +342,21 @@ def run_cartesian_goal_region(
                 "experiment_id": config.experiment_id,
                 "seed": config.seed,
                 "task_count": config.task_count,
+                "solver_policy": config.solver_policy,
                 "algorithms": list(config.algorithms),
                 "record_expanded": config.record_expanded,
                 "cartesian_domain": config.domain.to_dict(),
-                "base_experiment": config.base_experiment.model_dump(mode="json"),
+                "base_experiment": config.base_experiment_source,
+                "v2_schema_adapter": {
+                    "private_fields": [
+                        "seed",
+                        "trials",
+                        "objective",
+                        "tasks",
+                        "algorithms",
+                    ],
+                    "purpose": "graph_builder_compatibility_only",
+                },
             },
             indent=2,
             sort_keys=True,
@@ -326,6 +378,7 @@ def run_cartesian_goal_region(
         "n_trial_rows": len(trial_rows),
         "n_failure_rows": len(failure_rows),
         "mechanism_ids": list(graphs),
+        "solver_policy": config.solver_policy,
         "algorithms": list(config.algorithms),
         "cartesian_domain": config.domain.to_dict(),
         "revision": capture_revision(cwd=None),

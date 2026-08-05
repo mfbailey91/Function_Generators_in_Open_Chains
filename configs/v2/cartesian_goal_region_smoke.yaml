@@ -2,6 +2,7 @@ experiment_b_schema_version: 1
 experiment_id: experiment_b_cartesian_goal_region_smoke
 seed: 20260805
 task_count: 16
+solver_policy: smoke_oracle_pair_v1
 algorithms: [dijkstra, astar]
 record_expanded: false
 
@@ -18,18 +19,19 @@ cartesian_domain:
   L1: 1.0
   L2: 1.0
 
+# Graph/mechanism construction fields only. The Experiment B loader injects
+# private V2 schema-carrier fields required by V2ExperimentConfig; no task,
+# solver, or heuristic semantics are read from this nested mapping.
 base_experiment:
   architecture_version: 2
   result_schema_version: 2
   planning_space: output
-  seed: 20260805
-  trials: 1
   mechanisms:
     comparison: fourbar_vs_equivalent_affine_gearbox
     dim: 2
     fourbars:
-      - {a: 0.80, b: 2.10, c: 1.70, d: 1.80, branch: 1}
-      - {a: 0.90, b: 2.30, c: 1.80, d: 2.00, branch: 1}
+      - {a: 1.0, b: 2.5, c: 2.0, d: 2.0, branch: 1}
+      - {a: 1.0, b: 2.5, c: 2.0, d: 2.0, branch: 1}
     matching_rule: span
     gearbox_mechanism_id: span_matched_gearbox
   branch:
@@ -45,15 +47,5 @@ base_experiment:
     domain: output
     shape: [64, 64]
     include_endpoints: true
-  objective:
-    cost: actuator_travel
-    heuristic: input_euclidean
   edge_validation:
     samples: 17
-  tasks:
-    source: fixed_output_pairs
-    output_tolerance: 1.0e-6
-    pairs:
-      - start_q: [0.0, 0.0]
-        goal_q: [0.1, 0.1]
-  algorithms: [dijkstra, astar]

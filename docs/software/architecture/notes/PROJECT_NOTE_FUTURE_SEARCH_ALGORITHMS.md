@@ -2,7 +2,7 @@
 
 **Status:** Active sequencing note (V2.10 Dijkstra and V2.11 A* campaigns completed)
 **Applies to:** Version 2 and later experiment architecture
-**Current implementation priority:** Review paired Dijkstra/A* 2R evidence before bidirectional exact search
+**Current implementation priority:** V2.12 bounded Cartesian goal-set Dijkstra/A* correctness smoke; production remains one solver per campaign
 **Decision date:** 2026-08-04
 
 **First implementation sprint:** [Sprint V2.10 — Production Monte Carlo Orchestration: Dijkstra Campaign](../../planning/sprints/v2/SPRINT_V2_10_PRODUCTION_MONTE_CARLO_ORCHESTRATION.md)  
@@ -43,6 +43,17 @@ search:
 ```
 
 A solver comparison is created by running a later campaign against the same immutable sample bank, not by multiplying algorithms inside one Monte Carlo run.
+
+### Bounded correctness-smoke exception
+
+V2.12 defines one explicit non-production exception:
+
+```yaml
+solver_policy: smoke_oracle_pair_v1
+algorithms: [dijkstra, astar]
+```
+
+The bounded smoke runs both exact solvers on each accepted Cartesian goal-set query solely to hard-gate optimal-cost agreement and goal-set semantics. It performs no population inference. Production Experiment B campaigns must split Dijkstra and A* into separate immutable runs and join them analytically through the frozen task and mechanism identifiers.
 
 ### Campaign order
 
@@ -168,9 +179,9 @@ Sampling-based planners must preserve the project’s accepted state semantics f
 
 No sampling-based planner may collapse hidden mechanism state when the active mechanism map is noninjective.
 
-## Architecture preparation without implementation
+## Current exact-search protocol
 
-The Dijkstra sprint may make narrow, non-disruptive preparations:
+The generic exact-search boundary now supports one active goal representation:
 
 ```python
 class GraphSolver(Protocol):
@@ -181,20 +192,25 @@ class GraphSolver(Protocol):
         self,
         graph: SearchGraph,
         start: int,
-        goal: int,
+        goal: int | None,
         objective: EdgeObjective,
+        *,
+        goal_node_ids: Collection[int] | None = None,
+        goal_test: GoalTest | None = None,
     ) -> SearchResult: ...
 ```
 
-However, the sprint must not:
+Single-goal callers remain backward compatible. Successful results expose `selected_goal_node_id` directly; callers must not recover goal-set identity only from `path[-1]`.
+
+The bounded implementation must not:
 
 - add OMPL or another planning dependency;
 - implement PRM or RRT;
-- implement A* changes unrelated to Dijkstra compatibility;
-- create a multi-solver production loop;
-- broaden the production result schema beyond fields that remain meaningful for Dijkstra.
+- create a multi-solver **production** loop;
+- treat nearest-node start attachment as balanced IK or an exact overlay;
+- promote the smoke into population inference without calibration and crossed statistics.
 
-The architecture should permit later solvers without making the current sprint responsible for them.
+The architecture continues to permit later solvers without making V2.12 responsible for them.
 
 ## Result-package rule
 
@@ -220,7 +236,13 @@ Later A* and sampling-based packages receive separate run IDs and may be joined 
 
 ## Goal-set search for Experiment B
 
-Single-goal Experiment A A* is complete. Goal-set A* for Experiment B is a later solver cell and remains blocked until [ADR-020](../adr/ADR-020-v2-goal-set-search.md) accepts multi-goal termination and an admissible heuristic to a goal set. ADR-018's single-goal `input_euclidean` heuristic does not automatically transfer.
+Single-goal Experiment A A* is complete. [ADR-020](../adr/ADR-020-v2-goal-set-search.md) is accepted for V2.12 and authorizes explicit goal-node sets or a goal predicate, deterministic cheapest-settled-goal termination, and direct selected-goal reporting. Under actuator-travel cost, the smoke uses the admissible `input_euclidean_goal_set` heuristic
+
+\[
+h(v)=\min_{g\in V_G}\lVert \mathbf u_v-\mathbf u_g\rVert_2.
+\]
+
+Other objectives and production inference remain blocked until separately calibrated and reviewed.
 
 ## Promotion criteria for the next solver
 

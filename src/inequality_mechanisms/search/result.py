@@ -33,6 +33,9 @@ class SearchResult:
     expanded_nodes :
         Flat ids expanded in order when ``record_expanded=True`` was passed
         to search; otherwise empty.
+    selected_goal_node_id :
+        The optimally settled goal node for single-goal or goal-set search.
+        ``None`` when no path is found.
     """
 
     found: bool
@@ -42,6 +45,7 @@ class SearchResult:
     n_generated: int
     n_stale: int
     expanded_nodes: tuple[int, ...] = ()
+    selected_goal_node_id: int | None = None
 
     @property
     def n_path_edges(self) -> int:

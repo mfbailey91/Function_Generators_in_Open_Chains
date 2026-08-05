@@ -45,7 +45,9 @@ def test_goal_set_heuristic_is_zero_on_goals_and_consistent() -> None:
     h = input_euclidean_goal_set_heuristic_v2(graph, goals)
     assert h(1) == 0.0
     assert h(4) == 0.0
+    exact_distance = {0: 1.0, 1: 0.0, 2: 1.0, 3: 1.0, 4: 0.0}
     for a in range(graph.node_count):
+        assert h(a) <= exact_distance[a] + 1e-12
         for b in graph.neighbors(a):
             cost = float(np.linalg.norm(graph.u_state(b) - graph.u_state(a)))
             assert h(a) <= cost + h(b) + 1e-12
@@ -77,5 +79,6 @@ def test_goal_set_astar_matches_dijkstra_and_expands_no_more() -> None:
         heuristic=astar_obj.heuristic,
     )
     assert astar.cost == dijkstra.cost
+    assert astar.selected_goal_node_id == dijkstra.selected_goal_node_id == 3
     assert astar.path[-1] == dijkstra.path[-1] == 3
     assert astar.n_expanded <= dijkstra.n_expanded

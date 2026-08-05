@@ -15,6 +15,9 @@ from numpy.typing import ArrayLike, NDArray
 from inequality_mechanisms.kinematics.planar_2r import Planar2R
 
 
+START_ATTACHMENT_POLICY_ID = "nearest_valid_graph_node_within_tolerance_v1"
+
+
 @dataclass(frozen=True, slots=True)
 class CartesianAnnularSectorDomain:
     """Area-uniform annular-sector task domain in the planar base frame."""
@@ -127,6 +130,7 @@ class ResolvedCartesianTask:
     nearest_goal_residual: float | None
     analytic_start_ik: tuple[dict[str, Any], ...]
     selected_start_ik_family: str | None
+    start_attachment_policy: str
     rejection_reason: str | None
 
     @property
@@ -144,6 +148,7 @@ class ResolvedCartesianTask:
                 "nearest_goal_residual": self.nearest_goal_residual,
                 "analytic_start_ik": list(self.analytic_start_ik),
                 "selected_start_ik_family": self.selected_start_ik_family,
+                "start_attachment_policy": self.start_attachment_policy,
                 "rejection_reason": self.rejection_reason,
             }
         )
@@ -237,14 +242,48 @@ def resolve_cartesian_task(
     """Attach one external task to a graph with deterministic tie-breaking."""
     model = fk if fk is not None else Planar2R(domain.L1, domain.L2)
     node_ids, positions = graph_cartesian_positions(graph, model)
+    analytic_q = model.inverse(task.requested_start_x)
     analytic: list[dict[str, Any]] = []
-    for q in model.inverse(task.requested_start_x):
-        in_box = bool(graph.branch.output_space.contains(q))
+    for q in analytic_q:
+        q_arr = np.asarray(q, dtype=np.float64)
+        in_box = bool(graph.branch.output_space.contains(q_arr))
+        nearest_node_id: int | None = None
+        nearest_residual: float | None = None
+        has_discrete_representative = False
+        exclusion_reason: str | None = None
+        if not in_box:
+            exclusion_reason = "outside_certified_q_box"
+        elif node_ids.size == 0:
+            exclusion_reason = "no_valid_graph_nodes"
+        else:
+            q_distance = np.asarray(
+                [
+                    graph.branch.output_space.distance(
+                        q_arr, graph.q_state(int(node_id))
+                    )
+                    for node_id in node_ids
+                ],
+                dtype=np.float64,
+            )
+            nearest_index = int(np.argmin(q_distance))
+            nearest_node_id = int(node_ids[nearest_index])
+            nearest_residual = float(q_distance[nearest_index])
+            nearest_x = model.forward(graph.q_state(nearest_node_id))
+            has_discrete_representative = bool(
+                np.linalg.norm(nearest_x - task.requested_start_x)
+                <= domain.start_tolerance
+            )
+            if not has_discrete_representative:
+                exclusion_reason = "no_graph_node_within_start_tolerance"
         analytic.append(
             {
-                "family": ik_family(q),
-                "q": np.asarray(q, dtype=np.float64).tolist(),
+                "family": ik_family(q_arr),
+                "q": q_arr.tolist(),
                 "inside_certified_q_box": in_box,
+                "nearest_graph_node_id": nearest_node_id,
+                "nearest_q_residual": nearest_residual,
+                "has_discrete_representative": has_discrete_representative,
+                "exclusion_reason": exclusion_reason,
             }
         )
     if node_ids.size == 0:
@@ -256,6 +295,7 @@ def resolve_cartesian_task(
             nearest_goal_residual=None,
             analytic_start_ik=tuple(analytic),
             selected_start_ik_family=None,
+            start_attachment_policy=START_ATTACHMENT_POLICY_ID,
             rejection_reason="no_valid_graph_nodes",
         )
 
@@ -274,6 +314,7 @@ def resolve_cartesian_task(
             nearest_goal_residual=nearest_goal,
             analytic_start_ik=tuple(analytic),
             selected_start_ik_family=None,
+            start_attachment_policy=START_ATTACHMENT_POLICY_ID,
             rejection_reason="start_region_has_no_graph_node",
         )
     ranked_start = sorted(
@@ -290,6 +331,7 @@ def resolve_cartesian_task(
             nearest_goal_residual=nearest_goal,
             analytic_start_ik=tuple(analytic),
             selected_start_ik_family=ik_family(graph.q_state(start_node_id)),
+            start_attachment_policy=START_ATTACHMENT_POLICY_ID,
             rejection_reason="goal_region_has_no_graph_node",
         )
     if start_node_id in goals:
@@ -301,6 +343,7 @@ def resolve_cartesian_task(
             nearest_goal_residual=nearest_goal,
             analytic_start_ik=tuple(analytic),
             selected_start_ik_family=ik_family(graph.q_state(start_node_id)),
+            start_attachment_policy=START_ATTACHMENT_POLICY_ID,
             rejection_reason="start_node_inside_goal_region",
         )
     return ResolvedCartesianTask(
@@ -311,6 +354,7 @@ def resolve_cartesian_task(
         nearest_goal_residual=nearest_goal,
         analytic_start_ik=tuple(analytic),
         selected_start_ik_family=ik_family(graph.q_state(start_node_id)),
+        start_attachment_policy=START_ATTACHMENT_POLICY_ID,
         rejection_reason=None,
     )
 

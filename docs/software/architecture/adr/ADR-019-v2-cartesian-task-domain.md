@@ -88,9 +88,18 @@ cannot intentionally lie inside the goal disk. Discrete attachment may still
 produce a coincident start/goal node; that query is rejected explicitly as
 `start_node_inside_goal_region`.
 
-The graph attaches the start to the valid node with minimum Cartesian residual,
-breaking exact residual ties by ascending node id. The goal is the complete set
-of valid graph nodes inside the goal disk.
+The smoke graph attaches the start to the valid node with minimum Cartesian
+residual inside `start_tolerance`, breaking exact residual ties by ascending
+node id. The stable attachment-policy identifier is:
+
+```text
+nearest_valid_graph_node_within_tolerance_v1
+```
+
+Analytic IK is diagnostic only in this smoke: every family records certified-box
+membership, nearest graph representative, residual, and exclusion reason. The
+smoke does not balance IK families and does not use a V2.6 exact query overlay.
+The goal is the complete set of valid graph nodes inside the goal disk.
 
 ### Reachability and reporting
 
@@ -128,7 +137,10 @@ requires decision JSON for:
 - empty-goal-set rate;
 - goal-set cardinality distribution;
 - selected-goal residual;
-- sensitivity of the paired effect to radius and resolution.
+- sensitivity of the paired effect to radius and resolution;
+- start-family and start-residual distributions under the nearest-node policy;
+- a decision to retain discrete start attachment or add a start-only exact
+  overlay before production.
 
 A calibration change must create a new domain version or attachment-policy
 version; it must not mutate `planar2r_left_workcell_v1` results.

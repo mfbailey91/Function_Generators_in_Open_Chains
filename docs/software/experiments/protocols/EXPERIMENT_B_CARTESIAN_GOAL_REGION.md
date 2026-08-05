@@ -5,7 +5,7 @@
 **Task variable:** Cartesian position \((x,y)\), not full pose
 **Primary graph:** shared uniform-\(\mathcal Q\) Version 2 graph
 **Primary objective:** actuator travel
-**Initial solvers:** Dijkstra baseline and A* with `input_euclidean_goal_set`
+**Initial solvers:** Dijkstra baseline and A* with `input_euclidean_goal_set` under the `smoke_oracle_pair_v1` correctness policy
 **Active sprint:** [`SPRINT_V2_12_CARTESIAN_GOAL_REGION_PLANNING.md`](../../planning/sprints/v2/SPRINT_V2_12_CARTESIAN_GOAL_REGION_PLANNING.md)
 **Accepted implementation contracts:** [ADR-019](../../architecture/adr/ADR-019-v2-cartesian-task-domain.md), [ADR-020](../../architecture/adr/ADR-020-v2-goal-set-search.md). **Production prerequisite:** [crossed-statistics note](../../architecture/notes/PROJECT_NOTE_EXPERIMENT_B_CROSSED_STATISTICS.md) must be converted into an implemented decision before population inference.
 
@@ -91,14 +91,19 @@ the task itself did not require.
 Although tasks are sampled as Cartesian start and goal positions, the actual
 planning query begins at one known physical state.
 
-Task-bank generation must:
+For the bounded V2.12 smoke, task attachment must:
 
 1. sample \(\mathbf x_s\);
-2. enumerate certified discrete \(\mathcal Q\)-states that reach its tolerance
-   region;
-3. choose one according to a frozen balancing policy;
-4. store the resulting \(\mathbf q_s\) and graph node;
+2. enumerate valid shared-graph nodes inside `start_tolerance`;
+3. select the node with minimum Cartesian residual, breaking ties by node id;
+4. store the resulting \(\mathbf q_s\), node id, residual, IK-family label, and
+   attachment-policy id;
 5. use that identical start node for the four-bar and matched gearbox.
+
+The smoke policy is
+`nearest_valid_graph_node_within_tolerance_v1`. Analytic IK families are
+diagnostics: they record certified-box membership, nearest discrete
+representatives, and exclusions. They do not choose or balance the smoke start.
 
 The bank must record:
 
@@ -108,9 +113,10 @@ The bank must record:
 - which were excluded and why;
 - the selected start family.
 
-That prevents “balanced IK” from being mistaken for balance over unrestricted
-planar 2R kinematics. Selection must not depend on mechanism cost or search
-outcomes.
+Production must either retain this discrete attachment after calibration or
+freeze a separate IK-family balancing / start-only exact-overlay policy. It must
+not describe the current smoke as balanced IK. Selection may never depend on
+mechanism cost or search outcomes.
 
 ## Primary task distribution: fixed external Cartesian domain
 

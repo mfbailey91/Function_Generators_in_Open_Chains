@@ -98,6 +98,15 @@ def test_task_resolution_and_pair_identity() -> None:
     assert resolved_a.accepted
     assert resolved_a.start_node_id == 0
     assert resolved_a.goal_node_ids == (2,)
+    assert resolved_a.start_attachment_policy == (
+        "nearest_valid_graph_node_within_tolerance_v1"
+    )
+    assert resolved_a.analytic_start_ik
+    assert any(
+        candidate["has_discrete_representative"]
+        for candidate in resolved_a.analytic_start_ik
+        if candidate["inside_certified_q_box"]
+    )
     assert_paired_cartesian_query_identity(
         graph_a, graph_b, resolved_a, resolved_b
     )

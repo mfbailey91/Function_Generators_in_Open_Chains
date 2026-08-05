@@ -7,9 +7,10 @@ The Version 2 sequence is defined in [sprints/v2/README.md](sprints/v2/README.md
 ## Current backlog
 
 - **V2 HTML run printout (evaluation tooling):** implemented beside the V2 runner (`v2_canvas.py`, `scripts/generate_v2_canvas.py`). Keep regenerable; do not treat as a substitute for V2.7.
-- **Experiment B / Sprint V2.12 — 2R Cartesian goal-region planning:** accepted conceptual design, held. Prerequisites before activation: [ADR-019 Cartesian domain](../architecture/adr/ADR-019-v2-cartesian-task-domain.md), [ADR-020 goal-set search](../architecture/adr/ADR-020-v2-goal-set-search.md), and [crossed statistics](../architecture/notes/PROJECT_NOTE_EXPERIMENT_B_CROSSED_STATISTICS.md). Protocol: [Experiment B](../experiments/protocols/EXPERIMENT_B_CARTESIAN_GOAL_REGION.md). Sprint: [V2.12](sprints/v2/SPRINT_V2_12_CARTESIAN_GOAL_REGION_PLANNING.md).
+- **Experiment B production promotion:** V2.12 bounded smoke is active, but population inference remains held. Required work: Cartesian resolution/radius/start-attachment calibration, decision JSON, crossed statistics and stopping logic, separate one-solver production configs, and the evidence canvas. Protocol: [Experiment B](../experiments/protocols/EXPERIMENT_B_CARTESIAN_GOAL_REGION.md). Sprint: [V2.12](sprints/v2/SPRINT_V2_12_CARTESIAN_GOAL_REGION_PLANNING.md).
+- **Experiment B exact-start control:** nearest-node start attachment is accepted for smoke only. Decide after calibration whether to retain it or add a start-only V2.6 query overlay; do not claim IK-family balancing in the current implementation.
 - **Experiment A task-set diagnostic:** deferred and low-confidence. A* already failed the first persistence check for `medium_diagonal`. Do not promote into a claim or into Experiment B's primary domain. See [project note](../architecture/notes/PROJECT_NOTE_EXPERIMENT_A_TASK_SET_EFFECT.md).
-- **Sprint V2.7 (3R):** deferred pending review of trusted 2R Dijkstra + A* solver evidence. Unchanged by the held Experiment B stage. See [sprints/v2/SPRINT_V2_7_3R_EXTENSION.md](sprints/v2/SPRINT_V2_7_3R_EXTENSION.md).
+- **Sprint V2.7 (3R):** deferred pending review of trusted V2.12 Cartesian goal-set Dijkstra + A* evidence. See [sprints/v2/SPRINT_V2_7_3R_EXTENSION.md](sprints/v2/SPRINT_V2_7_3R_EXTENSION.md).
 
 ## Intake rules
 

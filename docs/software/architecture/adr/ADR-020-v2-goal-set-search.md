@@ -42,8 +42,10 @@ Priority remains
 ```
 
 so equal-cost candidate goals resolve deterministically by the existing node-id
-tie order. The selected goal is `SearchResult.path[-1]`; Experiment B records
-that node, its \(q\), \(u\), Cartesian position, residual, and IK family.
+tie order. `SearchResult.selected_goal_node_id` records the optimally settled
+goal directly; `path[-1]` must agree but is not the result API. Experiment B
+records that node, its \(q\), \(u\), Cartesian position, residual, and IK
+family.
 
 Expansion counting is unchanged. The settled goal counts as an expansion, as in
 the single-goal implementation.
@@ -96,10 +98,15 @@ Other cost families remain blocked until separately documented and tested.
 
 ## Compatibility
 
-Single-goal callers continue to pass `goal` positionally and require no result
-schema change. Query overlays and existing Dijkstra/A* campaigns remain valid.
-No OMPL, sampling-based, Cartesian-native, or per-IK repeated-search stack is
-introduced.
+Single-goal callers continue to pass `goal` positionally. The additive
+`selected_goal_node_id` field is populated for successful single- and goal-set
+queries and is `None` on failure. Query overlays and existing Dijkstra/A*
+campaigns remain valid. No OMPL, sampling-based, Cartesian-native, or per-IK
+repeated-search stack is introduced.
+
+The V2.12 smoke uses nearest-node start attachment on the shared discrete graph.
+A start-only exact overlay is not part of this kickoff and remains a calibration
+work item before production if start snapping is not negligible.
 
 ## Required tests
 
@@ -115,7 +122,9 @@ introduced.
 
 ## Consequences
 
-- V2.12 may implement Dijkstra and A* goal-region smoke together.
+- V2.12 may implement Dijkstra and A* goal-region smoke together as the
+  explicit `smoke_oracle_pair_v1` correctness exception to one-solver-per-
+  production-campaign policy.
 - A* results must name `input_euclidean_goal_set` explicitly.
 - Production remains blocked on Cartesian calibration and crossed-statistics
   decisions, not on goal-set search semantics.

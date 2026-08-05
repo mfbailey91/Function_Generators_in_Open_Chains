@@ -159,13 +159,21 @@ The first patch is complete only when it provides:
 3. analytic planar-2R IK for task diagnostics;
 4. the fixed annular-sector task sampler and deterministic graph attachment;
 5. pair-identity hard gates for start and goal sets;
-6. one versioned smoke config and CLI that run both Dijkstra and A*;
-7. immutable task, trial, failure, config, and manifest outputs;
-8. Dijkstra/A* optimal-cost agreement as a run-time hard gate.
+6. one versioned smoke config with one authoritative solver list and no
+   public dummy task/objective fields;
+7. a CLI that runs Dijkstra and A* under the explicit
+   `smoke_oracle_pair_v1` correctness exception;
+8. immutable task, trial, failure, config, and manifest outputs;
+9. Dijkstra/A* optimal-cost agreement as a run-time hard gate;
+10. exhaustive small-graph goal-set oracles, deterministic equal-cost-goal
+    tests, repository-YAML load coverage, and one bounded runner integration
+    test.
 
 The kickoff does **not** implement population-bank orchestration, crossed
 bootstrap confidence intervals, sequential precision, calibration decisions,
-or an evidence canvas.
+an evidence canvas, IK-family balancing, or a start-only exact query overlay.
+Nearest-node start attachment is smoke semantics and must be calibrated before
+production.
 
 ## Primary outputs
 
