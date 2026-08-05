@@ -74,7 +74,11 @@ def _is_v2_run_dir(path: Path) -> bool:
         manifest = _read_json(manifest_path)
     except (OSError, json.JSONDecodeError, V2CanvasError):
         return False
-    return int(manifest.get("architecture_version", 0)) == 2
+    if int(manifest.get("architecture_version", 0)) != 2:
+        return False
+    if manifest.get("package_kind") == "production_monte_carlo":
+        return False
+    return manifest.get("production_schema_version") is None
 
 
 def resolve_v2_run_for_canvas(
