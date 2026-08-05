@@ -1,13 +1,13 @@
 # Experiment B — 2R Cartesian position goal-region planning
 
-**Status:** accepted conceptual design; not active implementation  
-**Robot:** planar 2R  
-**Task variable:** Cartesian position \((x,y)\), not full pose  
-**Primary graph:** shared uniform-\(\mathcal Q\) Version 2 graph  
-**Primary objective:** actuator travel  
-**Initial solver:** Dijkstra goal-set search  
-**Planned sprint:** [`SPRINT_V2_12_CARTESIAN_GOAL_REGION_PLANNING.md`](../../planning/sprints/v2/SPRINT_V2_12_CARTESIAN_GOAL_REGION_PLANNING.md) (held)  
-**Prerequisites:** [ADR-019](../../architecture/adr/ADR-019-v2-cartesian-task-domain.md) (proposed), [ADR-020](../../architecture/adr/ADR-020-v2-goal-set-search.md) (proposed), [crossed-statistics note](../../architecture/notes/PROJECT_NOTE_EXPERIMENT_B_CROSSED_STATISTICS.md)
+**Status:** active bounded implementation in Sprint V2.12; production not authorized
+**Robot:** planar 2R
+**Task variable:** Cartesian position \((x,y)\), not full pose
+**Primary graph:** shared uniform-\(\mathcal Q\) Version 2 graph
+**Primary objective:** actuator travel
+**Initial solvers:** Dijkstra baseline and A* with `input_euclidean_goal_set`
+**Active sprint:** [`SPRINT_V2_12_CARTESIAN_GOAL_REGION_PLANNING.md`](../../planning/sprints/v2/SPRINT_V2_12_CARTESIAN_GOAL_REGION_PLANNING.md)
+**Accepted implementation contracts:** [ADR-019](../../architecture/adr/ADR-019-v2-cartesian-task-domain.md), [ADR-020](../../architecture/adr/ADR-020-v2-goal-set-search.md). **Production prerequisite:** [crossed-statistics note](../../architecture/notes/PROJECT_NOTE_EXPERIMENT_B_CROSSED_STATISTICS.md) must be converted into an implemented decision before population inference.
 
 ## Research question
 
@@ -226,22 +226,19 @@ goal_test(node_id) -> bool
 
 testing whether the node's Cartesian output lies inside the frozen goal disk.
 
-### A* follow-on
+### A* actuator-travel heuristic
 
-A* is blocked until an admissible heuristic to the goal set is documented and
-validated:
+ADR-020 accepts the explicit goal-set lower bound
 
 \[
-h(v)
-\le
-\min_{g\in V_G}
-d(v,g).
+h(v)=\min_{g\in V_G}\lVert \mathbf u_v-\mathbf u_g\rVert_2.
 \]
 
-ADR-018's single-goal `input_euclidean` heuristic is not automatically valid
-for a goal set. Raw Cartesian distance is not automatically admissible under
-actuator-travel edge cost. Zero heuristic remains a valid fallback and is
-equivalent to Dijkstra.
+For actuator-travel edge cost this is admissible and consistent by the triangle
+inequality. The stable registry name is `input_euclidean_goal_set`. Raw
+Cartesian distance remains unapproved for this objective. Dijkstra and A* must
+return equal optimal cost for every accepted smoke query; a disagreement is a
+hard implementation failure.
 
 ## Paired invariants
 
@@ -348,10 +345,10 @@ not tune \(\mathcal D_X\).
 
 Experiment B is scientifically runnable only when:
 
-1. ADR-019 has accepted the external Cartesian domain and task-bank schema;
+1. ADR-019 remains the accepted external Cartesian domain and task-bank schema;
 2. Cartesian-uniform sampling is validated;
 3. start IK selection is frozen, recorded, and mechanism-independent;
-4. ADR-020 has accepted goal-set search semantics;
+4. ADR-020 remains the accepted goal-set Dijkstra/A* semantics;
 5. goal-set Dijkstra matches an exhaustive small-graph oracle;
 6. pair goal-set invariants pass;
 7. goal-radius and resolution sensitivity stabilize;

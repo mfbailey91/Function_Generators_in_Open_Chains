@@ -15,8 +15,14 @@ from __future__ import annotations
 
 import heapq
 import math
+from collections.abc import Collection
 
-from inequality_mechanisms.search.protocol import EdgeCost, Heuristic, SearchGraph
+from inequality_mechanisms.search.protocol import (
+    EdgeCost,
+    GoalTest,
+    Heuristic,
+    SearchGraph,
+)
 from inequality_mechanisms.search.result import SearchResult
 
 
@@ -33,8 +39,10 @@ def _reconstruct_path(came_from: dict[int, int], goal: int) -> tuple[int, ...]:
 def best_first_search(
     graph: SearchGraph,
     start: int,
-    goal: int,
+    goal: int | None,
     *,
+    goal_node_ids: Collection[int] | None = None,
+    goal_test: GoalTest | None = None,
     edge_cost: EdgeCost,
     heuristic: Heuristic,
     record_expanded: bool = False,
@@ -52,7 +60,13 @@ def best_first_search(
         Any object satisfying :class:`SearchGraph` (node count, node
         validity, and neighbor iteration by flat node id).
     start, goal :
-        Flat node ids. Both must be valid nodes of ``graph``.
+        Flat start node id and optional backward-compatible single goal.
+    goal_node_ids :
+        Explicit non-empty valid goal set. Mutually exclusive with ``goal``
+        and ``goal_test``.
+    goal_test :
+        Graph-generic goal predicate. Mutually exclusive with the explicit
+        goal forms.
     edge_cost :
         Required ``(u_id, v_id) -> float`` edge weight. The generic core
         constructs no graph-specific default; callers resolve one (e.g.
@@ -72,17 +86,47 @@ def best_first_search(
     Raises
     ------
     ValueError
-        If ``start`` or ``goal`` is out of range or not a valid node.
+        If goal forms are ambiguous, an explicit goal set is empty, or an
+        explicit start/goal node is out of range or invalid.
     """
     n_nodes = graph.node_count
     if start < 0 or start >= n_nodes:
         raise ValueError(f"start node_id out of range: {start}")
-    if goal < 0 or goal >= n_nodes:
-        raise ValueError(f"goal node_id out of range: {goal}")
     if not graph.node_is_valid(start):
         raise ValueError(f"start node {start} is not valid under graph constraints")
-    if not graph.node_is_valid(goal):
-        raise ValueError(f"goal node {goal} is not valid under graph constraints")
+
+    active_goal_forms = int(goal is not None) + int(goal_node_ids is not None) + int(
+        goal_test is not None
+    )
+    if active_goal_forms != 1:
+        raise ValueError(
+            "exactly one of goal, goal_node_ids, or goal_test must be provided"
+        )
+
+    explicit_goals: frozenset[int] | None = None
+    if goal is not None:
+        if goal < 0 or goal >= n_nodes:
+            raise ValueError(f"goal node_id out of range: {goal}")
+        if not graph.node_is_valid(goal):
+            raise ValueError(f"goal node {goal} is not valid under graph constraints")
+        explicit_goals = frozenset({int(goal)})
+    elif goal_node_ids is not None:
+        explicit_goals = frozenset(int(node_id) for node_id in goal_node_ids)
+        if not explicit_goals:
+            raise ValueError("goal_node_ids must contain at least one node")
+        for node_id in sorted(explicit_goals):
+            if node_id < 0 or node_id >= n_nodes:
+                raise ValueError(f"goal node_id out of range: {node_id}")
+            if not graph.node_is_valid(node_id):
+                raise ValueError(
+                    f"goal node {node_id} is not valid under graph constraints"
+                )
+
+    if explicit_goals is not None:
+        is_goal: GoalTest = explicit_goals.__contains__
+    else:
+        assert goal_test is not None
+        is_goal = goal_test
 
     cost_fn = edge_cost
 
@@ -118,12 +162,13 @@ def best_first_search(
         if record_expanded:
             expanded_order.append(u)
 
-        if u == goal:
-            path = _reconstruct_path(came_from, goal)
+        if bool(is_goal(u)):
+            selected_goal = int(u)
+            path = _reconstruct_path(came_from, selected_goal)
             return SearchResult(
                 found=True,
                 path=path,
-                cost=float(g_best[goal]),
+                cost=float(g_best[selected_goal]),
                 n_expanded=n_expanded,
                 n_generated=n_generated,
                 n_stale=n_stale,

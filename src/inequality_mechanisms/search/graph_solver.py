@@ -7,9 +7,10 @@ solvers remain deferred behind the same protocol.
 
 from __future__ import annotations
 
+from collections.abc import Collection
 from typing import Protocol, runtime_checkable
 
-from inequality_mechanisms.search.protocol import SearchGraph
+from inequality_mechanisms.search.protocol import GoalTest, SearchGraph
 from inequality_mechanisms.search.result import SearchResult
 from inequality_mechanisms.search.v2_objectives import V2PlanningObjective
 
@@ -34,12 +35,14 @@ class GraphSolver(Protocol):
         self,
         graph: SearchGraph,
         start: int,
-        goal: int,
+        goal: int | None,
         objective: V2PlanningObjective,
         *,
+        goal_node_ids: Collection[int] | None = None,
+        goal_test: GoalTest | None = None,
         record_expanded: bool = False,
     ) -> SearchResult:
-        """Return one search result on ``graph`` from ``start`` to ``goal``."""
+        """Return one exact search result for one active goal representation."""
 
 
 class DijkstraGraphSolver:
@@ -53,9 +56,11 @@ class DijkstraGraphSolver:
         self,
         graph: SearchGraph,
         start: int,
-        goal: int,
+        goal: int | None,
         objective: V2PlanningObjective,
         *,
+        goal_node_ids: Collection[int] | None = None,
+        goal_test: GoalTest | None = None,
         record_expanded: bool = False,
     ) -> SearchResult:
         from inequality_mechanisms.search.core import best_first_search
@@ -64,6 +69,8 @@ class DijkstraGraphSolver:
             graph,
             start,
             goal,
+            goal_node_ids=goal_node_ids,
+            goal_test=goal_test,
             edge_cost=objective.edge_cost,
             heuristic=objective.heuristic,
             record_expanded=record_expanded,
@@ -81,9 +88,11 @@ class AStarGraphSolver:
         self,
         graph: SearchGraph,
         start: int,
-        goal: int,
+        goal: int | None,
         objective: V2PlanningObjective,
         *,
+        goal_node_ids: Collection[int] | None = None,
+        goal_test: GoalTest | None = None,
         record_expanded: bool = False,
     ) -> SearchResult:
         from inequality_mechanisms.search.core import best_first_search
@@ -92,6 +101,8 @@ class AStarGraphSolver:
             graph,
             start,
             goal,
+            goal_node_ids=goal_node_ids,
+            goal_test=goal_test,
             edge_cost=objective.edge_cost,
             heuristic=objective.heuristic,
             record_expanded=record_expanded,

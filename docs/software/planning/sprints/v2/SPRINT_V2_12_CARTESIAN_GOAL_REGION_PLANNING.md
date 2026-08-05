@@ -1,15 +1,15 @@
 # Sprint V2.12 — Cartesian Goal-Region Planning
 
-**Status:** planned / held; documentation and prerequisites only  
-**Experiment:** Experiment B  
-**Robot:** planar 2R  
-**Task:** known start state to position-only Cartesian goal region  
-**Primary solver:** Dijkstra  
+**Status:** active — bounded smoke implementation; production held
+**Experiment:** Experiment B
+**Robot:** planar 2R
+**Task:** known start state to position-only Cartesian goal region
+**Primary solvers:** Dijkstra and A* (`input_euclidean_goal_set`)
 **Primary objective:** actuator travel
 
-This sprint is **not active**. Do not implement search, sampling, runner, or
-analysis changes under this number until the entry gates are satisfied and
-`ACTIVE_SPRINT.md` is updated by an explicit activation decision.
+This sprint is active for the bounded kickoff scope below. It does not authorize
+population production, sequential stopping, or paper-level Experiment B claims.
+Those remain blocked on calibration decisions and crossed-statistics implementation.
 
 ## Sprint intent
 
@@ -48,17 +48,14 @@ affects:
 - node expansions;
 - actuator, output, and Cartesian path geometry.
 
-## Entry gates
+## Activation decision
 
-Do not activate this sprint until:
+The bounded implementation is activated because:
 
 1. Experiment A semantics are documented for both V2.10 Dijkstra and V2.11 A*;
-2. [ADR-019](../../../architecture/adr/ADR-019-v2-cartesian-task-domain.md) is
-   accepted, not merely proposed;
-3. [ADR-020](../../../architecture/adr/ADR-020-v2-goal-set-search.md) is
-   accepted, not merely proposed;
-4. the [crossed statistical design](../../../architecture/notes/PROJECT_NOTE_EXPERIMENT_B_CROSSED_STATISTICS.md)
-   is specific enough to implement and test;
+2. [ADR-019](../../../architecture/adr/ADR-019-v2-cartesian-task-domain.md) accepts the fixed smoke/calibration domain;
+3. [ADR-020](../../../architecture/adr/ADR-020-v2-goal-set-search.md) accepts generalized goal-set search and the actuator-distance A* heuristic;
+4. crossed statistics is explicitly not needed to validate one-pair smoke correctness and remains a production gate;
 5. the shared-\(\mathcal Q\) pair invariant remains green;
 6. exact start query support from V2.6 remains reproducible;
 7. the Experiment B protocol is reviewed.
@@ -82,30 +79,21 @@ This sprint does not include:
 - copying V2.10 pair-nested sequential precision unchanged;
 - implementing against the proposed ADR placeholders.
 
-## Prerequisite work items
+## Resolved design gates and remaining production gate
 
-These are design gates, not an invitation to begin production code.
+### V2B-P1 — Cartesian-domain ADR — accepted
 
-### V2B-P1 — Cartesian-domain ADR
+ADR-019 freezes `planar2r_left_workcell_v1`, area-uniform sampling, attachment radii, and separation for smoke/calibration.
 
-Accept ADR-019. Freeze \(\mathcal D_X\), exclusions, start–goal separation,
-\(\epsilon_X\) relationship, boundary sampling, and bank schema.
+### V2B-P2 — Goal-set search ADR — accepted
 
-### V2B-P2 — Goal-set search ADR
+ADR-020 freezes the generalized solver API, deterministic termination, Dijkstra oracle, and `input_euclidean_goal_set` A*.
 
-Accept ADR-020. Freeze the generalized solver API, termination, ties,
-instrumentation, Dijkstra correctness, and goal-set A* admissibility rules.
+### V2B-P3 — Crossed statistical design — production gate
 
-### V2B-P3 — Crossed statistical design
+Before any population campaign, accept and implement uncertainty/stopping logic that preserves both mechanism and task dependence. Smoke rows are correctness evidence only.
 
-Accept the Experiment B uncertainty and stopping design. Sequential precision
-must preserve mechanism and task dependence, or use a conservative resampling
-scheme that does not treat task rows as iid.
-
-## Implementation work packages after activation
-
-The following packages are listed so the held sprint has a bounded shape. They
-are blocked until activation.
+## Implementation work packages
 
 ### V2B-001 — Uniform-area Cartesian sampler
 
@@ -160,7 +148,24 @@ external-domain primary mean.
 
 Reuse V2.10 operational lessons (generate-only bank, hardware preflight, shard
 lifecycle) only after the clustering unit is updated for the crossed design.
-Production begins with Dijkstra.
+Production compares separately configured Dijkstra and A* campaigns only after the crossed design is accepted.
+
+## Activated kickoff scope
+
+The first patch is complete only when it provides:
+
+1. backward-compatible single-goal plus explicit/predicate goal-set search;
+2. `input_euclidean_goal_set` objective resolution and admissibility tests;
+3. analytic planar-2R IK for task diagnostics;
+4. the fixed annular-sector task sampler and deterministic graph attachment;
+5. pair-identity hard gates for start and goal sets;
+6. one versioned smoke config and CLI that run both Dijkstra and A*;
+7. immutable task, trial, failure, config, and manifest outputs;
+8. Dijkstra/A* optimal-cost agreement as a run-time hard gate.
+
+The kickoff does **not** implement population-bank orchestration, crossed
+bootstrap confidence intervals, sequential precision, calibration decisions,
+or an evidence canvas.
 
 ## Primary outputs
 

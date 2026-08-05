@@ -41,3 +41,6 @@ EdgeCost = Callable[[int, int], float]
 
 Heuristic = Callable[[int], float]
 """Cost-to-go estimate ``h(node_id) -> float``."""
+
+GoalTest = Callable[[int], bool]
+"""Goal-set membership predicate ``goal_test(node_id) -> bool``."""
