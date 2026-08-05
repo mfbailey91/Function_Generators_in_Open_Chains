@@ -1,15 +1,25 @@
-"""Sprint V2.8 — Shared-Q paired mechanism study orchestration.
+"""Shared-Q paired mechanism study orchestration (V2.8 blend / V2.9 U-only).
 
-Runs the fixed hierarchy:
+V2.8 hierarchy (``q_u_blend`` + alpha sweep):
 
 ```text
 run
 └── task_set
-    └── mechanism_pair (5)
-        └── alpha (5)
+    └── mechanism_pair
+        └── alpha
             ├── fourbar
             ├── span_matched_gearbox
             └── unit_gearbox (optional identity control)
+```
+
+V2.9 hierarchy (raw ``actuator_travel`` only; no alpha / Q term):
+
+```text
+run
+└── task_set (3)
+    └── mechanism_pair (5)
+        ├── fourbar
+        └── span_matched_gearbox
 ```
 
 Reuses Version 2 graph construction, query overlays, Dijkstra search, and the
@@ -98,9 +108,24 @@ _ARM_LABELS = {
     UNIT_GEARBOX_MECHANISM_ID: "Unit gearbox",
 }
 
+_U_DISTANCE_STUDY_NAMES = frozenset(
+    {
+        "shared_q_paired_u_2r",
+        "shared_q_paired_u_smoke",
+        "shared_q_paired_2r_u_distance_only",
+    }
+)
+_BLEND_STUDY_NAMES = frozenset({"shared_q_paired_2r", "shared_q_paired_smoke"})
+_SHARED_Q_STUDY_NAMES = _BLEND_STUDY_NAMES | _U_DISTANCE_STUDY_NAMES
+
 
 class V2SharedQStudyError(ValueError):
     """Raised when a shared-Q paired study config is invalid."""
+
+
+def is_u_distance_only_study(name: str) -> bool:
+    """Return whether ``name`` selects the V2.9 actuator-travel-only study."""
+    return name in _U_DISTANCE_STUDY_NAMES
 
 
 class V2StudyMeta(BaseModel):
@@ -111,24 +136,35 @@ class V2StudyMeta(BaseModel):
     name: str = "shared_q_paired_2r"
     mechanism_pair_ids: list[str]
     task_template_ids: list[str]
-    alphas: list[float]
+    alphas: list[float] = Field(default_factory=list)
     reference_algorithm: str = "dijkstra"
     optional_algorithms: list[str] = Field(default_factory=list)
     include_unit_gearbox: bool = True
 
     @field_validator("alphas")
     @classmethod
-    def _alphas_ok(cls, value: list[float]) -> list[float]:
+    def _alphas_range(cls, value: list[float]) -> list[float]:
         out = [float(a) for a in value]
-        if not out:
-            raise ValueError("study.alphas must be non-empty")
         if any(a < 0.0 or a > 1.0 for a in out):
             raise ValueError("study.alphas must lie in [0, 1]")
         return out
 
+    @model_validator(mode="after")
+    def _alphas_match_mode(self) -> V2StudyMeta:
+        if is_u_distance_only_study(self.name):
+            if self.alphas:
+                raise ValueError(
+                    "U-distance-only study must not set study.alphas "
+                    "(use actuator_travel with no cost sweep)"
+                )
+            return self
+        if not self.alphas:
+            raise ValueError("study.alphas must be non-empty for q_u_blend studies")
+        return self
+
 
 class V2SharedQPairedStudyConfig(BaseModel):
-    """Dedicated Sprint V2.8 study configuration."""
+    """Dedicated shared-Q paired study configuration (V2.8 / V2.9)."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -161,11 +197,16 @@ class V2SharedQPairedStudyConfig(BaseModel):
             raise ValueError("reference_algorithm must be dijkstra")
         return self
 
+    @property
+    def u_distance_only(self) -> bool:
+        """True when this config runs raw actuator_travel with no alpha sweep."""
+        return is_u_distance_only_study(self.study.name)
+
 
 def load_shared_q_paired_study_config(
     path: Path | str,
 ) -> V2SharedQPairedStudyConfig:
-    """Load and validate a Sprint V2.8 study YAML config."""
+    """Load and validate a shared-Q paired study YAML config."""
     config_path = Path(path)
     with config_path.open(encoding="utf-8") as handle:
         raw = yaml.safe_load(handle)
@@ -180,23 +221,37 @@ def load_shared_q_paired_study_config(
 
 
 def is_shared_q_paired_study_mapping(raw: dict[str, Any]) -> bool:
-    """Return whether a raw YAML mapping is a V2.8 shared-Q study config."""
+    """Return whether a raw YAML mapping is a shared-Q paired study config."""
     study = raw.get("study")
     if not isinstance(study, dict):
         return False
     name = study.get("name")
-    return name in {"shared_q_paired_2r", "shared_q_paired_smoke"}
+    return name in _SHARED_Q_STUDY_NAMES
 
 
 def _pair_experiment_config(
     study: V2SharedQPairedStudyConfig,
     *,
     pair_id: str,
-    alpha: float,
+    alpha: float | None,
     start_q: list[float],
     goal_q: list[float],
 ) -> V2ExperimentConfig:
     pair = pair_by_id(pair_id)
+    if study.u_distance_only:
+        objective = V2ObjectiveConfig(
+            cost="actuator_travel",
+            heuristic="zero",
+            alpha=None,
+        )
+    else:
+        if alpha is None:
+            raise ValueError("q_u_blend study requires a finite alpha")
+        objective = V2ObjectiveConfig(
+            cost="q_u_blend",
+            heuristic="zero",
+            alpha=float(alpha),
+        )
     return V2ExperimentConfig(
         architecture_version=2,
         result_schema_version=2,
@@ -211,11 +266,7 @@ def _pair_experiment_config(
         ),
         branch=study.branch,
         sampling=study.sampling,
-        objective=V2ObjectiveConfig(
-            cost="q_u_blend",
-            heuristic="zero",
-            alpha=float(alpha),
-        ),
+        objective=objective,
         edge_validation=study.edge_validation,
         tasks=V2TasksConfig(
             source="fixed_output_pairs",
@@ -247,7 +298,14 @@ def run_shared_q_paired_study(
     run_id: str | None = None,
     write_figures: bool = True,
 ) -> SharedQPairedStudyResult:
-    """Execute the full  pair × task × alpha study and write one run package."""
+    """Execute the shared-Q paired study and write one immutable run package."""
+    u_only = config.u_distance_only
+    cost_schedule: list[float | None]
+    if u_only:
+        cost_schedule = [None]
+    else:
+        cost_schedule = [float(a) for a in config.study.alphas]
+
     root = Path(results_root) if results_root is not None else default_results_root()
     root.mkdir(parents=True, exist_ok=True)
     rid = (
@@ -314,11 +372,11 @@ def run_shared_q_paired_study(
     algorithms = ["dijkstra"]
 
     for pair_id in config.study.mechanism_pair_ids:
-        # Build branches/graphs once per pair (reuse across tasks and alphas).
+        # Build branches/graphs once per pair (reuse across tasks / cost passes).
         probe_cfg = _pair_experiment_config(
             config,
             pair_id=pair_id,
-            alpha=1.0,
+            alpha=None if u_only else 1.0,
             start_q=[0.0, 0.0],
             goal_q=[1.0, 1.0],
         )
@@ -495,9 +553,10 @@ def run_shared_q_paired_study(
                         f"pair {pair_id} task {task_set_id} vs {partner_id}: {exc}"
                     ) from exc
 
-            alpha_rows: dict[float, dict[str, dict[str, Any]]] = {}
-            for alpha in config.study.alphas:
-                alpha_rows[float(alpha)] = {}
+            cost_rows: dict[float | None, dict[str, dict[str, Any]]] = {}
+            for alpha in cost_schedule:
+                cost_rows[alpha] = {}
+                cost_name = "actuator_travel" if u_only else "q_u_blend"
                 for mechanism_id, branch in mechanism_branches.items():
                     graph = overlays[mechanism_id]
                     start_id = graph.start_node_id
@@ -519,6 +578,12 @@ def run_shared_q_paired_study(
                         start_residual_norm > config.tasks.output_tolerance
                         or goal_residual_norm > config.tasks.output_tolerance
                     ):
+                        failure_extra: dict[str, Any] = {
+                            "pair_id": pair_id,
+                            "task_set_id": task_set_id,
+                        }
+                        if alpha is not None:
+                            failure_extra["alpha"] = float(alpha)
                         failure_rows.append(
                             V2FailureRow(
                                 run_id=rid,
@@ -536,11 +601,7 @@ def run_shared_q_paired_study(
                                 start_residual_norm=start_residual_norm,
                                 goal_residual_norm=goal_residual_norm,
                             ).to_dict()
-                            | {
-                                "pair_id": pair_id,
-                                "task_set_id": task_set_id,
-                                "alpha": float(alpha),
-                            }
+                            | failure_extra
                         )
                         continue
 
@@ -564,16 +625,24 @@ def run_shared_q_paired_study(
                         for a, b in graph.topology.iter_edges()
                         if graph.valid_nodes[a] and graph.valid_nodes[b]
                     )
-                    objective = resolve_v2_objective(
-                        graph,
-                        goal_id,
-                        "q_u_blend",
-                        "zero",
-                        alpha=float(alpha),
-                        s_q=s_q,
-                        s_u=s_u,
-                        edge_n_samples=config.edge_validation.samples,
-                    )
+                    if u_only:
+                        objective = resolve_v2_objective(
+                            graph,
+                            goal_id,
+                            "actuator_travel",
+                            "zero",
+                        )
+                    else:
+                        objective = resolve_v2_objective(
+                            graph,
+                            goal_id,
+                            "q_u_blend",
+                            "zero",
+                            alpha=float(alpha),
+                            s_q=s_q,
+                            s_u=s_u,
+                            edge_n_samples=config.edge_validation.samples,
+                        )
                     result = best_first_search(
                         graph,
                         start_id,
@@ -585,8 +654,9 @@ def run_shared_q_paired_study(
                     length_u, length_q, length_x = _path_metrics(
                         branch, graph, result.path
                     )
-                    comps = (
-                        path_q_u_blend_components(
+                    comps = None
+                    if result.found and not u_only:
+                        comps = path_q_u_blend_components(
                             graph,
                             result.path,
                             alpha=float(alpha),
@@ -594,7 +664,10 @@ def run_shared_q_paired_study(
                             s_u=s_u,
                             edge_n_samples=config.edge_validation.samples,
                         )
-                        if result.found
+                    # Reporting-only normalized U length (never enters the planner).
+                    norm_u_report = (
+                        float(length_u) / float(s_u)
+                        if result.found and s_u > 0.0 and length_u is not None
                         else None
                     )
                     valid_node_count = int(np.sum(graph.valid_nodes))
@@ -618,15 +691,23 @@ def run_shared_q_paired_study(
                         valid_node_count=valid_node_count,
                         valid_edge_count=valid_edge_count,
                         algorithm="dijkstra",
-                        cost_type="q_u_blend",
+                        cost_type=cost_name,
                         heuristic_type="zero",
-                        alpha=float(alpha),
+                        alpha=None if u_only else float(alpha),
                         s_q=s_q,
                         s_u=s_u,
                         cost_d_q=None if comps is None else comps.d_q,
-                        cost_d_u=None if comps is None else comps.d_u,
+                        cost_d_u=(
+                            float(length_u)
+                            if u_only and result.found and length_u is not None
+                            else (None if comps is None else comps.d_u)
+                        ),
                         cost_norm_q=None if comps is None else comps.norm_q,
-                        cost_norm_u=None if comps is None else comps.norm_u,
+                        cost_norm_u=(
+                            norm_u_report
+                            if u_only
+                            else (None if comps is None else comps.norm_u)
+                        ),
                         requested_start_q=list(task.requested_start_q),
                         requested_goal_q=list(task.requested_goal_q),
                         realized_start_q=list(start_q_real),
@@ -659,26 +740,31 @@ def run_shared_q_paired_study(
                         expanded_node_ids=result.expanded_nodes,
                     ).to_dict()
                     trial_rows.append(row)
-                    alpha_rows[float(alpha)][mechanism_id] = row
+                    cost_rows[alpha][mechanism_id] = row
 
                     if plotters is not None and result.found and result.path:
                         paths_dir = figures_root / "paths"
                         paths_dir.mkdir(parents=True, exist_ok=True)
-                        alpha_tag = f"{float(alpha):g}".replace(".", "p")
-                        stem = f"{pair_id}__a{alpha_tag}__{mechanism_id}"
+                        if u_only:
+                            stem = f"{pair_id}__{task_set_id}__{mechanism_id}"
+                            title_prefix = f"{pair_id} {task_set_id} {mechanism_id}"
+                        else:
+                            alpha_tag = f"{float(alpha):g}".replace(".", "p")
+                            stem = f"{pair_id}__a{alpha_tag}__{mechanism_id}"
+                            title_prefix = f"{pair_id} α={float(alpha):g} {mechanism_id}"
                         plotters["plot_embedded_q_path"](
                             graph,
                             paths_dir / f"{stem}_q.png",
                             path_node_ids=result.path,
                             expanded_node_ids=result.expanded_nodes,
-                            title=f"{pair_id} α={alpha:g} {mechanism_id}: Q",
+                            title=f"{title_prefix}: Q",
                         )
                         plotters["plot_embedded_u_path"](
                             graph,
                             paths_dir / f"{stem}_u.png",
                             path_node_ids=result.path,
                             expanded_node_ids=None,
-                            title=f"{pair_id} α={alpha:g} {mechanism_id}: U",
+                            title=f"{title_prefix}: U",
                         )
                         q_path = np.vstack(
                             [
@@ -690,24 +776,23 @@ def run_shared_q_paired_study(
                             plotters["plot_cartesian_path"](
                                 q_path,
                                 paths_dir / f"{stem}_x.png",
-                                title=(
-                                    f"{pair_id} α={alpha:g} {mechanism_id}: "
-                                    "Cartesian"
-                                ),
+                                title=f"{title_prefix}: Cartesian",
                                 n_pose_samples=8,
                             )
 
                     # Null-control hard gate at alpha=1 vs every partner arm.
                     if (
-                        float(alpha) == 1.0
-                        and FOURBAR_MECHANISM_ID in alpha_rows[1.0]
+                        not u_only
+                        and alpha is not None
+                        and float(alpha) == 1.0
+                        and FOURBAR_MECHANISM_ID in cost_rows[1.0]
                         and all(
-                            mid in alpha_rows[1.0] for mid in comparison_partners
+                            mid in cost_rows[1.0] for mid in comparison_partners
                         )
                     ):
-                        ra = alpha_rows[1.0][FOURBAR_MECHANISM_ID]
+                        ra = cost_rows[1.0][FOURBAR_MECHANISM_ID]
                         for partner_id in comparison_partners:
-                            rb = alpha_rows[1.0][partner_id]
+                            rb = cost_rows[1.0][partner_id]
                             if (
                                 ra["found"] != rb["found"]
                                 or ra["path_node_ids"] != rb["path_node_ids"]
@@ -724,7 +809,7 @@ def run_shared_q_paired_study(
                                 )
 
                 # Paired comparisons: four-bar vs each partner arm.
-                mech_map = alpha_rows[float(alpha)]
+                mech_map = cost_rows[alpha]
                 if FOURBAR_MECHANISM_ID in mech_map:
                     ra = mech_map[FOURBAR_MECHANISM_ID]
                     q_path_a = (
@@ -772,15 +857,21 @@ def run_shared_q_paired_study(
         yaml.safe_dump(config_payload, sort_keys=False), encoding="utf-8"
     )
 
-    onset = divergence_onset_by_alpha(pair_comparisons)
-    manifest: dict[str, Any] = {
-        "run_id": rid,
-        "architecture_version": 2,
-        "result_schema_version": RESULT_SCHEMA_VERSION_V2,
-        "study": config.study.model_dump(mode="python"),
-        "seed": config.seed,
-        "sampling_domain": "output",
-        "objective": {
+    onset = (
+        None if u_only else divergence_onset_by_alpha(pair_comparisons)
+    )
+    if u_only:
+        objective_manifest: dict[str, Any] = {
+            "cost": "actuator_travel",
+            "heuristic": "zero",
+            "alphas": [],
+            "normalization": {
+                "planner": "none_raw_actuator_euclidean",
+                "reporting_u_scale": "paired_branch_box_diagonal",
+            },
+        }
+    else:
+        objective_manifest = {
             "cost": "q_u_blend",
             "heuristic": "zero",
             "alphas": list(config.study.alphas),
@@ -788,7 +879,15 @@ def run_shared_q_paired_study(
                 "q_scale": "output_box_diagonal",
                 "u_scale": "paired_branch_box_diagonal",
             },
-        },
+        }
+    manifest: dict[str, Any] = {
+        "run_id": rid,
+        "architecture_version": 2,
+        "result_schema_version": RESULT_SCHEMA_VERSION_V2,
+        "study": config.study.model_dump(mode="python"),
+        "seed": config.seed,
+        "sampling_domain": "output",
+        "objective": objective_manifest,
         "algorithms": algorithms,
         "n_trial_rows": len(trial_rows),
         "n_failure_rows": len(failure_rows),
@@ -841,13 +940,18 @@ def run_shared_q_paired_study(
             plotters["plot_v2_expansions_by_mechanism"](
                 trial_rows,
                 figures_root / "expansions_raw.png",
-                title="Shared-Q paired study: expansions by mechanism",
+                title=(
+                    "Shared-Q U-distance study: expansions by mechanism"
+                    if u_only
+                    else "Shared-Q paired study: expansions by mechanism"
+                ),
             )
-            plotters["plot_v2_expansions_by_alpha"](
-                trial_rows,
-                figures_root / "expansions_by_alpha.png",
-                title="Shared-Q paired study: expansions vs alpha",
-            )
+            if not u_only:
+                plotters["plot_v2_expansions_by_alpha"](
+                    trial_rows,
+                    figures_root / "expansions_by_alpha.png",
+                    title="Shared-Q paired study: expansions vs alpha",
+                )
 
     write_v2_canvas(run_dir)
     return SharedQPairedStudyResult(

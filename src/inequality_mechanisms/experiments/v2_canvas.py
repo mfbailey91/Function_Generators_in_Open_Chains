@@ -406,7 +406,7 @@ def _filter_figures(
 
 
 def _study_sections_html(payload: dict[str, Any]) -> str:
-    """Render pair / alpha cards for the active study (cross-range only)."""
+    """Render pair / task cards for the active shared-Q study."""
     manifest = (
         payload.get("manifest") if isinstance(payload.get("manifest"), dict) else {}
     )
@@ -416,25 +416,42 @@ def _study_sections_html(payload: dict[str, Any]) -> str:
     trial_rows = (
         payload.get("trial_rows") if isinstance(payload.get("trial_rows"), list) else []
     )
-    raw_task_ids = [str(x) for x in (study.get("task_template_ids") or [])]
-    # Drop joint-dominant templates from the dashboard display.
-    task_ids = [
-        tid
-        for tid in raw_task_ids
-        if tid not in {"joint1_dominant", "joint2_dominant"}
-    ]
-    if not task_ids and "cross_range" in raw_task_ids:
-        task_ids = ["cross_range"]
+    objective = (
+        manifest.get("objective") if isinstance(manifest.get("objective"), dict) else {}
+    )
+    u_only = str(objective.get("cost", "")) == "actuator_travel"
+    task_ids = [str(x) for x in (study.get("task_template_ids") or [])]
+    if not u_only:
+        # V2.8 blend dashboard historically showed cross-range only.
+        filtered = [
+            tid
+            for tid in task_ids
+            if tid not in {"joint1_dominant", "joint2_dominant"}
+        ]
+        if filtered:
+            task_ids = filtered
+        elif "cross_range" in task_ids:
+            task_ids = ["cross_range"]
     if not task_ids:
         task_ids = ["cross_range"]
     pair_ids = [str(x) for x in (study.get("mechanism_pair_ids") or [])]
     alphas = [float(a) for a in (study.get("alphas") or [])]
+    if u_only:
+        blurb = (
+            "Hold output motions fixed; compare four-bar vs span-matched "
+            "gearbox under raw actuator travel only (no Q term, alpha, or "
+            "cost sweep)."
+        )
+    else:
+        blurb = (
+            "Hold output motions fixed; compare four-bar vs "
+            "span-matched gearbox under normalized Q/U cost. When enabled, a "
+            "unit-gearbox identity arm is the all-alpha sanity control."
+        )
     parts = [
         "<section>",
         "<h2>Shared-Q paired study</h2>",
-        "<p class='muted'>Hold output motions fixed; compare four-bar vs "
-        "span-matched gearbox under normalized Q/U cost. When enabled, a "
-        "unit-gearbox identity arm is the all-alpha sanity control.</p>",
+        f"<p class='muted'>{html.escape(blurb)}</p>",
         "<div class='kv'>",
         f"<div class='k'>Study</div><div>{html.escape(str(study.get('name', '')))}</div>",
         f"<div class='k'>Pairs</div><div>{html.escape(', '.join(pair_ids))}</div>",
@@ -444,17 +461,28 @@ def _study_sections_html(payload: dict[str, Any]) -> str:
             "</div>"
         ),
         (
+            "<div class='k'>Objective</div><div>"
+            f"{html.escape('actuator travel only' if u_only else 'q_u_blend')}"
+            "</div>"
+        ),
+    ]
+    if not u_only:
+        parts.append(
             "<div class='k'>Alphas</div><div>"
             f"{html.escape(', '.join(str(a) for a in alphas))}"
             "</div>"
-        ),
-        (
+        )
+        parts.append(
             "<div class='k'>Unit gearbox</div><div>"
             f"{'included' if study.get('include_unit_gearbox', True) else 'off'}"
             "</div>"
-        ),
-        "</div>",
-    ]
+        )
+    parts.append("</div>")
+    table_headers = (
+        ("Mech", "Cost", "Exp", "Path U", "Norm U", "Path Q", "Path X")
+        if u_only
+        else ("α", "Mech", "Cost", "Exp", "Path U", "Path Q", "Path X")
+    )
     for task_id in task_ids:
         display = _TASK_DISPLAY_NAMES.get(task_id, task_id)
         parts.append(f"<h3>Task: {html.escape(display)}</h3>")
@@ -466,7 +494,6 @@ def _study_sections_html(payload: dict[str, Any]) -> str:
                 if r.get("task_set_id") == task_id and r.get("pair_id") == pair_id
             ]
             if not rows:
-                # Also accept rows without task_set_id when only one task remains.
                 rows = [
                     r
                     for r in trial_rows
@@ -481,7 +508,7 @@ def _study_sections_html(payload: dict[str, Any]) -> str:
             parts.append("<div>")
             parts.append(f"<h3>{html.escape(pair_id)}</h3>")
             parts.append("<table><thead><tr>")
-            for label in ("α", "Mech", "Cost", "Exp", "Path U", "Path Q", "Path X"):
+            for label in table_headers:
                 parts.append(f"<th>{label}</th>")
             parts.append("</tr></thead><tbody>")
             for row in sorted(
@@ -491,17 +518,30 @@ def _study_sections_html(payload: dict[str, Any]) -> str:
                     str(r.get("mechanism_id")),
                 ),
             ):
-                parts.append(
-                    "<tr>"
-                    f"<td>{_fmt_num(row.get('alpha'))}</td>"
-                    f"<td>{html.escape(str(row.get('mechanism_id', '')))}</td>"
-                    f"<td>{_fmt_num(row.get('optimal_cost'))}</td>"
-                    f"<td>{_fmt_num(row.get('n_expanded'))}</td>"
-                    f"<td>{_fmt_num(row.get('path_length_u'))}</td>"
-                    f"<td>{_fmt_num(row.get('path_length_q'))}</td>"
-                    f"<td>{_fmt_num(row.get('path_length_x'))}</td>"
-                    "</tr>"
-                )
+                if u_only:
+                    parts.append(
+                        "<tr>"
+                        f"<td>{html.escape(str(row.get('mechanism_id', '')))}</td>"
+                        f"<td>{_fmt_num(row.get('optimal_cost'))}</td>"
+                        f"<td>{_fmt_num(row.get('n_expanded'))}</td>"
+                        f"<td>{_fmt_num(row.get('path_length_u'))}</td>"
+                        f"<td>{_fmt_num(row.get('cost_norm_u'))}</td>"
+                        f"<td>{_fmt_num(row.get('path_length_q'))}</td>"
+                        f"<td>{_fmt_num(row.get('path_length_x'))}</td>"
+                        "</tr>"
+                    )
+                else:
+                    parts.append(
+                        "<tr>"
+                        f"<td>{_fmt_num(row.get('alpha'))}</td>"
+                        f"<td>{html.escape(str(row.get('mechanism_id', '')))}</td>"
+                        f"<td>{_fmt_num(row.get('optimal_cost'))}</td>"
+                        f"<td>{_fmt_num(row.get('n_expanded'))}</td>"
+                        f"<td>{_fmt_num(row.get('path_length_u'))}</td>"
+                        f"<td>{_fmt_num(row.get('path_length_q'))}</td>"
+                        f"<td>{_fmt_num(row.get('path_length_x'))}</td>"
+                        "</tr>"
+                    )
             parts.append("</tbody></table></div>")
         parts.append("</div>")
     parts.append("</section>")
@@ -764,13 +804,20 @@ def render_v2_canvas_html(payload: dict[str, Any]) -> str:
         else []
     )
     pair_html = _pair_comparisons_html(pair_rows)
-    identity_html = _identity_control_html(trial_rows)
+    u_only = str(objective.get("cost", "")) == "actuator_travel"
+    identity_html = "" if u_only else _identity_control_html(trial_rows)
     onset = manifest.get("divergence_onset_by_alpha")
-    onset_html = (
-        f"<pre>{html.escape(json.dumps(onset, indent=2, sort_keys=True))}</pre>"
-        if isinstance(onset, dict)
-        else "<p class='muted'>No divergence-onset summary.</p>"
-    )
+    if u_only:
+        onset_html = (
+            "<p class='muted'>No alpha sweep — path divergence onset vs alpha "
+            "does not apply for actuator-travel-only runs.</p>"
+        )
+    elif isinstance(onset, dict):
+        onset_html = (
+            f"<pre>{html.escape(json.dumps(onset, indent=2, sort_keys=True))}</pre>"
+        )
+    else:
+        onset_html = "<p class='muted'>No divergence-onset summary.</p>"
 
     expansions_html = _figure_grid(
         _filter_figures(figures, kind="expansions"),
@@ -960,7 +1007,7 @@ summary {{ cursor: pointer; color: var(--accent); }}
   <section>
     <h2>Paired comparisons</h2>
     {pair_html}
-    <h3>Path divergence onset vs alpha</h3>
+    <h3>{"Path notes" if u_only else "Path divergence onset vs alpha"}</h3>
     {onset_html}
   </section>
 

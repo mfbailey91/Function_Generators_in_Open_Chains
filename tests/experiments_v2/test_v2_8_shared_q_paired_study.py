@@ -177,10 +177,14 @@ class TestQUBlendObjective:
 
 
 class TestFrozenFixtures:
-    def test_five_pairs_and_cross_range_task(self) -> None:
+    def test_five_pairs_and_task_templates(self) -> None:
         assert len(FROZEN_MECHANISM_PAIRS) == 5
-        assert len(TASK_TEMPLATES) == 1
-        assert TASK_TEMPLATES[0].task_set_id == "cross_range"
+        assert len(TASK_TEMPLATES) == 3
+        assert {t.task_set_id for t in TASK_TEMPLATES} == {
+            "cross_range",
+            "joint1_dominant",
+            "joint2_dominant",
+        }
 
     def test_fractions_to_q(self) -> None:
         q = fractions_to_q([0.0, 10.0], [10.0, 20.0], (0.15, 0.20))
@@ -231,8 +235,10 @@ class TestSharedQPairedStudySmoke:
         assert "Cartesian paths" in html
         assert "Identity control" in html
         assert "Transmission maps" in html
-        assert "joint1_dominant" not in html
-        assert "joint2_dominant" not in html
+        study_block = html.split("Shared-Q paired study", 1)[1].split("Expansions", 1)[0]
+        assert "Cross-range" in study_block
+        assert "Joint-1" not in study_block
+        assert "Joint-2" not in study_block
         trials = (result.path / "trials.jsonl").read_text(encoding="utf-8")
         assert "span_matched_gearbox" in trials
         assert "unit_gearbox" in trials
@@ -260,6 +266,70 @@ class TestSharedQPairedStudySmoke:
         unit_a1 = next(r for r in unit_rows if float(r.get("alpha")) == 1.0)
         assert fb_a1["path_node_ids"] == unit_a1["path_node_ids"]
         assert fb_a1["n_expanded"] == unit_a1["n_expanded"]
+
+
+class TestSharedQUDistanceStudySmoke:
+    def test_u_smoke_config_loads(self) -> None:
+        cfg = load_shared_q_paired_study_config(
+            REPO / "configs" / "v2" / "shared_q_paired_u_smoke.yaml"
+        )
+        assert cfg.study.name == "shared_q_paired_u_smoke"
+        assert cfg.u_distance_only
+        assert cfg.study.alphas == []
+        assert cfg.study.include_unit_gearbox is False
+        assert cfg.study.task_template_ids == [
+            "cross_range",
+            "joint1_dominant",
+            "joint2_dominant",
+        ]
+
+    def test_u_smoke_study_end_to_end(self, tmp_path: Path) -> None:
+        cfg = load_shared_q_paired_study_config(
+            REPO / "configs" / "v2" / "shared_q_paired_u_smoke.yaml"
+        )
+        cfg = cfg.model_copy(
+            update={
+                "sampling": cfg.sampling.model_copy(update={"shape": [5, 5]}),
+                "branch": cfg.branch.model_copy(
+                    update={
+                        "n_samples": 48,
+                        "table_samples_per_axis": 9,
+                        "certification_samples_per_axis": 5,
+                    }
+                ),
+            }
+        )
+        result = run_shared_q_paired_study(
+            cfg, results_root=tmp_path, run_id="v29_u_smoke", write_figures=True
+        )
+        # 1 pair × 3 tasks × 1 cost × 2 mechs
+        assert result.n_trial_rows == 6
+        assert result.n_pair_comparisons == 3
+        assert (result.path / "index.html").is_file()
+        html = (result.path / "index.html").read_text(encoding="utf-8")
+        assert "actuator travel only" in html
+        assert "joint1_dominant" in html or "Joint-1" in html
+        assert "Alphas" not in html or "α" not in html.split("Shared-Q paired study")[1][
+            :800
+        ]
+        trials = [
+            __import__("json").loads(line)
+            for line in (result.path / "trials.jsonl").read_text().splitlines()
+            if line.strip()
+        ]
+        assert all(r["cost_type"] == "actuator_travel" for r in trials)
+        assert all(r.get("alpha") is None for r in trials)
+        assert "unit_gearbox" not in {
+            r["mechanism_id"] for r in trials
+        }
+        assert all(
+            r.get("cost_norm_u") is not None and r["cost_norm_u"] >= 0.0 for r in trials
+        )
+        manifest = __import__("json").loads(
+            (result.path / "manifest.json").read_text(encoding="utf-8")
+        )
+        assert manifest["objective"]["cost"] == "actuator_travel"
+        assert manifest["divergence_onset_by_alpha"] is None
 
 
 class TestUnitGearboxBranch:
