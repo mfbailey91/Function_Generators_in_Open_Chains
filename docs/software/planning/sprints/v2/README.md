@@ -11,13 +11,13 @@
 7. [Sprint V2.6 — Exact Query Overlays and Initial Capability Objectives](SPRINT_V2_6_QUERY_OVERLAYS_AND_CAPABILITIES.md)
 8. [Sprint V2.8 — Shared-Q Paired Mechanism Study](SPRINT_V2_8_SHARED_Q_PAIRED_STUDY.md) (completed)
 9. [Sprint V2.9 — Shared-Q Paired Mechanism Study (U-distance only)](SPRINT_V2_9_SHARED_Q_PAIRED_STUDY.md) (completed diagnostic)
-10. [Sprint V2.10 — Production Monte Carlo Orchestration: Dijkstra Campaign](SPRINT_V2_10_PRODUCTION_MONTE_CARLO_ORCHESTRATION.md)
+10. [Sprint V2.10 — Production Monte Carlo Orchestration: Dijkstra Campaign](SPRINT_V2_10_PRODUCTION_MONTE_CARLO_ORCHESTRATION.md) (completed; [evidence report](../../../experiments/reports/V2_10_PRODUCTION_DIJKSTRA_SUMMARY.md))
 
-V2.10 is the active production sprint. It scales the reviewed shared-Q / `actuator_travel` contract into a resumable Dijkstra Monte Carlo with a frozen hierarchical sample bank, atomic mechanism-pair shards, hardware-aware preflight, and hierarchical precision reporting. A* remains a later campaign on the same bank.
+V2.10 is complete. Dijkstra production evidence and the frozen sample bank `configs/v2/sample_banks/production_v1.json` are the handoff for later A* on the same bank. V2.7 remains held pending review of this 2R production evidence.
 
 ## Deferred
 
-- [Sprint V2.7 — 3R Planar Extension](SPRINT_V2_7_3R_EXTENSION.md) — **held** pending review of trusted 2R V2.9 evidence. Do not start until entry gates below and that review are both satisfied.
+- [Sprint V2.7 — 3R Planar Extension](SPRINT_V2_7_3R_EXTENSION.md) — **held** pending review of trusted 2R V2.10 production evidence. Do not start until entry gates below and that review are both satisfied.
 
 ## Dependency map
 

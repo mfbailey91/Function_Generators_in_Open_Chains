@@ -95,6 +95,7 @@ def merge_production_run(
             )
     analysis = analyze_production_trials(
         grouped["trial"],
+        mechanism_records=grouped["mechanism_summary"],
         batch_size=config.stopping.batch_size,
         target_ci_half_width=config.stopping.target_ci_half_width_log_ratio,
         n_bootstrap=config.stopping.hierarchical_bootstrap_samples,

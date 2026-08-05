@@ -27,7 +27,11 @@ from inequality_mechanisms.experiments.v2_production_canvas import (
 )
 from inequality_mechanisms.experiments.v2_production_config import (
     V2ProductionConfig,
+    apply_calibration_decisions,
+    assert_calibration_decisions_present,
+    load_calibration_decisions,
     load_v2_production_config,
+    next_confirmation_shape_n,
     production_config_digest,
     stage_mechanism_count,
     stage_task_count,
@@ -48,6 +52,7 @@ from inequality_mechanisms.experiments.v2_production_sample_bank import (
     build_v2_sample_bank,
     load_v2_sample_bank,
     save_v2_sample_bank,
+    select_confirmation_subset,
     subset_sample_bank,
 )
 from inequality_mechanisms.experiments.v2_production_work_unit import (
@@ -162,6 +167,13 @@ def _validate_resume(
         raise ValueError("resume sample-bank digest mismatch")
     if manifest.get("config_digest") != production_config_digest(config):
         raise ValueError("resume config digest mismatch")
+    revision = capture_revision()
+    stored_rev = manifest.get("code_revision")
+    current_rev = revision.get("git_commit")
+    if stored_rev and current_rev and stored_rev != current_rev:
+        raise ValueError(
+            f"resume code-revision mismatch: stored {stored_rev} current {current_rev}"
+        )
 
 
 def _quarantine_tmp_shards(run_dir: Path) -> list[str]:
@@ -180,22 +192,34 @@ def _quarantine_tmp_shards(run_dir: Path) -> list[str]:
     return quarantined
 
 
-def _completed_ids(run_dir: Path) -> set[str]:
-    ids: set[str] = set()
+def _shard_status_ids(run_dir: Path) -> tuple[set[str], set[str]]:
+    completed: set[str] = set()
+    failed: set[str] = set()
     shard_dir = run_dir / "shards"
     if not shard_dir.is_dir():
-        return ids
+        return completed, failed
     for path in shard_dir.glob("mechanism_*.jsonl"):
         for line in path.read_text(encoding="utf-8").splitlines():
             if not line.strip():
                 continue
             row = json.loads(line)
-            if row.get("record_type") == "mechanism_summary" and row.get(
-                "mechanism_pair_id"
-            ):
-                ids.add(str(row["mechanism_pair_id"]))
+            if row.get("record_type") != "mechanism_summary":
+                continue
+            mid = row.get("mechanism_pair_id")
+            if not mid:
                 break
-    return ids
+            status = str(row.get("status") or "")
+            if status in {"completed", "completed_with_task_failures"}:
+                completed.add(str(mid))
+            elif status == "failed":
+                failed.add(str(mid))
+            break
+    return completed, failed
+
+
+def _completed_ids(run_dir: Path) -> set[str]:
+    completed, _failed = _shard_status_ids(run_dir)
+    return completed
 
 
 def _write_shard(run_dir: Path, result: Any) -> Path:
@@ -303,13 +327,34 @@ def run_v2_production(
     resume: bool | None = None,
     sample_bank: V2SampleBank | None = None,
     memory_override: bool | None = None,
+    shape_override: tuple[int, int] | None = None,
+    n_tasks_override: int | None = None,
+    apply_decisions: Path | str | dict[str, Any] | None = None,
+    export_sample_bank: Path | str | None = None,
+    retry_failed: bool = False,
 ) -> V2ProductionRunResult:
     """Run one production stage and write a resumable package."""
     global _INTERRUPT
     _INTERRUPT = False
     previous_sigint = signal.getsignal(signal.SIGINT)
     signal.signal(signal.SIGINT, _on_sigint)
+    decisions_payload: dict[str, Any] | None = None
+    if apply_decisions is not None:
+        decisions_payload = (
+            dict(apply_decisions)
+            if isinstance(apply_decisions, dict)
+            else load_calibration_decisions(apply_decisions)
+        )
+        config = apply_calibration_decisions(config, decisions_payload)
+    elif config.study.calibration_decisions:
+        decisions_payload = load_calibration_decisions(
+            config.study.calibration_decisions
+        )
+        config = apply_calibration_decisions(config, decisions_payload)
     stage_name = stage or config.study.stage
+    assert_calibration_decisions_present(
+        config, stage_name, decisions=decisions_payload
+    )
     resume_flag = config.execution.resume if resume is None else bool(resume)
     root = Path(results_root) if results_root is not None else default_results_root()
     apply_numerical_thread_limits(config.execution.numerical_threads_per_worker)
@@ -317,11 +362,22 @@ def run_v2_production(
         config, results_root=root, run_id=run_id, resume=resume_flag
     )
     n_mech = stage_mechanism_count(config, stage_name)
-    n_tasks = stage_task_count(config, stage_name)
+    n_tasks = (
+        int(n_tasks_override)
+        if n_tasks_override is not None
+        else stage_task_count(config, stage_name)
+    )
     shape = tuple(int(x) for x in config.sampling.shape)
-    if config.population.production_shape_n is not None and stage_name in {
+    if shape_override is not None:
+        shape = (int(shape_override[0]), int(shape_override[1]))
+    elif stage_name == "high_resolution_confirmation":
+        n = next_confirmation_shape_n(config)
+        shape = (n, n)
+    elif config.population.production_shape_n is not None and stage_name in {
         "production",
         "variance_pilot",
+        "hardware_calibration",
+        "task_count_calibration",
     }:
         n = int(config.population.production_shape_n)
         shape = (n, n)
@@ -337,8 +393,10 @@ def run_v2_production(
         config,
         total_memory_bytes=environment.get("total_memory_bytes"),
         override=memory_override,
+        stage=stage_name,
     )
-    assert_preflight_allowed(preflight)
+    if stage_name != "build_sample_bank":
+        assert_preflight_allowed(preflight)
 
     if is_resume:
         _quarantine_tmp_shards(run_dir)
@@ -346,12 +404,21 @@ def run_v2_production(
         _validate_resume(run_dir, config, sample_bank)
     else:
         if sample_bank is None and config.study.sample_bank:
-            sample_bank = load_v2_sample_bank(config.study.sample_bank)
+            bank_path = Path(config.study.sample_bank)
+            if bank_path.is_file():
+                sample_bank = load_v2_sample_bank(bank_path)
+            elif stage_name != "build_sample_bank":
+                raise FileNotFoundError(f"sample bank not found: {bank_path}")
         if sample_bank is None:
             bank_n = max(n_mech, 2)
             if stage_name in {"hardware_calibration", "resolution_calibration"}:
                 bank_n = max(n_mech, config.population.calibration_mechanisms)
-            elif stage_name in {"variance_pilot", "production", "build_sample_bank"}:
+            elif stage_name in {
+                "variance_pilot",
+                "production",
+                "build_sample_bank",
+                "high_resolution_confirmation",
+            }:
                 bank_n = max(n_mech, config.population.variance_pilot_mechanisms)
             bank_tasks = n_tasks
             if stage_name != "smoke":
@@ -390,14 +457,67 @@ def run_v2_production(
             },
         )
 
-    working_bank = subset_sample_bank(sample_bank, n_mechanisms=n_mech, n_tasks=n_tasks)
+    if sample_bank is None:
+        raise RuntimeError("sample bank missing after run setup")
+    if export_sample_bank is not None:
+        save_v2_sample_bank(sample_bank, export_sample_bank)
+    if stage_name == "build_sample_bank":
+        manifest = json.loads((run_dir / "manifest.json").read_text(encoding="utf-8"))
+        manifest["status"] = "completed"
+        manifest["n_completed"] = 0
+        manifest["n_failed"] = 0
+        manifest["n_pending"] = 0
+        manifest["n_mechanisms"] = len(sample_bank.mechanisms)
+        manifest["n_tasks"] = len(sample_bank.tasks)
+        _atomic_write_json(run_dir / "manifest.json", manifest)
+        return V2ProductionRunResult(
+            run_id=rid,
+            path=run_dir,
+            stage=stage_name,
+            n_completed=0,
+            n_failed=0,
+            n_pending=0,
+            summary={
+                "n_mechanisms": len(sample_bank.mechanisms),
+                "n_tasks": len(sample_bank.tasks),
+                "sample_bank_digest": sample_bank.digest,
+            },
+        )
 
-    completed = sorted(_completed_ids(run_dir))
-    failed: list[str] = []
+    if stage_name == "high_resolution_confirmation":
+        subset_path = run_dir / "confirmation_subset.json"
+        if subset_path.is_file():
+            subset_payload = json.loads(subset_path.read_text(encoding="utf-8"))
+            confirmation_ids = [str(x) for x in subset_payload.get("mechanism_ids", [])]
+        else:
+            selected = select_confirmation_subset(
+                sample_bank, n_mechanisms=n_mech, seed=config.seed
+            )
+            confirmation_ids = [m.mechanism_id for m in selected]
+            _atomic_write_json(
+                subset_path,
+                {
+                    "mechanism_ids": confirmation_ids,
+                    "n_mechanisms": len(confirmation_ids),
+                    "selection_rule": "stratified_mean_log_gain_var",
+                    "shape": list(shape),
+                    "selected_before_search": True,
+                },
+            )
+        working_bank = subset_sample_bank(
+            sample_bank, mechanism_ids=confirmation_ids, n_tasks=n_tasks
+        )
+    else:
+        working_bank = subset_sample_bank(
+            sample_bank, n_mechanisms=n_mech, n_tasks=n_tasks
+        )
+
+    completed_set, failed_set = _shard_status_ids(run_dir)
+    completed = sorted(completed_set)
+    failed = sorted(failed_set)
+    skip = set(completed) if retry_failed else set(completed) | set(failed)
     pending = [
-        m.mechanism_id
-        for m in working_bank.mechanisms
-        if m.mechanism_id not in set(completed)
+        m.mechanism_id for m in working_bank.mechanisms if m.mechanism_id not in skip
     ]
     started = time.monotonic()
     last_progress = started
@@ -417,33 +537,75 @@ def run_v2_production(
     calibration_peaks: list[int] = []
     stop_reason: str | None = None
 
+    def _emit_progress(elapsed_s: float) -> None:
+        remaining = [
+            mid
+            for mid in pending
+            if mid not in set(completed) and mid not in set(failed)
+        ]
+        payload = _progress_payload(
+            completed=list(completed),
+            failed=list(failed),
+            pending=remaining,
+            elapsed_s=elapsed_s,
+            stage=stage_name,
+        )
+        _atomic_write_json(run_dir / "progress.json", payload)
+        print(
+            f"[{stage_name}] completed={payload['n_completed']} "
+            f"failed={payload['n_failed']} pending={payload['n_pending']} "
+            f"elapsed_s={elapsed_s:.1f}",
+            flush=True,
+        )
+
     def _consume_result(result_obj: Any) -> None:
         nonlocal last_progress
         _write_shard(run_dir, result_obj)
+        mid = str(result_obj.mechanism_pair_id)
         if result_obj.status == "failed":
-            failed.append(result_obj.mechanism_pair_id)
+            if mid not in failed:
+                failed.append(mid)
+            if mid in completed:
+                completed.remove(mid)
         else:
-            completed.append(result_obj.mechanism_pair_id)
+            if mid in failed:
+                failed.remove(mid)
+            if mid not in completed:
+                completed.append(mid)
         if result_obj.summary.get("peak_rss_bytes"):
             calibration_peaks.append(int(result_obj.summary["peak_rss_bytes"]))
         now = time.monotonic()
         if now - last_progress >= float(config.execution.progress_interval_s):
-            remaining = [
-                mid
-                for mid in pending
-                if mid not in set(completed) and mid not in set(failed)
-            ]
-            _atomic_write_json(
-                run_dir / "progress.json",
-                _progress_payload(
-                    completed=list(completed),
-                    failed=list(failed),
-                    pending=remaining,
-                    elapsed_s=now - started,
-                    stage=stage_name,
-                ),
-            )
+            _emit_progress(now - started)
             last_progress = now
+
+    def _run_one_mechanism(mechanism: Any, *, retain: bool) -> Any:
+        attempts = 1 + int(config.execution.pair_build_retries)
+        result = None
+        for attempt in range(1, attempts + 1):
+            result = run_mechanism_pair_work_unit(
+                config,
+                working_bank,
+                mechanism,
+                run_id=rid,
+                shape=shape,
+                retain_paths=retain,
+                code_revision=revision.get("git_commit"),
+            )
+            if result.status != "failed" or attempt >= attempts:
+                return result
+            fail_dir = run_dir / "failures"
+            fail_dir.mkdir(parents=True, exist_ok=True)
+            _atomic_write_json(
+                fail_dir / f"{result.mechanism_pair_id}.attempt{attempt}.json",
+                {
+                    "status": result.status,
+                    "attempt": attempt,
+                    "summary": result.summary,
+                    "failures": result.failures,
+                },
+            )
+        return result
 
     try:
         for batch_ids in _batch_schedule(
@@ -462,18 +624,15 @@ def run_v2_production(
                         break
                     if mechanism.mechanism_id in set(completed):
                         continue
-                    result = run_mechanism_pair_work_unit(
-                        config,
-                        working_bank,
+                    if mechanism.mechanism_id in set(failed) and not retry_failed:
+                        continue
+                    result = _run_one_mechanism(
                         mechanism,
-                        run_id=rid,
-                        shape=shape,
-                        retain_paths=(
+                        retain=(
                             retain_paths
                             and len(completed)
                             < config.visualization.production_path_samples
                         ),
-                        code_revision=revision.get("git_commit"),
                     )
                     _consume_result(result)
                     gc.collect()
@@ -491,6 +650,7 @@ def run_v2_production(
                     }
                     for mechanism in batch_mechs
                     if mechanism.mechanism_id not in set(completed)
+                    and (retry_failed or mechanism.mechanism_id not in set(failed))
                 ]
                 if jobs:
                     with ctx.Pool(processes=workers) as pool:
@@ -600,6 +760,8 @@ def run_resolution_calibration(
             stage="resolution_calibration",
             resume=False,
             sample_bank=bank,
+            shape_override=(int(shape_n), int(shape_n)),
+            memory_override=True,
         )
         trials = []
         if stage_run.summary is not None:
@@ -608,7 +770,9 @@ def run_resolution_calibration(
         else:
             effect = float("nan")
         merged = stage_run.path / "merged" / "trials.jsonl"
+        summaries = stage_run.path / "merged" / "mechanism_summary.jsonl"
         n_components = 1
+        shapes_seen: set[tuple[int, ...]] = set()
         acceptance = 1.0
         if merged.is_file():
             trials = [
@@ -618,20 +782,142 @@ def run_resolution_calibration(
             ]
             n_found = sum(1 for row in trials if row.get("found"))
             acceptance = float(n_found / len(trials)) if trials else 0.0
+            for row in trials:
+                graph_shape = row.get("graph_shape")
+                if isinstance(graph_shape, list):
+                    shapes_seen.add(tuple(int(x) for x in graph_shape))
+        if summaries.is_file():
+            n_components = 0
+            for line in summaries.read_text().splitlines():
+                if not line.strip():
+                    continue
+                row = json.loads(line)
+                if row.get("graph_invariant_status") == "passed":
+                    n_components += 1
+            n_components = max(n_components, 1)
         rows.append(
             {
                 "shape_n": int(shape_n),
                 "primary_effect": float(effect) if effect is not None else float("nan"),
-                "n_components": n_components,
+                "n_components": int(n_components),
                 "task_acceptance_rate": acceptance,
+                "observed_graph_shapes": [list(s) for s in sorted(shapes_seen)],
             }
         )
     decision = select_production_resolution(rows)
     decision["grid_anisotropy_limitation"] = GRID_ANISOTROPY_LIMITATION
+    decision["candidates"] = rows
+    chosen_n = int(decision["production_shape_n"])
+    decision["rejected_shape_n"] = [
+        int(row["shape_n"]) for row in rows if int(row["shape_n"]) != chosen_n
+    ]
     out_dir = root / rid
     out_dir.mkdir(parents=True, exist_ok=True)
     _atomic_write_json(out_dir / "resolution_decision.json", decision)
     return decision
+
+
+def run_task_count_calibration(
+    config: V2ProductionConfig,
+    *,
+    results_root: Path | str | None = None,
+    run_id: str | None = None,
+    apply_decisions: Path | str | dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Run the same calibration bank across candidate tasks-per-mechanism."""
+    if apply_decisions is not None:
+        decisions_payload = (
+            dict(apply_decisions)
+            if isinstance(apply_decisions, dict)
+            else load_calibration_decisions(apply_decisions)
+        )
+        config = apply_calibration_decisions(config, decisions_payload)
+    elif config.study.calibration_decisions:
+        config = apply_calibration_decisions(
+            config, load_calibration_decisions(config.study.calibration_decisions)
+        )
+    root = Path(results_root) if results_root is not None else default_results_root()
+    rid = run_id or generate_run_id(seed=config.seed)
+    max_k = max(int(k) for k in config.population.candidate_tasks_per_mechanism)
+    bank = build_v2_sample_bank(
+        config,
+        n_mechanisms=stage_mechanism_count(config, "task_count_calibration"),
+        n_tasks=max_k,
+    )
+    rows: list[dict[str, Any]] = []
+    prev_effect: float | None = None
+    for task_k in config.population.candidate_tasks_per_mechanism:
+        stage_run = run_v2_production(
+            config,
+            results_root=root,
+            run_id=f"{rid}_k{task_k}",
+            stage="task_count_calibration",
+            resume=False,
+            sample_bank=bank,
+            n_tasks_override=int(task_k),
+            memory_override=True,
+        )
+        effect = float("nan")
+        half_width = float("nan")
+        if stage_run.summary is not None:
+            analysis = stage_run.summary["analysis"]
+            bootstrap = analysis["hierarchical_bootstrap"]
+            effect = float(bootstrap.get("estimate") or float("nan"))
+            precision = analysis.get("precision") or {}
+            batches = list(precision.get("batches") or [])
+            if batches and batches[-1].get("ci_half_width") is not None:
+                half_width = float(batches[-1]["ci_half_width"])
+        rel = (
+            float("nan")
+            if (
+                prev_effect is None
+                or not np_isfinite(prev_effect)
+                or abs(prev_effect) < 1e-12
+            )
+            else abs(effect - prev_effect) / abs(prev_effect)
+        )
+        rows.append(
+            {
+                "tasks_per_mechanism": int(task_k),
+                "primary_effect": effect,
+                "ci_half_width": half_width,
+                "relative_change": rel,
+            }
+        )
+        prev_effect = effect
+    chosen = int(rows[-1]["tasks_per_mechanism"])
+    reason = "fallback_largest_k"
+    threshold = float(config.stopping.max_relative_estimate_change)
+    for i, row in enumerate(rows[:-1]):
+        nxt = rows[i + 1]
+        nxt_rel = nxt.get("relative_change")
+        if not isinstance(nxt_rel, (int, float)):
+            continue
+        nxt_rel_f = float(nxt_rel)
+        if np_isfinite(nxt_rel_f) and nxt_rel_f <= threshold:
+            chosen = int(row["tasks_per_mechanism"])
+            reason = "smallest_stable_k"
+            break
+    decision = {
+        "tasks_per_mechanism": chosen,
+        "reason": reason,
+        "threshold_relative_change": threshold,
+        "candidates": rows,
+        "rejected_tasks_per_mechanism": [
+            int(row["tasks_per_mechanism"])
+            for row in rows
+            if int(row["tasks_per_mechanism"]) != chosen
+        ],
+        "production_shape_n": config.population.production_shape_n,
+    }
+    out_dir = root / rid
+    out_dir.mkdir(parents=True, exist_ok=True)
+    _atomic_write_json(out_dir / "task_count_decision.json", decision)
+    return decision
+
+
+def np_isfinite(value: float) -> bool:
+    return bool(value == value and value not in {float("inf"), float("-inf")})
 
 
 def compare_worker_scientific_equivalence(
@@ -662,9 +948,24 @@ def run_v2_production_from_path(
     stage: str | None = None,
     resume: bool | None = None,
     memory_override: bool | None = None,
-) -> V2ProductionRunResult:
+    apply_decisions: Path | str | None = None,
+    export_sample_bank: Path | str | None = None,
+    retry_failed: bool = False,
+) -> V2ProductionRunResult | dict[str, Any]:
     """Load a production YAML and run it."""
     config = load_v2_production_config(path)
+    stage_name = stage or config.study.stage
+    if stage_name == "resolution_calibration":
+        return run_resolution_calibration(
+            config, results_root=results_root, run_id=run_id
+        )
+    if stage_name == "task_count_calibration":
+        return run_task_count_calibration(
+            config,
+            results_root=results_root,
+            run_id=run_id,
+            apply_decisions=apply_decisions,
+        )
     return run_v2_production(
         config,
         results_root=results_root,
@@ -672,4 +973,7 @@ def run_v2_production_from_path(
         stage=stage,
         resume=resume,
         memory_override=memory_override,
+        apply_decisions=apply_decisions,
+        export_sample_bank=export_sample_bank,
+        retry_failed=retry_failed,
     )

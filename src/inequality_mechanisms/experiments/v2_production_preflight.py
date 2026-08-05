@@ -5,7 +5,12 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-from inequality_mechanisms.experiments.v2_production_config import V2ProductionConfig
+from inequality_mechanisms.experiments.v2_production_config import (
+    STAGES_REQUIRING_CALIBRATED_PEAK_RSS,
+    V2ProductionConfig,
+)
+
+UNCALIBRATED_WORKER_PEAK_RSS_BYTES = 256 * 1024 * 1024
 
 
 class ProductionPreflightError(RuntimeError):
@@ -27,6 +32,7 @@ class MemoryPreflight:
     allowed: bool
     override: bool
     reason: str
+    peak_rss_calibrated: bool = True
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -41,6 +47,7 @@ class MemoryPreflight:
             "allowed": self.allowed,
             "override": self.override,
             "reason": self.reason,
+            "peak_rss_calibrated": self.peak_rss_calibrated,
         }
 
 
@@ -66,6 +73,7 @@ def memory_preflight(
     worker_peak_rss_bytes: int | None = None,
     parent_rss_bytes: int | None = None,
     override: bool | None = None,
+    stage: str | None = None,
 ) -> MemoryPreflight:
     """Estimate aggregate memory and decide whether launch is allowed."""
     workers = int(config.execution.workers)
@@ -74,13 +82,17 @@ def memory_preflight(
         if parent_rss_bytes is not None
         else config.execution.parent_rss_bytes
     )
+    calibrated = (
+        worker_peak_rss_bytes is not None
+        or config.execution.worker_peak_rss_bytes is not None
+    )
     worker_peak = int(
         worker_peak_rss_bytes
         if worker_peak_rss_bytes is not None
         else (
             config.execution.worker_peak_rss_bytes
             if config.execution.worker_peak_rss_bytes is not None
-            else 256 * 1024 * 1024
+            else UNCALIBRATED_WORKER_PEAK_RSS_BYTES
         )
     )
     margin = int(config.execution.memory_margin_bytes)
@@ -93,6 +105,31 @@ def memory_preflight(
     use_override = bool(
         config.execution.memory_override if override is None else override
     )
+    stage_name = stage or config.study.stage
+    if (
+        not calibrated
+        and stage_name in STAGES_REQUIRING_CALIBRATED_PEAK_RSS
+        and not use_override
+    ):
+        return MemoryPreflight(
+            workers=workers,
+            parent_rss_bytes=parent,
+            worker_peak_rss_bytes=worker_peak,
+            margin_bytes=int(config.execution.memory_margin_bytes),
+            estimated_bytes=estimate_aggregate_memory(
+                parent_rss_bytes=parent,
+                worker_peak_rss_bytes=worker_peak,
+                workers=workers,
+                margin_bytes=int(config.execution.memory_margin_bytes),
+            ),
+            total_memory_bytes=total_memory_bytes,
+            max_fraction=float(config.execution.max_estimated_memory_fraction),
+            limit_bytes=None,
+            allowed=False,
+            override=False,
+            reason="uncalibrated_worker_peak_rss",
+            peak_rss_calibrated=False,
+        )
     if total_memory_bytes is None:
         return MemoryPreflight(
             workers=workers,
@@ -106,6 +143,7 @@ def memory_preflight(
             allowed=True,
             override=use_override,
             reason="total_memory_unavailable",
+            peak_rss_calibrated=calibrated,
         )
     limit = int(
         float(total_memory_bytes)
@@ -136,12 +174,19 @@ def memory_preflight(
         allowed=allowed,
         override=use_override,
         reason=reason,
+        peak_rss_calibrated=calibrated,
     )
 
 
 def assert_preflight_allowed(report: MemoryPreflight) -> None:
     """Raise when a preflight report forbids launch."""
     if not report.allowed:
+        if report.reason == "uncalibrated_worker_peak_rss":
+            raise ProductionPreflightError(
+                "execution.worker_peak_rss_bytes is unset; run hardware "
+                "calibration at the production graph size or pass "
+                "--memory-override"
+            )
         raise ProductionPreflightError(
             "estimated memory "
             f"{report.estimated_bytes} exceeds "

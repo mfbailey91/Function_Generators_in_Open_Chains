@@ -7,7 +7,8 @@ seed: 20260804
 study:
   name: production_monte_carlo_dijkstra
   stage: production
-  sample_bank: null
+  sample_bank: configs/v2/sample_banks/production_v1.json
+  calibration_decisions: results/v2_10_decisions
   objective_cost: actuator_travel
 
 search:
@@ -23,6 +24,7 @@ execution:
   max_estimated_memory_fraction: 0.65
   require_override_above_limit: true
   memory_override: false
+  worker_peak_rss_bytes: 137494528
 
 population:
   smoke_mechanisms: 2

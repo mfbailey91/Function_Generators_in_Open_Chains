@@ -6,7 +6,7 @@
 
 ## Status and dependency
 
-**Status:** Active
+**Status:** Completed — evidence in [V2_10_PRODUCTION_DIJKSTRA_SUMMARY.md](../../../experiments/reports/V2_10_PRODUCTION_DIJKSTRA_SUMMARY.md)
 **Issue slug:** `production_monte_carlo_orchestration_v2_9`
 **Blocked by:** Review of Sprint V2.8 shared-Q evidence and Sprint V2.9 U-distance-only diagnostic
 **Solver scope:** Dijkstra only

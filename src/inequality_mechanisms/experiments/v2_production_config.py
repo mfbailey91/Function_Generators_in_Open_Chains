@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+from collections.abc import Mapping
 from pathlib import Path
 from typing import Any, Literal
 
@@ -25,6 +26,7 @@ ProductionStageName = Literal[
     "smoke",
     "hardware_calibration",
     "resolution_calibration",
+    "task_count_calibration",
     "variance_pilot",
     "production",
     "high_resolution_confirmation",
@@ -65,6 +67,7 @@ class V2ProductionExecutionConfig(BaseModel):
     parent_rss_bytes: int = Field(default=256 * 1024 * 1024, ge=1)
     memory_margin_bytes: int = Field(default=512 * 1024 * 1024, ge=0)
     worker_peak_rss_bytes: int | None = Field(default=None, ge=1)
+    pair_build_retries: int = Field(default=1, ge=0, le=3)
 
     @field_validator("tasks_parallel_within_mechanism")
     @classmethod
@@ -185,6 +188,7 @@ class V2ProductionStudyMeta(BaseModel):
     name: Literal["production_monte_carlo_dijkstra"] = "production_monte_carlo_dijkstra"
     stage: ProductionStageName = "smoke"
     sample_bank: str | None = None
+    calibration_decisions: str | None = None
     objective_cost: CostName = "actuator_travel"
 
 
@@ -309,6 +313,7 @@ def stage_mechanism_count(config: V2ProductionConfig, stage: str | None = None) 
         "smoke": pop.smoke_mechanisms,
         "hardware_calibration": pop.calibration_mechanisms,
         "resolution_calibration": pop.calibration_mechanisms,
+        "task_count_calibration": pop.calibration_mechanisms,
         "variance_pilot": pop.variance_pilot_mechanisms,
         "production": pop.maximum_production_mechanisms,
         "high_resolution_confirmation": max(
@@ -331,4 +336,107 @@ def stage_task_count(config: V2ProductionConfig, stage: str | None = None) -> in
         return 2
     if name == "hardware_calibration":
         return 4
+    if name == "task_count_calibration":
+        return int(max(config.population.candidate_tasks_per_mechanism))
     return int(config.population.candidate_tasks_per_mechanism[0])
+
+
+STAGES_REQUIRING_CALIBRATION_DECISIONS = frozenset(
+    {"production", "variance_pilot", "high_resolution_confirmation"}
+)
+STAGES_REQUIRING_CALIBRATED_PEAK_RSS = frozenset(
+    {"production", "variance_pilot", "high_resolution_confirmation"}
+)
+
+
+def next_confirmation_shape_n(config: V2ProductionConfig) -> int:
+    """Return the next higher candidate resolution above the accepted production n."""
+    accepted = int(
+        config.population.production_shape_n
+        if config.population.production_shape_n is not None
+        else config.sampling.shape[0]
+    )
+    higher = [
+        int(n)
+        for n in sorted(config.population.candidate_resolutions)
+        if int(n) > accepted
+    ]
+    return higher[0] if higher else accepted
+
+
+def load_calibration_decisions(path: Path | str) -> dict[str, Any]:
+    """Load a calibration decision directory or JSON file."""
+    target = Path(path)
+    if target.is_dir():
+        payload: dict[str, Any] = {}
+        for name in ("resolution_decision.json", "task_count_decision.json"):
+            candidate = target / name
+            if candidate.is_file():
+                payload[name.replace(".json", "")] = json.loads(
+                    candidate.read_text(encoding="utf-8")
+                )
+        if not payload:
+            raise V2ProductionConfigError(f"no calibration decisions in {target}")
+        return payload
+    data = json.loads(target.read_text(encoding="utf-8"))
+    if not isinstance(data, dict):
+        raise V2ProductionConfigError(
+            f"calibration decisions must be a mapping: {target}"
+        )
+    return data
+
+
+def apply_calibration_decisions(
+    config: V2ProductionConfig,
+    decisions: Mapping[str, Any],
+) -> V2ProductionConfig:
+    """Return a copy of ``config`` with recorded n and K applied."""
+    shape_n = config.population.production_shape_n
+    tasks_k = config.population.tasks_per_mechanism
+    resolution = decisions.get("resolution_decision") or decisions.get("resolution")
+    task_count = decisions.get("task_count_decision") or decisions.get("task_count")
+    if (
+        isinstance(resolution, Mapping)
+        and resolution.get("production_shape_n") is not None
+    ):
+        shape_n = int(resolution["production_shape_n"])
+    if (
+        isinstance(task_count, Mapping)
+        and task_count.get("tasks_per_mechanism") is not None
+    ):
+        tasks_k = int(task_count["tasks_per_mechanism"])
+    return config.model_copy(
+        update={
+            "population": config.population.model_copy(
+                update={
+                    "production_shape_n": shape_n,
+                    "tasks_per_mechanism": tasks_k,
+                }
+            )
+        }
+    )
+
+
+def assert_calibration_decisions_present(
+    config: V2ProductionConfig,
+    stage: str,
+    *,
+    decisions: Mapping[str, Any] | None = None,
+) -> None:
+    """Refuse production-scale stages that lack recorded n/K decisions."""
+    if stage not in STAGES_REQUIRING_CALIBRATION_DECISIONS:
+        return
+    has_n = config.population.production_shape_n is not None
+    has_k = config.population.tasks_per_mechanism is not None
+    has_artifact = bool(
+        decisions is not None
+        or config.study.calibration_decisions
+        or (has_n and has_k and config.study.sample_bank)
+    )
+    if has_artifact and has_n and has_k:
+        return
+    raise V2ProductionConfigError(
+        f"stage {stage!r} requires recorded calibration decisions "
+        "(study.calibration_decisions, --apply-decisions, or a frozen sample bank "
+        "with production_shape_n and tasks_per_mechanism)"
+    )
