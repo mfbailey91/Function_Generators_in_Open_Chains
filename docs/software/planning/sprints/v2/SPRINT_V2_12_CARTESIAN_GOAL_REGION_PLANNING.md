@@ -117,7 +117,24 @@ Prove pair identity of membership.
 
 ### V2B-005 — Goal-radius and resolution calibration
 
-Write decision JSON. Production refuses a missing radius or resolution decision.
+**Status:** tooling implemented; operator calibration run and frozen decisions still required before production.
+
+Write decision JSON (`cartesian_radius_decision.json`,
+`cartesian_resolution_decision.json`,
+`cartesian_start_attachment_decision.json`). Production refuses a missing
+radius, resolution, or start-attachment decision.
+
+CLI:
+
+```bash
+PYTHONPATH=src .venv/bin/python scripts/run_v2_cartesian_goal_region.py \
+  -c configs/v2/cartesian_goal_region_calibration.yaml \
+  --stage calibration --run-id v2_12_cartesian_calibration
+```
+
+Promote a reviewed decision directory (for example
+`results/v2_12_cartesian_decisions/`) for later `--apply-decisions`. Do not
+commit `results/`. Crossed statistics and population orchestration remain held.
 
 ### V2B-006 — Fixed external task-bank export
 

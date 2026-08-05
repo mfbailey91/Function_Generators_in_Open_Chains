@@ -1,15 +1,15 @@
-"""Experiment B smoke runner: known state to Cartesian position goal set.
+"""Experiment B Cartesian goal-region runner (smoke, calibration, production gate).
 
-This is deliberately a bounded activation runner. It proves the shared-Q query,
-goal-set Dijkstra/A*, result schema, and immutable evidence package for one
-configured four-bar / span-matched gearbox pair. Crossed-population production
-orchestration remains a later V2.12 work package.
+Smoke proves goal-set Dijkstra/A* on one pair. Calibration (V2B-005) writes
+radius/resolution/start-attachment decision JSON. Production refuses a missing
+decision package; crossed-population orchestration remains a later work package.
 """
 
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass
+from collections.abc import Mapping
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -23,6 +23,14 @@ from inequality_mechanisms.experiments.registry import (
     default_results_root,
     generate_run_id,
     validate_run_id,
+)
+from inequality_mechanisms.experiments.v2_cartesian_calibration import (
+    CartesianCalibrationSettings,
+    apply_cartesian_calibration_decisions,
+    assert_cartesian_calibration_decisions_present,
+    load_cartesian_calibration_decisions,
+    run_cartesian_calibration_sweep,
+    write_cartesian_calibration_decisions,
 )
 from inequality_mechanisms.experiments.v2_cartesian_tasks import (
     CartesianAnnularSectorDomain,
@@ -44,20 +52,25 @@ from inequality_mechanisms.kinematics.planar_2r import Planar2R
 from inequality_mechanisms.search.graph_solver import production_graph_solver
 from inequality_mechanisms.search.v2_objectives import resolve_v2_goal_set_objective
 
+VALID_STAGES = frozenset({"smoke", "calibration", "production"})
+
 
 @dataclass(frozen=True, slots=True)
 class CartesianGoalRegionRunConfig:
-    """Validated kickoff configuration loaded from one Experiment B YAML."""
+    """Validated Experiment B configuration loaded from one YAML."""
 
     experiment_id: str
     seed: int
     task_count: int
+    stage: str
     solver_policy: str
     algorithms: tuple[str, ...]
     record_expanded: bool
     base_experiment: V2ExperimentConfig
     base_experiment_source: dict[str, Any]
     domain: CartesianAnnularSectorDomain
+    calibration: CartesianCalibrationSettings | None = None
+    calibration_decisions: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -67,6 +80,7 @@ class CartesianGoalRegionRunResult:
     n_tasks: int
     n_trial_rows: int
     n_failure_rows: int
+    stage: str = "smoke"
 
 
 def _require_mapping(value: Any, name: str) -> dict[str, Any]:
@@ -75,10 +89,42 @@ def _require_mapping(value: Any, name: str) -> dict[str, Any]:
     return value
 
 
+def _infer_stage(root: Mapping[str, Any], solver_policy: str) -> str:
+    if "stage" in root and root["stage"] is not None:
+        stage = str(root["stage"])
+    elif solver_policy == "smoke_oracle_pair_v1":
+        stage = "smoke"
+    elif solver_policy == "calibration_dijkstra_v1":
+        stage = "calibration"
+    else:
+        stage = "production"
+    if stage not in VALID_STAGES:
+        raise ValueError(f"stage must be one of {sorted(VALID_STAGES)}")
+    return stage
+
+
+def _parse_calibration_settings(raw: dict[str, Any] | None) -> CartesianCalibrationSettings:
+    block = raw or {}
+    resolutions = block.get("candidate_resolutions", [32, 64, 96, 128])
+    radii = block.get("candidate_goal_radii", [0.04, 0.06, 0.08, 0.10, 0.12])
+    return CartesianCalibrationSettings(
+        candidate_resolutions=tuple(int(n) for n in resolutions),
+        candidate_goal_radii=tuple(float(r) for r in radii),
+        min_attachment_rate=float(block.get("min_attachment_rate", 0.50)),
+        max_relative_effect_change=float(
+            block.get("max_relative_effect_change", 0.05)
+        ),
+        separation_floor=float(block.get("separation_floor", 0.30)),
+        run_search=bool(block.get("run_search", True)),
+    )
+
+
 def load_cartesian_goal_region_config(
     path: Path | str,
+    *,
+    stage_override: str | None = None,
 ) -> CartesianGoalRegionRunConfig:
-    """Load the strict nested kickoff config without weakening V2 config gates."""
+    """Load the strict nested Experiment B config without weakening V2 gates."""
     config_path = Path(path)
     raw = yaml.safe_load(config_path.read_text(encoding="utf-8"))
     root = _require_mapping(raw, "config root")
@@ -138,27 +184,64 @@ def load_cartesian_goal_region_config(
         L2=float(domain_raw.get("L2", 1.0)),
     )
     solver_policy = str(root.get("solver_policy", ""))
-    if solver_policy != "smoke_oracle_pair_v1":
-        raise ValueError("solver_policy must equal 'smoke_oracle_pair_v1'")
+    stage = (
+        str(stage_override)
+        if stage_override is not None
+        else _infer_stage(root, solver_policy)
+    )
+    if stage not in VALID_STAGES:
+        raise ValueError(f"stage must be one of {sorted(VALID_STAGES)}")
     algorithms = tuple(str(a) for a in root.get("algorithms", ()))
-    if algorithms != ("dijkstra", "astar"):
-        raise ValueError(
-            "smoke_oracle_pair_v1 requires algorithms: [dijkstra, astar] "
-            "in that order"
+    if stage == "smoke":
+        if solver_policy != "smoke_oracle_pair_v1":
+            raise ValueError("smoke stage requires solver_policy smoke_oracle_pair_v1")
+        if algorithms != ("dijkstra", "astar"):
+            raise ValueError(
+                "smoke_oracle_pair_v1 requires algorithms: [dijkstra, astar] "
+                "in that order"
+            )
+        calibration = None
+    elif stage == "calibration":
+        if solver_policy != "calibration_dijkstra_v1":
+            raise ValueError(
+                "calibration stage requires solver_policy calibration_dijkstra_v1"
+            )
+        if algorithms != ("dijkstra",):
+            raise ValueError(
+                "calibration_dijkstra_v1 requires algorithms: [dijkstra]"
+            )
+        calibration = _parse_calibration_settings(
+            root.get("calibration") if isinstance(root.get("calibration"), dict) else None
+        )
+    else:
+        if solver_policy == "smoke_oracle_pair_v1":
+            raise ValueError(
+                "production stage must not use smoke_oracle_pair_v1"
+            )
+        if not algorithms:
+            raise ValueError("production stage requires at least one algorithm")
+        calibration = _parse_calibration_settings(
+            root.get("calibration") if isinstance(root.get("calibration"), dict) else None
         )
     task_count = int(root.get("task_count", 0))
     if task_count < 1:
         raise ValueError("task_count must be positive")
+    decisions_path = root.get("calibration_decisions")
     return CartesianGoalRegionRunConfig(
         experiment_id=str(root.get("experiment_id", "experiment_b_cartesian_goal_region")),
         seed=int(root["seed"]),
         task_count=task_count,
+        stage=stage,
         solver_policy=solver_policy,
         algorithms=algorithms,
         record_expanded=bool(root.get("record_expanded", False)),
         base_experiment=base,
         base_experiment_source=base_source,
         domain=domain,
+        calibration=calibration,
+        calibration_decisions=(
+            str(decisions_path) if decisions_path is not None else None
+        ),
     )
 
 
@@ -183,13 +266,43 @@ def _jsonl(rows: list[dict[str, Any]]) -> str:
     return "".join(json.dumps(row, sort_keys=True) + "\n" for row in rows)
 
 
-def run_cartesian_goal_region(
+def _with_applied_decisions(
+    config: CartesianGoalRegionRunConfig,
+    decisions: Mapping[str, Any] | None,
+) -> CartesianGoalRegionRunConfig:
+    if decisions is None:
+        return config
+    floor = (
+        config.calibration.separation_floor
+        if config.calibration is not None
+        else 0.30
+    )
+    domain, base = apply_cartesian_calibration_decisions(
+        domain=config.domain,
+        base_experiment=config.base_experiment,
+        decisions=decisions,
+        separation_floor=floor,
+    )
+    source = dict(config.base_experiment_source)
+    sampling = dict(source.get("sampling", {}))
+    shape_n = int(base.sampling.shape[0])
+    sampling["shape"] = [shape_n, shape_n]
+    source["sampling"] = sampling
+    return replace(
+        config,
+        domain=domain,
+        base_experiment=base,
+        base_experiment_source=source,
+    )
+
+
+def _run_search_package(
     config: CartesianGoalRegionRunConfig,
     *,
     results_root: Path | str | None = None,
     run_id: str | None = None,
 ) -> CartesianGoalRegionRunResult:
-    """Execute the bounded Experiment B Dijkstra/A* smoke package."""
+    """Execute the paired search evidence package (smoke / production stages)."""
     root = Path(results_root) if results_root is not None else default_results_root()
     root.mkdir(parents=True, exist_ok=True)
     rid = validate_run_id(run_id) if run_id is not None else generate_run_id(seed=config.seed)
@@ -324,7 +437,9 @@ def run_cartesian_goal_region(
                 }
                 trial_rows.append(row)
                 algorithm_results[algorithm] = result
-            if {"dijkstra", "astar"}.issubset(algorithm_results):
+            if config.stage == "smoke" and {"dijkstra", "astar"}.issubset(
+                algorithm_results
+            ):
                 dijkstra = algorithm_results["dijkstra"]
                 astar = algorithm_results["astar"]
                 if dijkstra.found != astar.found or not np.isclose(
@@ -340,6 +455,7 @@ def run_cartesian_goal_region(
         json.dumps(
             {
                 "experiment_id": config.experiment_id,
+                "stage": config.stage,
                 "seed": config.seed,
                 "task_count": config.task_count,
                 "solver_policy": config.solver_policy,
@@ -372,6 +488,7 @@ def run_cartesian_goal_region(
     manifest = {
         "run_id": rid,
         "experiment_id": config.experiment_id,
+        "stage": config.stage,
         "experiment_b_schema_version": 1,
         "created_at": datetime.now(UTC).replace(microsecond=0).isoformat(),
         "n_tasks": len(tasks),
@@ -393,6 +510,138 @@ def run_cartesian_goal_region(
         n_tasks=len(tasks),
         n_trial_rows=len(trial_rows),
         n_failure_rows=len(failure_rows),
+        stage=config.stage,
+    )
+
+
+def _run_calibration_package(
+    config: CartesianGoalRegionRunConfig,
+    *,
+    results_root: Path | str | None = None,
+    run_id: str | None = None,
+) -> CartesianGoalRegionRunResult:
+    if config.calibration is None:
+        raise CartesianCalibrationError("calibration settings are required")
+    root = Path(results_root) if results_root is not None else default_results_root()
+    root.mkdir(parents=True, exist_ok=True)
+    rid = validate_run_id(run_id) if run_id is not None else generate_run_id(seed=config.seed)
+    run_dir = root / rid
+    if run_dir.exists():
+        raise FileExistsError(f"run directory already exists: {run_dir}")
+
+    sweep = run_cartesian_calibration_sweep(
+        base_experiment=config.base_experiment,
+        domain=config.domain,
+        settings=config.calibration,
+        task_count=config.task_count,
+        seed=config.seed,
+    )
+    run_dir.mkdir(parents=True)
+    write_cartesian_calibration_decisions(
+        run_dir,
+        radius_decision=sweep["cartesian_radius_decision"],
+        resolution_decision=sweep["cartesian_resolution_decision"],
+        start_attachment_decision=sweep["cartesian_start_attachment_decision"],
+    )
+    (run_dir / "config.json").write_text(
+        json.dumps(
+            {
+                "experiment_id": config.experiment_id,
+                "stage": config.stage,
+                "seed": config.seed,
+                "task_count": config.task_count,
+                "solver_policy": config.solver_policy,
+                "algorithms": list(config.algorithms),
+                "cartesian_domain": config.domain.to_dict(),
+                "calibration": {
+                    "candidate_resolutions": list(
+                        config.calibration.candidate_resolutions
+                    ),
+                    "candidate_goal_radii": list(
+                        config.calibration.candidate_goal_radii
+                    ),
+                    "min_attachment_rate": config.calibration.min_attachment_rate,
+                    "max_relative_effect_change": (
+                        config.calibration.max_relative_effect_change
+                    ),
+                    "separation_floor": config.calibration.separation_floor,
+                    "run_search": config.calibration.run_search,
+                },
+                "base_experiment": config.base_experiment_source,
+                "chosen": sweep["chosen"],
+            },
+            indent=2,
+            sort_keys=True,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    (run_dir / "tasks.json").write_text(
+        json.dumps(sweep["tasks"], indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    (run_dir / "candidate_rows.jsonl").write_text(
+        _jsonl(list(sweep["candidate_rows"])), encoding="utf-8"
+    )
+    (run_dir / "failures.jsonl").write_text("", encoding="utf-8")
+    (run_dir / "trials.jsonl").write_text("", encoding="utf-8")
+    manifest = {
+        "run_id": rid,
+        "experiment_id": config.experiment_id,
+        "stage": config.stage,
+        "experiment_b_schema_version": 1,
+        "created_at": datetime.now(UTC).replace(microsecond=0).isoformat(),
+        "n_tasks": len(sweep["tasks"]),
+        "n_trial_rows": 0,
+        "n_failure_rows": 0,
+        "n_candidate_rows": len(sweep["candidate_rows"]),
+        "solver_policy": config.solver_policy,
+        "algorithms": list(config.algorithms),
+        "cartesian_domain": config.domain.to_dict(),
+        "chosen": sweep["chosen"],
+        "decision_files": [
+            "cartesian_radius_decision.json",
+            "cartesian_resolution_decision.json",
+            "cartesian_start_attachment_decision.json",
+        ],
+        "revision": capture_revision(cwd=None),
+        "environment": capture_environment(),
+    }
+    (run_dir / "manifest.json").write_text(
+        json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
+    return CartesianGoalRegionRunResult(
+        run_id=rid,
+        path=run_dir,
+        n_tasks=len(sweep["tasks"]),
+        n_trial_rows=0,
+        n_failure_rows=0,
+        stage=config.stage,
+    )
+
+
+def run_cartesian_goal_region(
+    config: CartesianGoalRegionRunConfig,
+    *,
+    results_root: Path | str | None = None,
+    run_id: str | None = None,
+    apply_decisions: Path | str | None = None,
+) -> CartesianGoalRegionRunResult:
+    """Execute smoke, calibration, or decision-gated production package."""
+    decisions: dict[str, Any] | None = None
+    decisions_path = apply_decisions or config.calibration_decisions
+    if decisions_path is not None:
+        decisions = load_cartesian_calibration_decisions(decisions_path)
+    assert_cartesian_calibration_decisions_present(
+        config.stage, decisions=decisions
+    )
+    effective = _with_applied_decisions(config, decisions)
+    if effective.stage == "calibration":
+        return _run_calibration_package(
+            effective, results_root=results_root, run_id=run_id
+        )
+    return _run_search_package(
+        effective, results_root=results_root, run_id=run_id
     )
 
 
@@ -401,9 +650,12 @@ def run_cartesian_goal_region_from_path(
     *,
     results_root: Path | str | None = None,
     run_id: str | None = None,
+    stage: str | None = None,
+    apply_decisions: Path | str | None = None,
 ) -> CartesianGoalRegionRunResult:
     return run_cartesian_goal_region(
-        load_cartesian_goal_region_config(config_path),
+        load_cartesian_goal_region_config(config_path, stage_override=stage),
         results_root=results_root,
         run_id=run_id,
+        apply_decisions=apply_decisions,
     )

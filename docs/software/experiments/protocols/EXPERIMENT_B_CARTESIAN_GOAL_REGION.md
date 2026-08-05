@@ -209,7 +209,14 @@ Calibration must report:
 - selected-goal residual;
 - sensitivity of expansion effects to candidate radii.
 
-The accepted radius is frozen before production search.
+V2B-005 tooling implements this sweep via
+`configs/v2/cartesian_goal_region_calibration.yaml` and
+`scripts/run_v2_cartesian_goal_region.py --stage calibration`, writing
+`cartesian_radius_decision.json`, `cartesian_resolution_decision.json`, and
+`cartesian_start_attachment_decision.json`. Production stages refuse a missing
+decision package (`--apply-decisions`). The accepted radius and resolution are
+frozen before production search; population inference still requires the
+crossed-statistics gate.
 
 ## Search algorithm
 
