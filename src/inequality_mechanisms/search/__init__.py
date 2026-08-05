@@ -4,6 +4,11 @@ from inequality_mechanisms.search.astar import astar
 from inequality_mechanisms.search.core import best_first_search
 from inequality_mechanisms.search.cost_to_go import CostToGoMap, reverse_dijkstra
 from inequality_mechanisms.search.dijkstra import dijkstra
+from inequality_mechanisms.search.graph_solver import (
+    DijkstraGraphSolver,
+    GraphSolver,
+    production_dijkstra_solver,
+)
 from inequality_mechanisms.search.heuristic_quality import (
     HeuristicQualityReport,
     heuristic_quality_report,
@@ -28,7 +33,9 @@ from inequality_mechanisms.search.v2_objectives import (
 
 __all__ = [
     "CostToGoMap",
+    "DijkstraGraphSolver",
     "EdgeCost",
+    "GraphSolver",
     "Heuristic",
     "HeuristicQualityReport",
     "PlanningObjective",
@@ -40,6 +47,7 @@ __all__ = [
     "dijkstra",
     "heuristic_quality_report",
     "input_euclidean_heuristic",
+    "production_dijkstra_solver",
     "output_euclidean_heuristic",
     "resolve_planning_objective",
     "resolve_v2_objective",

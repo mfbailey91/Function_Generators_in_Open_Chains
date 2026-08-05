@@ -104,10 +104,6 @@ TASK_TEMPLATES: tuple[TaskTemplate, ...] = (
         goal_fraction=(0.85, 0.80),
         purpose="long diagonal movement through both axes",
     ),
-)
-
-#: Retained for reference / older configs; not used by the active V2.8 study.
-LEGACY_TASK_TEMPLATES: tuple[TaskTemplate, ...] = (
     TaskTemplate(
         task_set_id="joint1_dominant",
         start_fraction=(0.15, 0.45),
@@ -121,6 +117,9 @@ LEGACY_TASK_TEMPLATES: tuple[TaskTemplate, ...] = (
         purpose="expose joint-2 transmission structure",
     ),
 )
+
+#: Alias retained for older imports; all three templates are active under V2.9.
+LEGACY_TASK_TEMPLATES: tuple[TaskTemplate, ...] = ()
 
 
 def pair_by_id(pair_id: str) -> MechanismPairFixture:
