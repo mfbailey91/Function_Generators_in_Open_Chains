@@ -218,6 +218,10 @@ Later A* and sampling-based packages receive separate run IDs and may be joined 
 - No changing the mechanism population between solver campaigns without preserving the original paired bank.
 - No simultaneous solver execution inside one production worker.
 
+## Goal-set search for Experiment B
+
+Single-goal Experiment A A* is complete. Goal-set A* for Experiment B is a later solver cell and remains blocked until [ADR-020](../adr/ADR-020-v2-goal-set-search.md) accepts multi-goal termination and an admissible heuristic to a goal set. ADR-018's single-goal `input_euclidean` heuristic does not automatically transfer.
+
 ## Promotion criteria for the next solver
 
 A* becomes the next active solver only after the Dijkstra campaign has:

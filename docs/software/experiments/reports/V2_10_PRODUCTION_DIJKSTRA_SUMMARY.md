@@ -10,6 +10,8 @@
 **Code revision recorded in run packages:** `602c64d55888009ff4cf7e4fa1a18eacf3095ecc` (`git_dirty: true` during closeout)  
 **Dashboards:** open [V2_10_PRODUCTION_DIJKSTRA.html](V2_10_PRODUCTION_DIJKSTRA.html) (campaign figures), plus per-run `results/v2_10_production/reports/index.html` and `results/v2_10_confirmation/reports/index.html`.
 
+This report is the Dijkstra cell of **Experiment A**: a centered, normalized-\(\mathcal Q\), equal-weight canonical-query experiment designed to vary displacement scale and direction while approximately controlling query location. Protocol: [`EXPERIMENT_A_CENTERED_Q_PROBES.md`](../protocols/EXPERIMENT_A_CENTERED_Q_PROBES.md).
+
 This report separates **science** from **M4 runtime**. Generated trial rows were not edited.
 
 Figures below are generated from the run packages (not from edited trial rows).
@@ -35,6 +37,8 @@ Optional \(W\in\{2,4\}\) was **not** accepted. All search stages used `workers: 
 
 ### Design (frozen before production search)
 
+- Experiment A task set: eight named canonical probes specified as normalized fractions of each pair's output box. Probe midpoints are concentrated near the center of that box.
+- This is **not** a random task population, uniform \(\mathcal Q\) sampling, Cartesian task sampling, or evidence about an entire diagonal region.
 - Certified monotonic four-bar vs span-matched gearbox on a shared output graph (ADR-012 / ADR-014 / ADR-017).
 - Hierarchical sample: mechanism pair is the atomic unit; tasks are nested, not iid.
 - Primary effect: mechanism-level mean of \(\log((N_{\mathrm{fb}}+1)/(N_{\mathrm{gb}}+1))\).
@@ -112,6 +116,18 @@ Task-category means (mechanism-nested, production \(N=161\)):
 | `joint2_dominant` | 161 | −0.0065 |
 | `near_boundary` | 161 | −0.0056 |
 | `joint1_dominant` | 161 | −0.0044 |
+
+### Task-set interpretation
+
+The eight tasks above are a frozen **canonical probe set**, not a random sample from a population of robot tasks.
+
+- Endpoints are specified as normalized fractions of each mechanism pair's output-coordinate box.
+- Probe midpoints are concentrated near the center of that normalized box.
+- The set deliberately varies displacement length and axis direction while approximately controlling location.
+- The production effect is therefore an equal-weight mean over these eight probes and the sampled mechanism population.
+- Category names describe individual displacement probes; they do not identify workspace regions.
+
+The comparatively large `medium_diagonal` mean is retained as an unresolved observation. V2.11 later showed that this category ordering did not survive A*; `medium_diagonal` moved from about \(-0.0747\) to essentially zero. The safer reading is a centered-query / actuator-cost-basin / uninformed-expansion interaction, not an intrinsic task-direction advantage. See [`PROJECT_NOTE_EXPERIMENT_A_TASK_SET_EFFECT.md`](../../architecture/notes/PROJECT_NOTE_EXPERIMENT_A_TASK_SET_EFFECT.md) and the [V2.11 report](V2_11_ASTAR_PAIRED_CAMPAIGN_SUMMARY.md).
 
 ### Descriptor–effect correlations (production)
 

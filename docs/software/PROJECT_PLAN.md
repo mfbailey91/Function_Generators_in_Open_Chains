@@ -1,7 +1,7 @@
 # Inequality Mechanisms — Software Project Plan
 
 **Repository:** <https://github.com/mfbailey91/Function_Generators_in_Open_Chains>  
-**Planning status:** Version 2 rearchitecture proposed  
+**Planning status:** Version 2 2R architecture and Experiment A (V2.10 Dijkstra + V2.11 A*) evidence complete; Experiment B / V2.12 planned and held  
 **Version 1 status:** Preserved as the full-cycle, input-state research baseline
 
 ## Objective
@@ -24,7 +24,9 @@ The Version 2 comparison separates three effects:
 
 1. **Sampling effect** — uniform increments in \(\mathcal U\) become nonuniform nodes and edge lengths in \(\mathcal Q\).
 2. **Metric and capability effect** — actuator travel, transmission ratio, resolution, torque tendency, and later energy remain mechanism-dependent even on a common uniform-\(\mathcal Q\) graph.
-3. **Task effect** — in later redundant or constrained manipulators, those fields may influence path and posture selection.
+3. **Task effect** — the query definition determines which portions of the induced metric are exercised. Experiment A uses centered normalized \(\mathcal Q\) probes. Experiment B begins 2R position-only goal-region planning. Later 3R and 6R tasks add independently specified orientation.
+
+The evidence program must distinguish a controlled mechanism probe from a representative robot-planning task distribution. A result from one task definition must not be presented as a mechanism-wide effect without naming that task distribution and solver.
 
 ## Scope decision
 
@@ -196,6 +198,40 @@ For a uniform-\(\mathcal Q\) graph with the same output bounds, topology, node c
 - A* optimal cost and expansion order must be identical when the same heuristic is used.
 
 Any failure is an implementation defect or an undocumented experiment difference.
+
+## Evidence ladder: from mechanism probe to robot task
+
+Version 2 uses a staged task ladder rather than treating every start-goal definition as interchangeable.
+
+### Experiment A — centered normalized \(\mathcal Q\)-space probes
+
+**Status:** completed for V2.10 Dijkstra and V2.11 A* on the same frozen bank.
+
+Experiment A is a centered, normalized-\(\mathcal Q\), equal-weight canonical-query experiment designed to vary displacement scale and direction while approximately controlling query location. Its estimand is the equal-weight mean mechanism effect over the frozen probe set.
+
+It is not a random task population, uniform \(\mathcal Q\) sampling, or Cartesian task sampling. Authoritative protocol: [`EXPERIMENT_A_CENTERED_Q_PROBES.md`](experiments/protocols/EXPERIMENT_A_CENTERED_Q_PROBES.md).
+
+### Experiment B — 2R Cartesian position goal-region planning
+
+**Status:** accepted conceptual design; Sprint V2.12 held behind ADR-019, ADR-020, and a crossed statistical design.
+
+\[
+\text{known physical start state}
+\longrightarrow
+\text{Cartesian position goal region}.
+\]
+
+Any certified output configuration satisfying \(\lVert f(\mathbf q)-\mathbf x_g\rVert_2\le\epsilon_X\) is an accepted goal. The primary task distribution is a fixed external Cartesian domain shared across the mechanism population. Pair-local reachable-workspace sampling is a control, not the main experiment.
+
+Authoritative design: [`EXPERIMENT_B_CARTESIAN_GOAL_REGION.md`](experiments/protocols/EXPERIMENT_B_CARTESIAN_GOAL_REGION.md).
+
+### Higher-dimensional task roadmap
+
+1. **2R planar:** position-only task \((x,y)\);
+2. **3R planar:** full planar pose \((x,y,\theta)\in SE(2)\);
+3. **6R spatial:** full spatial pose \((x,y,z,R)\in SE(3)\).
+
+The current V2.7 gate remains a 2R solver-evidence review. Experiment B does not automatically supersede that gate.
 
 ## Architecture
 
@@ -447,6 +483,14 @@ After V2.6, each Version 2 run package must support a Sprint-6-style HTML printo
 **Status: deferred / held.** Extend the proven abstractions to 3R planar planning only after trusted 2R evaluation. First with full pose \((x,y,\phi)\), then with position-only redundant goals.
 
 **Sprint:** [`SPRINT_V2_7_3R_EXTENSION.md`](planning/sprints/v2/SPRINT_V2_7_3R_EXTENSION.md) (not in the active execution sequence)
+
+The V2.7 entry gate is unchanged: review of trusted 2R Dijkstra and A* solver evidence. Experiment B / V2.12 is a separate held task-definition stage and does not replace this gate unless a later explicit decision says so.
+
+### Held next task stage — Experiment B / V2.12
+
+**Status: planned / held.** 2R Cartesian position goal-region planning after accepted Cartesian-domain and goal-set search ADRs plus a crossed statistical design.
+
+**Sprint:** [`SPRINT_V2_12_CARTESIAN_GOAL_REGION_PLANNING.md`](planning/sprints/v2/SPRINT_V2_12_CARTESIAN_GOAL_REGION_PLANNING.md) (held; do not activate from this plan text alone)
 
 ## Migration strategy
 
