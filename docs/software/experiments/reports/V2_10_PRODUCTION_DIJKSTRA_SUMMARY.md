@@ -8,9 +8,11 @@
 **Sample-bank digest:** `0216920c5703a2d74992171054c9fbdec75927ce4af49909f3b19020a7ccdf20`  
 **Calibration decisions:** `results/v2_10_decisions/`  
 **Code revision recorded in run packages:** `602c64d55888009ff4cf7e4fa1a18eacf3095ecc` (`git_dirty: true` during closeout)  
-**Dashboards:** open `results/v2_10_production/reports/index.html` and `results/v2_10_confirmation/reports/index.html` locally.
+**Dashboards:** open [V2_10_PRODUCTION_DIJKSTRA.html](V2_10_PRODUCTION_DIJKSTRA.html) (campaign figures), plus per-run `results/v2_10_production/reports/index.html` and `results/v2_10_confirmation/reports/index.html`.
 
 This report separates **science** from **M4 runtime**. Generated trial rows were not edited.
+
+Figures below are generated from the run packages (not from edited trial rows).
 
 ## Run index
 
@@ -52,6 +54,8 @@ Optional \(W\in\{2,4\}\) was **not** accepted. All search stages used `workers: 
 | **64** | **−0.0297** | **96** | **0.044** | **yes (`coarsest_stable`)** |
 | 96 | −0.0311 | — | — | confirmation only |
 
+![Resolution and task-count calibration](figures/v2_10/calibration.png)
+
 Rejected production alternatives: \(n\in\{16,32,48\}\). **\(n=128\) was not run** after \(64\) vs \(96\) met the gate; it remains an unevaluated finer candidate, not a silent shrink after seeing outcomes.
 
 **Task count.** Same calibration bank at \(n=64\), \(K\in\{8,12,16\}\). Recorded decision: **\(K=8\)** (`smallest_stable_k`) under the calibration YAML threshold `max_relative_estimate_change: 0.20`.
@@ -78,6 +82,10 @@ Rejected \(K\in\{12,16\}\). Note: the production sequential threshold is \(0.05\
 - Hierarchical estimate: **−0.01953**, 95% CI \([−0.02132,−0.01776]\), \(n=161\).
 - CI half-width \(0.00178\) vs target \(0.05\).
 - Variance: within \(7.98\times 10^{-4}\), between \(2.92\times 10^{-5}\), ratio **0.037**.
+
+![Production sequential precision](figures/v2_10/sequential_precision.png)
+
+![Pair effect histogram and task-category means](figures/v2_10/effects_and_categories.png)
 
 Sequential batches (log expansion ratio):
 
@@ -116,6 +124,8 @@ Pre-search bank descriptors vs mechanism-level effects (\(N=161\)):
 | `conditioning_margin` | 0.349 | −0.533 |
 | `gain_asymmetry` | 0.140 | −0.232 |
 
+![Pre-search \(q\) span vs \(\Delta L_U\), colored by log expansion](figures/v2_10/descriptor_delta_lu.png)
+
 Output-span and gain variability track actuator-path differences much more strongly than expansion-count differences. This is a descriptive association on the frozen bank, not a causal claim.
 
 ### High-resolution confirmation (\(n=96\), 15 stratified pairs)
@@ -125,6 +135,8 @@ Output-span and gain variability track actuator-path differences much more stron
 - Confirmation estimate: **−0.02085**, 95% CI \([−0.02767,−0.01400]\).
 - Production estimate −0.01953. **Sign agrees.** Magnitude is within ~0.0013.
 - Of the 15 confirmation IDs, 5 also finished in the production prefix (\(N=161\) of bank order). On those five: **5/5 sign agreement**; mean \(|\Delta|\) of paired effects \(0.00080\).
+
+![Stage estimates and overlapping confirmation pairs](figures/v2_10/stage_and_confirmation.png)
 
 Confirmation was drawn from the full 500-pair bank, not from production survivors. Non-overlap of the other 10 IDs is expected and is not post-hoc selection.
 
@@ -152,6 +164,8 @@ Resource calibration (serial pair, peak RSS):
 | \(96^2\) | 8 | 119.3 s | 131 MB |
 
 Configured `execution.worker_peak_rss_bytes: 137494528` (96² max) so production and confirmation share one calibrated ceiling. Preflight uses \(R_{\mathrm{parent}}+W\cdot R_{\mathrm{worker,peak}}+R_{\mathrm{margin}}\) at 65% of 36 GB. Uncalibrated production launch is refused.
+
+![M4 Max calibration wall time and peak RSS vs grid \(n\)](figures/v2_10/runtime_resolution.png)
 
 Approximate search throughput at production settings (\(64^2\), \(K=8\), \(W=1\)): ~7.3 s / pair. Pilot \(N=50\) ≈ 6 min. Production to stop ≈ 18 min search plus merge. Confirmation \(96^2\) ≈ 15 s / pair, 15 pairs ≈ 3.9 min.
 
