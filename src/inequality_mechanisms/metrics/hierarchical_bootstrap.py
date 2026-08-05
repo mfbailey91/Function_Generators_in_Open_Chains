@@ -304,7 +304,6 @@ def sequential_precision_report(
         ):
             stop = True
             stop_reason = "precision_and_stability"
-            break
 
     return {
         "cluster_definition": "mechanism_pair",

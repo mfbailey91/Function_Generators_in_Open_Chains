@@ -9,12 +9,16 @@ from pathlib import Path
 import pytest
 import yaml
 
+from inequality_mechanisms.experiments.v2_production_analysis import (
+    sequential_precision_with_stability,
+)
 from inequality_mechanisms.experiments.v2_production_canvas import (
     is_v2_production_run_dir,
 )
 from inequality_mechanisms.experiments.v2_production_config import (
     V2ProductionConfigError,
     load_v2_production_config,
+    next_confirmation_shape_n,
     production_config_digest,
     validate_v2_production_config_mapping,
 )
@@ -35,7 +39,10 @@ from inequality_mechanisms.experiments.v2_production_preflight import (
 )
 from inequality_mechanisms.experiments.v2_production_runner import (
     _batch_schedule,
+    _shard_status_ids,
     compare_worker_scientific_equivalence,
+    run_resolution_calibration,
+    run_task_count_calibration,
     run_v2_production,
 )
 from inequality_mechanisms.experiments.v2_production_sample_bank import (
@@ -44,6 +51,7 @@ from inequality_mechanisms.experiments.v2_production_sample_bank import (
     load_v2_sample_bank,
     sample_bank_digest_payload,
     save_v2_sample_bank,
+    select_confirmation_subset,
     select_task_templates,
     subset_sample_bank,
 )
@@ -338,6 +346,32 @@ class TestMergeAndAnalysis:
         assert "dijkstra" in html
         assert "actuator_travel" in html
 
+    def test_stable_batches_require_full_precision_path(self) -> None:
+        summaries = [
+            {
+                "mechanism_id": f"m{i:03d}",
+                "effect": -0.02 + 0.0001 * (i % 5),
+                "task_effects": [-0.02, -0.021],
+            }
+            for i in range(8)
+        ]
+        report = sequential_precision_with_stability(
+            summaries,
+            batch_size=2,
+            target_ci_half_width=1.0,
+            n_bootstrap=30,
+            seed=0,
+            confidence=0.95,
+            max_relative_estimate_change=0.5,
+            min_mechanisms=4,
+            stable_batches_required=3,
+            maximum_mechanisms=8,
+        )
+        assert len(report["batches"]) == 4
+        assert report["stop"] is True
+        assert report["stop_reason"] == "precision_and_stability"
+        assert report["batches"][-1]["stable_run"] >= 3
+
     def test_task_and_mechanism_ids_round_trip(
         self, smoke_config, tmp_path: Path
     ) -> None:
@@ -360,10 +394,14 @@ class TestMergeAndAnalysis:
 
 def _expanded_smoke_bank(smoke_config, n_mechanisms: int = 4) -> V2SampleBank:
     base = build_v2_sample_bank(smoke_config, n_mechanisms=2, n_tasks=2)
-    mechanisms = [
-        replace(base.mechanisms[i % len(base.mechanisms)], mechanism_id=f"pair_{i:06d}")
-        for i in range(n_mechanisms)
-    ]
+    mechanisms = []
+    for i in range(n_mechanisms):
+        src = base.mechanisms[i % len(base.mechanisms)]
+        descriptors = dict(src.descriptors)
+        descriptors["mean_log_gain_var"] = float(i)
+        mechanisms.append(
+            replace(src, mechanism_id=f"pair_{i:06d}", descriptors=descriptors)
+        )
     bank = V2SampleBank(
         schema_version=base.schema_version,
         seed=base.seed,
@@ -404,6 +442,9 @@ class TestLiveSequentialProduction:
         config = smoke_config.model_copy(
             update={
                 "study": smoke_config.study.model_copy(update={"stage": "production"}),
+                "execution": smoke_config.execution.model_copy(
+                    update={"worker_peak_rss_bytes": 64 * 1024 * 1024}
+                ),
                 "population": smoke_config.population.model_copy(
                     update={
                         "minimum_production_mechanisms": 2,
@@ -442,6 +483,10 @@ class TestLiveSequentialProduction:
             run_id="prod_live_stop",
             stage="production",
             sample_bank=_expanded_smoke_bank(smoke_config, n_mechanisms=4),
+            apply_decisions={
+                "resolution_decision": {"production_shape_n": 8},
+                "task_count_decision": {"tasks_per_mechanism": 2},
+            },
         )
         assert run.n_completed == 2
         assert run.n_pending == 2
@@ -482,3 +527,256 @@ class TestLiveSequentialProduction:
         html = written.read_text(encoding="utf-8")
         assert "dijkstra" in html
         assert "stale" not in html
+
+
+class TestCloseoutRunnerFixes:
+    def test_failed_shard_is_not_completed(self, smoke_config, tmp_path: Path) -> None:
+        run = run_v2_production(
+            smoke_config,
+            results_root=tmp_path,
+            run_id="prod_failed_status",
+            stage="smoke",
+        )
+        shard = next((run.path / "shards").glob("mechanism_*.jsonl"))
+        rows = [
+            json.loads(line) for line in shard.read_text().splitlines() if line.strip()
+        ]
+        for row in rows:
+            if row.get("record_type") == "mechanism_summary":
+                row["status"] = "failed"
+                row["mechanism_pair_id"] = "m_failed"
+        shard.write_text("".join(json.dumps(r) + "\n" for r in rows))
+        completed, failed = _shard_status_ids(run.path)
+        assert "m_failed" in failed
+        assert "m_failed" not in completed
+
+    def test_build_sample_bank_is_generate_only(
+        self, smoke_config, tmp_path: Path
+    ) -> None:
+        config = smoke_config.model_copy(
+            update={
+                "population": smoke_config.population.model_copy(
+                    update={
+                        "maximum_production_mechanisms": 2,
+                        "variance_pilot_mechanisms": 2,
+                    }
+                )
+            }
+        )
+        run = run_v2_production(
+            config,
+            results_root=tmp_path,
+            run_id="prod_bank_only",
+            stage="build_sample_bank",
+            export_sample_bank=tmp_path / "sample_banks" / "production_v1.json",
+        )
+        assert run.n_completed == 0
+        assert not list((run.path / "shards").glob("mechanism_*.jsonl"))
+        exported = load_v2_sample_bank(tmp_path / "sample_banks" / "production_v1.json")
+        assert exported.mechanisms
+        assert exported.digest
+
+    def test_production_refuses_missing_decisions(
+        self, smoke_config, tmp_path: Path
+    ) -> None:
+        config = smoke_config.model_copy(
+            update={
+                "study": smoke_config.study.model_copy(
+                    update={"stage": "production", "sample_bank": None}
+                ),
+                "population": smoke_config.population.model_copy(
+                    update={"production_shape_n": None, "tasks_per_mechanism": None}
+                ),
+            }
+        )
+        with pytest.raises(V2ProductionConfigError, match="calibration decisions"):
+            run_v2_production(
+                config,
+                results_root=tmp_path,
+                run_id="prod_no_decisions",
+                stage="production",
+            )
+
+    def test_uncalibrated_peak_rss_refused_for_production(self, smoke_config) -> None:
+        report = memory_preflight(
+            smoke_config,
+            total_memory_bytes=32 * 1024**3,
+            stage="production",
+        )
+        assert report.allowed is False
+        assert report.reason == "uncalibrated_worker_peak_rss"
+        with pytest.raises(ProductionPreflightError, match="worker_peak_rss"):
+            assert_preflight_allowed(report)
+
+    def test_resolution_calibration_varies_shape(
+        self, smoke_config, tmp_path: Path
+    ) -> None:
+        config = smoke_config.model_copy(
+            update={
+                "population": smoke_config.population.model_copy(
+                    update={
+                        "calibration_mechanisms": 1,
+                        "candidate_resolutions": [6, 8],
+                        "tasks_per_mechanism": 1,
+                    }
+                )
+            }
+        )
+        decision = run_resolution_calibration(
+            config, results_root=tmp_path, run_id="res_cal"
+        )
+        assert "production_shape_n" in decision
+        assert decision.get("rejected_shape_n") is not None
+        first_shards = tmp_path / "res_cal_n6" / "shards"
+        first_text = "".join(
+            path.read_text() for path in sorted(first_shards.glob("mechanism_*.jsonl"))
+        )
+        observed = []
+        for child in tmp_path.iterdir():
+            if not child.is_dir() or "res_cal_n" not in child.name:
+                continue
+            merged = child / "merged" / "trials.jsonl"
+            if not merged.is_file():
+                continue
+            for line in merged.read_text().splitlines():
+                if not line.strip():
+                    continue
+                row = json.loads(line)
+                if row.get("graph_shape"):
+                    observed.append(tuple(row["graph_shape"]))
+                    break
+        assert (6, 6) in observed
+        assert (8, 8) in observed
+        assert first_text == "".join(
+            path.read_text() for path in sorted(first_shards.glob("mechanism_*.jsonl"))
+        )
+
+    def test_task_count_calibration_writes_decision(
+        self, smoke_config, tmp_path: Path
+    ) -> None:
+        config = smoke_config.model_copy(
+            update={
+                "population": smoke_config.population.model_copy(
+                    update={
+                        "calibration_mechanisms": 1,
+                        "candidate_tasks_per_mechanism": [1, 2],
+                        "tasks_per_mechanism": None,
+                        "production_shape_n": 8,
+                    }
+                )
+            }
+        )
+        decision = run_task_count_calibration(
+            config,
+            results_root=tmp_path,
+            run_id="k_cal",
+            apply_decisions={"resolution_decision": {"production_shape_n": 8}},
+        )
+        assert decision["tasks_per_mechanism"] in {1, 2}
+        assert (tmp_path / "k_cal" / "task_count_decision.json").is_file()
+        assert decision.get("rejected_tasks_per_mechanism") is not None
+
+    def test_confirmation_subset_is_stratified_and_frozen(
+        self, smoke_config, tmp_path: Path
+    ) -> None:
+        bank = _expanded_smoke_bank(smoke_config, n_mechanisms=4)
+        selected = select_confirmation_subset(bank, n_mechanisms=2, seed=0)
+        assert len(selected) == 2
+        ids = {m.mechanism_id for m in selected}
+        first_n = {bank.mechanisms[0].mechanism_id, bank.mechanisms[1].mechanism_id}
+        assert ids != first_n
+        config = smoke_config.model_copy(
+            update={
+                "study": smoke_config.study.model_copy(
+                    update={"stage": "high_resolution_confirmation"}
+                ),
+                "execution": smoke_config.execution.model_copy(
+                    update={"worker_peak_rss_bytes": 64 * 1024 * 1024}
+                ),
+                "population": smoke_config.population.model_copy(
+                    update={
+                        "minimum_production_mechanisms": 4,
+                        "confirmation_fraction": 0.5,
+                        "candidate_resolutions": [8, 10],
+                        "production_shape_n": 8,
+                        "tasks_per_mechanism": 2,
+                    }
+                ),
+            }
+        )
+        run = run_v2_production(
+            config,
+            results_root=tmp_path,
+            run_id="prod_confirm",
+            stage="high_resolution_confirmation",
+            sample_bank=bank,
+            apply_decisions={
+                "resolution_decision": {"production_shape_n": 8},
+                "task_count_decision": {"tasks_per_mechanism": 2},
+            },
+        )
+        subset_path = run.path / "confirmation_subset.json"
+        assert subset_path.is_file()
+        payload = json.loads(subset_path.read_text())
+        assert payload["selected_before_search"] is True
+        assert payload["shape"] == [10, 10]
+        assert next_confirmation_shape_n(config) == 10
+        trials = [
+            json.loads(line)
+            for line in (run.path / "merged" / "trials.jsonl").read_text().splitlines()
+            if line.strip()
+        ]
+        assert trials
+        assert all(tuple(row["graph_shape"]) == (10, 10) for row in trials)
+
+    def test_retry_preserves_original_failure(
+        self, smoke_config, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from inequality_mechanisms.experiments import v2_production_runner as runner
+        from inequality_mechanisms.experiments.v2_production_work_unit import (
+            MechanismPairWorkResult,
+        )
+
+        calls = {"n": 0}
+        original = runner.run_mechanism_pair_work_unit
+
+        def flaky(*args, **kwargs):
+            calls["n"] += 1
+            result = original(*args, **kwargs)
+            if calls["n"] == 1:
+                return MechanismPairWorkResult(
+                    mechanism_pair_id=result.mechanism_pair_id,
+                    status="failed",
+                    summary=dict(result.summary),
+                    trials=[],
+                    comparisons=[],
+                    failures=[
+                        {
+                            "failure_code": "pair_invariant_or_build_failed",
+                            "detail": "synthetic retry test",
+                            "mechanism_pair_id": result.mechanism_pair_id,
+                        }
+                    ],
+                )
+            return result
+
+        monkeypatch.setattr(runner, "run_mechanism_pair_work_unit", flaky)
+        config = smoke_config.model_copy(
+            update={
+                "execution": smoke_config.execution.model_copy(
+                    update={"pair_build_retries": 1}
+                )
+            }
+        )
+        run = run_v2_production(
+            config,
+            results_root=tmp_path,
+            run_id="prod_retry",
+            stage="smoke",
+            sample_bank=_expanded_smoke_bank(smoke_config, n_mechanisms=1),
+        )
+        attempts = list((run.path / "failures").glob("*.attempt1.json"))
+        assert attempts
+        attempt_payload = json.loads(attempts[0].read_text())
+        assert attempt_payload["status"] == "failed"
+        assert run.n_completed >= 1

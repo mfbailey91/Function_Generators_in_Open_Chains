@@ -21,6 +21,7 @@ def render_production_canvas_html(payload: dict[str, Any]) -> str:
     precision = _as_dict(analysis.get("precision"))
     variance = _as_dict(analysis.get("variance"))
     categories = _as_dict(analysis.get("task_category_effects"))
+    descriptors = _as_dict(analysis.get("descriptor_correlations"))
     batch_rows = ""
     for batch in precision.get("batches") or []:
         batch_rows += (
@@ -46,6 +47,29 @@ def render_production_canvas_html(payload: dict[str, Any]) -> str:
         )
     if not cat_rows:
         cat_rows = "<tr><td colspan='3'>No category effects.</td></tr>"
+    desc_rows = ""
+    for name, stats in _as_dict(descriptors.get("correlations")).items():
+        desc_rows += (
+            "<tr>"
+            f"<td>{html.escape(str(name))}</td>"
+            f"<td>log expansion ratio</td>"
+            f"<td>{html.escape(str(stats.get('n')))}</td>"
+            f"<td>{html.escape(str(stats.get('spearman_rho')))}</td>"
+            f"<td>{html.escape(str(stats.get('pearson_r')))}</td>"
+            "</tr>"
+        )
+    for name, stats in _as_dict(descriptors.get("correlations_delta_l_u")).items():
+        desc_rows += (
+            "<tr>"
+            f"<td>{html.escape(str(name))}</td>"
+            f"<td>ΔL_U</td>"
+            f"<td>{html.escape(str(stats.get('n')))}</td>"
+            f"<td>{html.escape(str(stats.get('spearman_rho')))}</td>"
+            f"<td>{html.escape(str(stats.get('pearson_r')))}</td>"
+            "</tr>"
+        )
+    if not desc_rows:
+        desc_rows = "<tr><td colspan='5'>No descriptor correlations yet.</td></tr>"
     return f"""<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -113,6 +137,16 @@ def render_production_canvas_html(payload: dict[str, Any]) -> str:
   <table>
     <thead><tr><th>category</th><th>n</th><th>mean log expansion ratio</th></tr></thead>
     <tbody>{cat_rows}</tbody>
+  </table>
+
+  <h2>Descriptor correlations</h2>
+  <p>Pre-search descriptors versus mechanism-level log expansion ratio and ΔL_U.
+     Science section; runtime observations are below.</p>
+  <table>
+    <thead>
+      <tr><th>descriptor</th><th>effect</th><th>n</th><th>spearman</th><th>pearson</th></tr>
+    </thead>
+    <tbody>{desc_rows}</tbody>
   </table>
 
   <h2>Runtime environment</h2>

@@ -41,9 +41,7 @@ def test_paired_log_expansion_ratio() -> None:
 
 
 def test_mechanism_level_effects() -> None:
-    summaries, exclusions = mechanism_level_effects(
-        _rows(), min_accepted_tasks=2
-    )
+    summaries, exclusions = mechanism_level_effects(_rows(), min_accepted_tasks=2)
     assert not exclusions
     assert len(summaries) == 3
     assert all("task_effects" in s for s in summaries)
@@ -82,3 +80,17 @@ def test_sequential_precision_and_guard() -> None:
     )
     with pytest.raises(AssertionError):
         assert_not_task_level_iid({"treats_tasks_as_iid": True})
+    assert len(report["batches"]) == len(summaries)
+
+
+def test_sequential_precision_does_not_truncate_later_batches() -> None:
+    summaries, _ = mechanism_level_effects(_rows(), min_accepted_tasks=1)
+    report = sequential_precision_report(
+        summaries,
+        batch_size=1,
+        target_ci_half_width=10.0,
+        n_bootstrap=20,
+        seed=0,
+        min_mechanisms=1,
+    )
+    assert [batch["n_mechanisms"] for batch in report["batches"]] == [1, 2, 3]

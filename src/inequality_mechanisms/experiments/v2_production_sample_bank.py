@@ -618,6 +618,17 @@ def build_v2_sample_bank(
     )
 
 
+def select_confirmation_subset(
+    bank: V2SampleBank,
+    *,
+    n_mechanisms: int,
+    seed: int,
+) -> list[V2SampleBankMechanism]:
+    """Return a descriptor-stratified confirmation subset, independent of outcomes."""
+    del seed  # selection is deterministic from bank order + stratified rule
+    return _stratified_select(list(bank.mechanisms), int(n_mechanisms))
+
+
 def subset_sample_bank(
     bank: V2SampleBank,
     *,

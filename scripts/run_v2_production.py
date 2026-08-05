@@ -14,6 +14,7 @@ if _SRC.is_dir() and str(_SRC) not in sys.path:
 import typer  # noqa: E402
 
 from inequality_mechanisms.experiments.v2_production_runner import (  # noqa: E402
+    V2ProductionRunResult,
     run_v2_production_from_path,
 )
 
@@ -48,6 +49,21 @@ def main(
         "--memory-override",
         help="Recorded override when preflight exceeds the memory fraction.",
     ),
+    apply_decisions: Path | None = typer.Option(
+        None,
+        "--apply-decisions",
+        help="Directory or JSON file with resolution/task-count decisions.",
+    ),
+    export_sample_bank: Path | None = typer.Option(
+        None,
+        "--export-sample-bank",
+        help="Write the sample bank JSON to this path.",
+    ),
+    retry_failed: bool = typer.Option(
+        False,
+        "--retry",
+        help="Re-run failed mechanism-pair shards on resume.",
+    ),
 ) -> None:
     """Execute one production stage and print the run package path."""
     result = run_v2_production_from_path(
@@ -57,13 +73,19 @@ def main(
         stage=stage,
         resume=resume if resume else None,
         memory_override=memory_override or None,
+        apply_decisions=apply_decisions,
+        export_sample_bank=export_sample_bank,
+        retry_failed=retry_failed,
     )
-    typer.echo(f"run_id={result.run_id}")
-    typer.echo(f"path={result.path}")
-    typer.echo(f"stage={result.stage}")
-    typer.echo(f"n_completed={result.n_completed}")
-    typer.echo(f"n_failed={result.n_failed}")
-    typer.echo(f"n_pending={result.n_pending}")
+    if isinstance(result, V2ProductionRunResult):
+        typer.echo(f"run_id={result.run_id}")
+        typer.echo(f"path={result.path}")
+        typer.echo(f"stage={result.stage}")
+        typer.echo(f"n_completed={result.n_completed}")
+        typer.echo(f"n_failed={result.n_failed}")
+        typer.echo(f"n_pending={result.n_pending}")
+        return
+    typer.echo(f"decision={result}")
 
 
 if __name__ == "__main__":

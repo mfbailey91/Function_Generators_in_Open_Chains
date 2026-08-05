@@ -2,7 +2,8 @@
 
 **Status:** Accepted
 **Architecture versions:** Version 2
-**Related:** ADR-012, ADR-014, ADR-015, ADR-016
+**Related:** ADR-012, ADR-014, ADR-015, ADR-016  
+**Amended:** 2026-08-04 — record V2.9/V2.10 `actuator_travel` production versus the V2.8 \(\alpha\) / `q_u_blend` diagnostic family.
 
 ## Context
 
@@ -133,6 +134,25 @@ The primary mixed condition is \(\alpha=0.5\). The endpoints are controls:
 Store the unnormalized \(d_Q\) and \(d_U\), both normalized components, and the
 combined cost. A favorable combined score must never be reported without its
 components.
+
+### Diagnostic family versus production objective
+
+ADR-017 remains the shared-Q pair contract (uniform \(Q\) topology, unique \(U\)
+embeddings, span-matched gearbox, pair invariants). Cost policy is split by
+study family:
+
+- **V2.8 diagnostic family.** Normalized \(Q/U\) blend \(c_\alpha\) with the
+  required \(\alpha\) sweep above. Primary mixed condition \(\alpha=0.5\).
+- **V2.9 diagnostic / V2.10 production.** Raw actuator travel only:
+
+\[
+c_U^{(m)}(a,b)=\lVert \mathbf u_m(q_b)-\mathbf u_m(q_a)\rVert_2.
+\]
+
+No \(Q\) term, no \(\alpha\), and no planner-side normalization. Reporting may
+store \(\widehat L_U=L_U/\lVert u_{\max}-u_{\min}\rVert_2\) as `cost_norm_u`
+without affecting search. Production configs must reject `study.alphas` and
+`objective.alpha`.
 
 ### Search and heuristic policy
 

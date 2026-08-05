@@ -7,6 +7,7 @@ from collections.abc import Mapping, Sequence
 from typing import Any
 
 import numpy as np
+from scipy import stats  # type: ignore[import-untyped]
 
 from inequality_mechanisms.metrics.hierarchical_bootstrap import (
     assert_not_task_level_iid,
@@ -115,9 +116,88 @@ def sequential_precision_with_stability(
     return report
 
 
+def descriptor_effect_correlations(
+    mechanism_summaries: Sequence[Mapping[str, Any]],
+    mechanism_records: Sequence[Mapping[str, Any]],
+    *,
+    effect_summaries: Sequence[Mapping[str, Any]] | None = None,
+) -> dict[str, Any]:
+    """Correlate pre-search descriptors with mechanism-level effects."""
+    descriptors_by_id = {
+        str(row.get("mechanism_pair_id") or row.get("mechanism_id")): dict(
+            row.get("descriptors") or {}
+        )
+        for row in mechanism_records
+        if row.get("mechanism_pair_id") or row.get("mechanism_id")
+    }
+    path_by_id = {
+        str(row.get("mechanism_id")): float(row["effect"])
+        for row in (effect_summaries or [])
+        if row.get("mechanism_id") is not None and row.get("effect") is not None
+    }
+    descriptor_keys = (
+        "mean_log_gain_var",
+        "conditioning_margin",
+        "q_span_norm",
+        "gain_asymmetry",
+    )
+    rows: list[dict[str, float]] = []
+    for summary in mechanism_summaries:
+        mid = str(summary.get("mechanism_id"))
+        desc = descriptors_by_id.get(mid, {})
+        effect = summary.get("effect")
+        if effect is None:
+            continue
+        item = {
+            "effect": float(effect),
+            "path_length_u_effect": path_by_id.get(mid, float("nan")),
+        }
+        for key in descriptor_keys:
+            value = desc.get(key)
+            if isinstance(value, (int, float)) and np.isfinite(value):
+                item[key] = float(value)
+        rows.append(item)
+    report: dict[str, Any] = {
+        "n": len(rows),
+        "correlations": {},
+        "correlations_delta_l_u": {},
+    }
+    if len(rows) < 3:
+        return report
+
+    def _correlate(xs_key: str, ys: np.ndarray) -> dict[str, float] | None:
+        xs = np.asarray([r.get(xs_key, np.nan) for r in rows], dtype=float)
+        mask = np.isfinite(xs) & np.isfinite(ys)
+        if int(np.count_nonzero(mask)) < 3:
+            return None
+        pearson = stats.pearsonr(xs[mask], ys[mask])
+        spearman = stats.spearmanr(xs[mask], ys[mask])
+        return {
+            "n": int(np.count_nonzero(mask)),
+            "pearson_r": float(getattr(pearson, "statistic", pearson[0])),
+            "pearson_p": float(getattr(pearson, "pvalue", pearson[1])),
+            "spearman_rho": float(getattr(spearman, "statistic", spearman[0])),
+            "spearman_p": float(getattr(spearman, "pvalue", spearman[1])),
+        }
+
+    effects = np.asarray([r["effect"] for r in rows], dtype=float)
+    delta_lu = np.asarray(
+        [r.get("path_length_u_effect", np.nan) for r in rows], dtype=float
+    )
+    for key in descriptor_keys:
+        expansion = _correlate(key, effects)
+        if expansion is not None:
+            report["correlations"][key] = expansion
+        path_u = _correlate(key, delta_lu)
+        if path_u is not None:
+            report["correlations_delta_l_u"][key] = path_u
+    return report
+
+
 def analyze_production_trials(
     trials: Sequence[Mapping[str, Any]],
     *,
+    mechanism_records: Sequence[Mapping[str, Any]] | None = None,
     batch_size: int,
     target_ci_half_width: float,
     n_bootstrap: int,
@@ -212,6 +292,11 @@ def analyze_production_trials(
         }
         for name, vals in sorted(task_category_effects.items())
     }
+    descriptor_correlations = descriptor_effect_correlations(
+        summaries,
+        mechanism_records or [],
+        effect_summaries=path_u_summaries,
+    )
     return {
         "primary_metric": "log_expansion_ratio",
         "mechanism_summaries": summaries,
@@ -222,6 +307,7 @@ def analyze_production_trials(
         "variance": within_between_variance(summaries),
         "precision": precision,
         "task_category_effects": category_summary,
+        "descriptor_correlations": descriptor_correlations,
         "n_trial_rows": len(trials),
         "n_analysis_rows": len(analysis_rows),
     }
