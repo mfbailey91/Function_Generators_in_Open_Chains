@@ -12,6 +12,6 @@
 | Start / goal | Graph nodes / V1 queries | Lattice attachment; Cartesian goal regions (B) | Exact start; goal as task predicate; attachment residual is diagnostic |
 | Sampling modes | Uniform actuator lattice | Uniform-\(\mathcal U\) mapped to \(\mathcal Q\), plus uniform-\(\mathcal Q\) control | External task banks; planner sampling is backend-specific |
 | Config/result schema | Version 1 | Separate Version 2 schema | Separate Version 3 problem/result schema (proposed) |
-| Status | Preserved research baseline | Frozen historical experiment lineage | Active core implementation (Sprint V3.2) |
+| Status | Preserved research baseline | Frozen historical experiment lineage | Active core implementation (Sprint V3.3) |
 
 ADR-001 remains authoritative for Version 1. Version 2 may use output-state identity only after the operating branch satisfies the accepted certification contract. Version 3 contracts are proposed under ADRs 021–026 and do not reinterpret frozen Version 2 evidence.
