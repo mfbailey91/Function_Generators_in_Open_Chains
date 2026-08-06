@@ -1,0 +1,2051 @@
+diff --git a/configs/v2/cartesian_goal_region_smoke.yaml b/configs/v2/cartesian_goal_region_smoke.yaml
+new file mode 100644
+index 0000000..6c34fa9
+--- /dev/null
++++ b/configs/v2/cartesian_goal_region_smoke.yaml
+@@ -0,0 +1,59 @@
++experiment_b_schema_version: 1
++experiment_id: experiment_b_cartesian_goal_region_smoke
++seed: 20260805
++task_count: 16
++algorithms: [dijkstra, astar]
++record_expanded: false
++
++cartesian_domain:
++  domain_id: planar2r_left_workcell_v1
++  shape: annular_sector
++  radial_min: 0.50
++  radial_max: 1.50
++  angle_min: 2.15
++  angle_max: 3.55
++  start_tolerance: 0.06
++  goal_radius: 0.06
++  min_start_goal_separation: 0.30
++  L1: 1.0
++  L2: 1.0
++
++base_experiment:
++  architecture_version: 2
++  result_schema_version: 2
++  planning_space: output
++  seed: 20260805
++  trials: 1
++  mechanisms:
++    comparison: fourbar_vs_equivalent_affine_gearbox
++    dim: 2
++    fourbars:
++      - {a: 0.80, b: 2.10, c: 1.70, d: 1.80, branch: 1}
++      - {a: 0.90, b: 2.30, c: 1.80, d: 2.00, branch: 1}
++    matching_rule: span
++    gearbox_mechanism_id: span_matched_gearbox
++  branch:
++    selection: monotonic_interval
++    certification_samples_per_axis: 17
++    minimum_abs_gain: 0.05
++    inverse_tolerance: 1.0e-6
++    endpoint_margin_fraction: 0.05
++    n_samples: 361
++    min_u_width: 0.30
++    table_samples_per_axis: 65
++  sampling:
++    domain: output
++    shape: [64, 64]
++    include_endpoints: true
++  objective:
++    cost: actuator_travel
++    heuristic: input_euclidean
++  edge_validation:
++    samples: 17
++  tasks:
++    source: fixed_output_pairs
++    output_tolerance: 1.0e-6
++    pairs:
++      - start_q: [0.0, 0.0]
++        goal_q: [0.1, 0.1]
++  algorithms: [dijkstra, astar]
+diff --git a/docs/software/architecture/adr/ADR-019-v2-cartesian-task-domain.md b/docs/software/architecture/adr/ADR-019-v2-cartesian-task-domain.md
+index 67ae48f..5dde7ed 100644
+--- a/docs/software/architecture/adr/ADR-019-v2-cartesian-task-domain.md
++++ b/docs/software/architecture/adr/ADR-019-v2-cartesian-task-domain.md
+@@ -1,55 +1,142 @@
+ # ADR-019 — Version 2 external Cartesian task domain
+ 
+-**Status:** Proposed prerequisite; not accepted  
+-**Applies to:** Version 2 Experiment B / held Sprint V2.12  
++**Status:** Accepted for V2.12 smoke and calibration
++**Applies to:** Version 2 Experiment B
+ **Related:** ADR-011, ADR-014, ADR-017; [`EXPERIMENT_B_CARTESIAN_GOAL_REGION.md`](../../experiments/protocols/EXPERIMENT_B_CARTESIAN_GOAL_REGION.md)
+ 
+ ## Context
+ 
+-Experiment A used centered, normalized-\(\mathcal Q\) canonical probes. Experiment
+-B needs a fixed external Cartesian exam shared across the mechanism population.
+-The domain \(\mathcal D_X\) must be chosen before any production search. Using
+-the intersection of sampled mechanism workspaces would let the population shape
+-the exam.
+-
+-This ADR is a placeholder. It records the required decisions and the intended
+-primary contract. It does not freeze a numerical domain, \(\epsilon_X\), or
+-sampler implementation.
+-
+-## Intended primary contract
+-
+-When accepted, this ADR should adopt:
+-
+-1. a fixed external Cartesian region defined from the nominal 2R arm geometry
+-   and an intended application area, not from observed mechanism expansions;
+-2. one area-uniform task bank frozen independently of the mechanism population;
+-3. reachability as an experimental outcome;
+-4. planning metrics reported conditionally on valid start and goal construction;
+-5. pair-local reachable-workspace sampling only as a secondary control with a
+-   separate experiment identifier.
+-
+-## Decisions required before acceptance
+-
+-- coordinate frame and relation to \(L_1,L_2\);
+-- analytic or sampled boundary of \(\mathcal D_X\);
+-- exclusions around singular or degenerate regions, if any;
+-- boundary-sampling policy;
+-- minimum start–goal Cartesian separation;
+-- relationship between that separation and \(\epsilon_X\), including whether
+-  the start pose may lie in the goal disk;
+-- area-uniform sampling method and seed;
+-- start-tolerance region used when attaching \(\mathbf x_s\) to discrete
+-  \(\mathcal Q\) states;
+-- task-bank schema, digest, freeze, and reuse rules;
+-- rejection taxonomy for infeasible or degenerate samples.
+-
+-## Consequences once accepted
+-
+-- Experiment B production refuses a missing or unfrozen domain decision.
+-- Mechanism descriptors must not regenerate \(\mathcal D_X\).
+-- Coverage and conditional search metrics remain separate estimands.
+-- Implementation remains blocked until this ADR is accepted and tested.
+-
+-## Status note
+-
+-Do not implement sampler or bank-export code against this placeholder.
++Experiment A used centered, normalized-\(\mathcal Q\) canonical probes.
++Experiment B needs a fixed external Cartesian exam shared across the mechanism
++population. The external task distribution must not be generated from observed
++mechanism behavior or from the intersection of sampled mechanism workspaces.
++
++The first implementation is an illustrative planar workcell, not a claim that
++this sector is a universal robot task distribution. Changing it requires a new
++`cartesian_domain_id`; existing task banks are immutable.
++
++## Decision
++
++### Coordinate frame and robot
++
++Use the nominal planar 2R model
++
++\[
++L_1=L_2=1.
++\]
++
++The base is at the origin. Zero \(q_1\) points along \(+x\); positive angles are
++counterclockwise.
++
++### Fixed external domain
++
++The primary domain is the left-facing annular sector
++
++\[
++\mathcal D_X=
++\left\{
++(r\cos\phi,r\sin\phi):
++0.50\le r\le1.50,
++\quad
++2.15\le\phi\le3.55
++\right\}.
++\]
++
++Its stable identifier is:
++
++```text
++planar2r_left_workcell_v1
++```
++
++This domain is defined before mechanism search and independently of the
++mechanism population. Reachability inside a certified pair remains an outcome.
++The primary analysis must not silently reduce the domain to the intersection of
++mechanism workspaces.
++
++### Area-uniform sampler
++
++Sample Cartesian area uniformly by drawing
++
++\[
++r^2\sim\operatorname{Uniform}(r_{\min}^2,r_{\max}^2),
++\qquad
++\phi\sim\operatorname{Uniform}(\phi_{\min},\phi_{\max}).
++\]
++
++Then set
++
++\[
++\mathbf x=(r\cos\phi,r\sin\phi).
++\]
++
++Drawing \(r\) uniformly is forbidden because it overweights the inner radius.
++The bank records its seed and generated coordinates. No mechanism rejection or
++search result may cause in-place task replacement.
++
++### Attachment and separation
++
++For the initial V2.12 smoke:
++
++```text
++start_tolerance = 0.06
++goal_radius = 0.06
++minimum_start_goal_separation = 0.30
++```
++
++The separation is greater than twice either attachment radius. A sampled start
++cannot intentionally lie inside the goal disk. Discrete attachment may still
++produce a coincident start/goal node; that query is rejected explicitly as
++`start_node_inside_goal_region`.
++
++The graph attaches the start to the valid node with minimum Cartesian residual,
++breaking exact residual ties by ascending node id. The goal is the complete set
++of valid graph nodes inside the goal disk.
++
++### Reachability and reporting
++
++For every external task, preserve typed outcomes including:
++
++- no valid graph nodes;
++- start region has no graph node;
++- goal region has no graph node;
++- start node lies in goal region;
++- disconnected search;
++- solved.
++
++Report coverage separately from search metrics:
++
++\[
++P(\text{task attached/reachable})
++\]
++
++and
++
++\[
++\mathbb E[\text{search metric}\mid\text{task attached/reachable}].
++\]
++
++Pair-local reachable-workspace sampling remains a secondary control with a
++separate experiment and task-distribution identifier.
++
++## Calibration and production gate
++
++The numerical domain is accepted for smoke and calibration. Production still
++requires decision JSON for:
++
++- accepted graph resolution;
++- accepted start tolerance and goal radius;
++- empty-goal-set rate;
++- goal-set cardinality distribution;
++- selected-goal residual;
++- sensitivity of the paired effect to radius and resolution.
++
++A calibration change must create a new domain version or attachment-policy
++version; it must not mutate `planar2r_left_workcell_v1` results.
++
++## Consequences
++
++- Experiment B can implement and export a fixed Cartesian bank.
++- The mechanism population cannot shape the primary external exam.
++- Unreachable tasks remain visible evidence rather than being resampled away.
++- The first domain emphasizes an illustrative left-facing workcell; conclusions
++  must name that distribution explicitly.
+diff --git a/docs/software/architecture/adr/ADR-020-v2-goal-set-search.md b/docs/software/architecture/adr/ADR-020-v2-goal-set-search.md
+index f260dc1..a9c6838 100644
+--- a/docs/software/architecture/adr/ADR-020-v2-goal-set-search.md
++++ b/docs/software/architecture/adr/ADR-020-v2-goal-set-search.md
+@@ -1,78 +1,121 @@
+ # ADR-020 — Version 2 goal-set search semantics
+ 
+-**Status:** Proposed prerequisite; not accepted  
+-**Applies to:** Version 2 exact graph search; required by Experiment B  
++**Status:** Accepted
++**Applies to:** Version 2 exact graph search; required by Experiment B
+ **Related:** ADR-005, ADR-018; [`EXPERIMENT_B_CARTESIAN_GOAL_REGION.md`](../../experiments/protocols/EXPERIMENT_B_CARTESIAN_GOAL_REGION.md)
+ 
+ ## Context
+ 
+-Current production solvers expose a single goal node:
++V2.10 and V2.11 production solvers accepted one goal node. Experiment B asks a
++known start state to reach any graph node whose Cartesian output lies in a
++frozen goal disk. The generic search stack must support that query without a
++second Cartesian planner or task-space logic inside the search core.
+ 
+-```python
+-solve(graph, start, goal, objective, *, record_expanded=False)
++## Decision
++
++### One generalized exact-search core
++
++`best_first_search` and `GraphSolver.solve` accept exactly one active goal
++representation:
++
++1. `goal`: one valid node id, retained as the backward-compatible case;
++2. `goal_node_ids`: one non-empty collection of valid node ids;
++3. `goal_test(node_id) -> bool`: a graph-generic predicate.
++
++Experiment B builds the explicit `goal_node_ids` set before search. Cartesian
++membership is computed at the experiment layer; the search core sees only node
++ids or a predicate.
++
++Ambiguous goal forms, empty explicit sets, and invalid explicit goal ids raise
++`ValueError` before the queue is initialized.
++
++### Termination and deterministic ties
++
++A node is a goal only when it is removed from the priority queue at its valid
++best-known cost under the existing ADR-005 stale-entry semantics. The selected
++goal is therefore optimally settled.
++
++Priority remains
++
++```text
++(f, node_id)
+ ```
+ 
+-Experiment B needs termination on any node whose Cartesian output lies in a
+-frozen goal disk. The generic search layer should gain that capability without
+-introducing a separate Cartesian planner stack or leaking task-space geometry
+-into the search core.
+-
+-This ADR is a placeholder. It records the intended API shape and the decisions
+-that must be frozen before Sprint V2.12 implementation.
+-
+-## Intended decision
+-
+-Generalize the existing solver contract rather than bypass it. A candidate
+-shape is:
+-
+-```python
+-solve(
+-    graph,
+-    start_node_id,
+-    goal_node_ids=None,
+-    goal_test=None,
+-    objective,
+-    *,
+-    record_expanded=False,
+-)
++so equal-cost candidate goals resolve deterministically by the existing node-id
++tie order. The selected goal is `SearchResult.path[-1]`; Experiment B records
++that node, its \(q\), \(u\), Cartesian position, residual, and IK family.
++
++Expansion counting is unchanged. The settled goal counts as an expansion, as in
++the single-goal implementation.
++
++### Dijkstra baseline
++
++Dijkstra uses the zero heuristic and terminates on the first optimally settled
++goal-set member. Small-graph tests compare it against an exhaustive oracle that
++minimizes the single-source distance over all explicit goal nodes.
++
++### Accepted A* heuristic for actuator travel
++
++For Experiment B's actuator-travel objective,
++
++\[
++c(a,b)=\|\mathbf u_b-\mathbf u_a\|_2,
++\]
++
++accept the goal-set heuristic
++
++\[
++h(v)=\min_{g\in V_G}\|\mathbf u_v-\mathbf u_g\|_2.
++\]
++
++It is admissible because the straight-line actuator displacement to any goal is
++a lower bound on every path to that goal. It is consistent because distance to
++a set is 1-Lipschitz under the same Euclidean metric:
++
++\[
++h(a)\le c(a,b)+h(b).
++\]
++
++The registry name is:
++
++```text
++input_euclidean_goal_set
+ ```
+ 
+-Exactly one goal representation may be active:
+-
+-- a single-goal node, as today's backward-compatible special case;
+-- an explicit `goal_node_ids` collection; or
+-- a `goal_test(node_id) -> bool` predicate.
+-
+-For Experiment B, `goal_test` would test whether the node's Cartesian output
+-lies inside the frozen goal disk. Cartesian membership is computed outside or
+-in the predicate closure; the search core remains graph-generic.
+-
+-## Decisions required before acceptance
+-
+-- termination when a goal node is optimally settled;
+-- deterministic behavior if several goal nodes have equal cost;
+-- empty-goal-set and disconnected-goal-set status codes;
+-- goal-set instrumentation (`selected_goal_node_id`, settled-goal cost,
+-  goal-set size or digest);
+-- reporting of selected \(\mathbf q_g\), \(\mathbf u_g\), Cartesian residual,
+-  and IK family at the experiment layer;
+-- Dijkstra oracle equivalence on small graphs;
+-- A* admissibility requirements for a goal set, including that ADR-018's
+-  single-goal `input_euclidean` heuristic is not automatically valid;
+-- compatibility with exact start query overlays from V2.6;
+-- expansion-count semantics unchanged from ADR-005 except for multi-goal
+-  termination.
+-
+-## Consequences once accepted
+-
+-- Dijkstra remains the Experiment B baseline.
+-- A* on Experiment B stays blocked until a documented admissible goal-set
+-  heuristic is accepted.
+-- Production GraphSolver implementations share one API.
+-- No OMPL, sampling-based, or Cartesian-native planner is introduced for this
+-  experiment.
+-
+-## Status note
+-
+-Do not change `graph_solver.py` or `best_first_search` against this
+-placeholder.
++This proof applies only to `actuator_travel` / `input_euclidean` edge costs.
++Raw Cartesian distance is not accepted as a heuristic for this objective.
++Other cost families remain blocked until separately documented and tested.
++
++### Empty and disconnected goal sets
++
++- An empty explicit goal set is a task-construction failure and search refuses
++  to start.
++- A non-empty but disconnected goal set returns the existing `found=False`,
++  empty path, and infinite cost result after exhausting the reachable component.
++- Experiment B distinguishes those outcomes in its failure taxonomy.
++
++## Compatibility
++
++Single-goal callers continue to pass `goal` positionally and require no result
++schema change. Query overlays and existing Dijkstra/A* campaigns remain valid.
++No OMPL, sampling-based, Cartesian-native, or per-IK repeated-search stack is
++introduced.
++
++## Required tests
++
++- backward-compatible single-goal result identity;
++- explicit goal set selects the cheapest settled goal;
++- deterministic equal-cost goal selection;
++- explicit set and predicate equivalence on small graphs;
++- ambiguous and empty goal specifications fail closed;
++- goal-set Dijkstra matches an exhaustive oracle;
++- goal-set A* and Dijkstra return equal optimal cost;
++- accepted heuristic is zero on every goal, admissible against exact distances,
++  and consistent on every tested edge.
++
++## Consequences
++
++- V2.12 may implement Dijkstra and A* goal-region smoke together.
++- A* results must name `input_euclidean_goal_set` explicitly.
++- Production remains blocked on Cartesian calibration and crossed-statistics
++  decisions, not on goal-set search semantics.
+diff --git a/docs/software/experiments/protocols/EXPERIMENT_B_CARTESIAN_GOAL_REGION.md b/docs/software/experiments/protocols/EXPERIMENT_B_CARTESIAN_GOAL_REGION.md
+index 8ddc91a..5389017 100644
+--- a/docs/software/experiments/protocols/EXPERIMENT_B_CARTESIAN_GOAL_REGION.md
++++ b/docs/software/experiments/protocols/EXPERIMENT_B_CARTESIAN_GOAL_REGION.md
+@@ -1,13 +1,13 @@
+ # Experiment B — 2R Cartesian position goal-region planning
+ 
+-**Status:** accepted conceptual design; not active implementation  
+-**Robot:** planar 2R  
+-**Task variable:** Cartesian position \((x,y)\), not full pose  
+-**Primary graph:** shared uniform-\(\mathcal Q\) Version 2 graph  
+-**Primary objective:** actuator travel  
+-**Initial solver:** Dijkstra goal-set search  
+-**Planned sprint:** [`SPRINT_V2_12_CARTESIAN_GOAL_REGION_PLANNING.md`](../../planning/sprints/v2/SPRINT_V2_12_CARTESIAN_GOAL_REGION_PLANNING.md) (held)  
+-**Prerequisites:** [ADR-019](../../architecture/adr/ADR-019-v2-cartesian-task-domain.md) (proposed), [ADR-020](../../architecture/adr/ADR-020-v2-goal-set-search.md) (proposed), [crossed-statistics note](../../architecture/notes/PROJECT_NOTE_EXPERIMENT_B_CROSSED_STATISTICS.md)
++**Status:** active bounded implementation in Sprint V2.12; production not authorized
++**Robot:** planar 2R
++**Task variable:** Cartesian position \((x,y)\), not full pose
++**Primary graph:** shared uniform-\(\mathcal Q\) Version 2 graph
++**Primary objective:** actuator travel
++**Initial solvers:** Dijkstra baseline and A* with `input_euclidean_goal_set`
++**Active sprint:** [`SPRINT_V2_12_CARTESIAN_GOAL_REGION_PLANNING.md`](../../planning/sprints/v2/SPRINT_V2_12_CARTESIAN_GOAL_REGION_PLANNING.md)
++**Accepted implementation contracts:** [ADR-019](../../architecture/adr/ADR-019-v2-cartesian-task-domain.md), [ADR-020](../../architecture/adr/ADR-020-v2-goal-set-search.md). **Production prerequisite:** [crossed-statistics note](../../architecture/notes/PROJECT_NOTE_EXPERIMENT_B_CROSSED_STATISTICS.md) must be converted into an implemented decision before population inference.
+ 
+ ## Research question
+ 
+@@ -226,22 +226,19 @@ goal_test(node_id) -> bool
+ 
+ testing whether the node's Cartesian output lies inside the frozen goal disk.
+ 
+-### A* follow-on
++### A* actuator-travel heuristic
+ 
+-A* is blocked until an admissible heuristic to the goal set is documented and
+-validated:
++ADR-020 accepts the explicit goal-set lower bound
+ 
+ \[
+-h(v)
+-\le
+-\min_{g\in V_G}
+-d(v,g).
++h(v)=\min_{g\in V_G}\lVert \mathbf u_v-\mathbf u_g\rVert_2.
+ \]
+ 
+-ADR-018's single-goal `input_euclidean` heuristic is not automatically valid
+-for a goal set. Raw Cartesian distance is not automatically admissible under
+-actuator-travel edge cost. Zero heuristic remains a valid fallback and is
+-equivalent to Dijkstra.
++For actuator-travel edge cost this is admissible and consistent by the triangle
++inequality. The stable registry name is `input_euclidean_goal_set`. Raw
++Cartesian distance remains unapproved for this objective. Dijkstra and A* must
++return equal optimal cost for every accepted smoke query; a disagreement is a
++hard implementation failure.
+ 
+ ## Paired invariants
+ 
+@@ -348,10 +345,10 @@ not tune \(\mathcal D_X\).
+ 
+ Experiment B is scientifically runnable only when:
+ 
+-1. ADR-019 has accepted the external Cartesian domain and task-bank schema;
++1. ADR-019 remains the accepted external Cartesian domain and task-bank schema;
+ 2. Cartesian-uniform sampling is validated;
+ 3. start IK selection is frozen, recorded, and mechanism-independent;
+-4. ADR-020 has accepted goal-set search semantics;
++4. ADR-020 remains the accepted goal-set Dijkstra/A* semantics;
+ 5. goal-set Dijkstra matches an exhaustive small-graph oracle;
+ 6. pair goal-set invariants pass;
+ 7. goal-radius and resolution sensitivity stabilize;
+diff --git a/docs/software/planning/ACTIVE_SPRINT.md b/docs/software/planning/ACTIVE_SPRINT.md
+index a834daf..f15b94c 100644
+--- a/docs/software/planning/ACTIVE_SPRINT.md
++++ b/docs/software/planning/ACTIVE_SPRINT.md
+@@ -1,7 +1,7 @@
+ # Active sprint
+ 
+-**Current focus:** Review of [Sprint V2.11 A* paired-campaign evidence](../experiments/reports/V2_11_ASTAR_PAIRED_CAMPAIGN_SUMMARY.md). V2.7 remains held until trusted 2R solver evidence (Dijkstra + A*) is reviewed.
++**Current focus:** [Sprint V2.12 — Cartesian Goal-Region Planning](sprints/v2/SPRINT_V2_12_CARTESIAN_GOAL_REGION_PLANNING.md), bounded smoke implementation: fixed external Cartesian task bank, explicit goal-set Dijkstra, and admissible actuator-distance goal-set A*. Production inference remains held on calibration and crossed-statistics gates.
+ 
+ **Completed:** V2.0, V2.1, V2.2, V2.3, V2.4, V2.5, V2.6, V2.8, V2.9, V2.10, V2.11
+ 
+-**Held:** [Sprint V2.7 — 3R Planar Extension](sprints/v2/SPRINT_V2_7_3R_EXTENSION.md) (deferred until trusted 2R solver evidence is reviewed)
++**Held:** [Sprint V2.7 — 3R Planar Extension](sprints/v2/SPRINT_V2_7_3R_EXTENSION.md) (deferred until Experiment B goal-set semantics and trusted 2R task-space solver evidence are reviewed)
+diff --git a/docs/software/planning/sprints/v2/SPRINT_V2_12_CARTESIAN_GOAL_REGION_PLANNING.md b/docs/software/planning/sprints/v2/SPRINT_V2_12_CARTESIAN_GOAL_REGION_PLANNING.md
+index 14b4550..5efe205 100644
+--- a/docs/software/planning/sprints/v2/SPRINT_V2_12_CARTESIAN_GOAL_REGION_PLANNING.md
++++ b/docs/software/planning/sprints/v2/SPRINT_V2_12_CARTESIAN_GOAL_REGION_PLANNING.md
+@@ -1,15 +1,15 @@
+ # Sprint V2.12 — Cartesian Goal-Region Planning
+ 
+-**Status:** planned / held; documentation and prerequisites only  
+-**Experiment:** Experiment B  
+-**Robot:** planar 2R  
+-**Task:** known start state to position-only Cartesian goal region  
+-**Primary solver:** Dijkstra  
++**Status:** active — bounded smoke implementation; production held
++**Experiment:** Experiment B
++**Robot:** planar 2R
++**Task:** known start state to position-only Cartesian goal region
++**Primary solvers:** Dijkstra and A* (`input_euclidean_goal_set`)
+ **Primary objective:** actuator travel
+ 
+-This sprint is **not active**. Do not implement search, sampling, runner, or
+-analysis changes under this number until the entry gates are satisfied and
+-`ACTIVE_SPRINT.md` is updated by an explicit activation decision.
++This sprint is active for the bounded kickoff scope below. It does not authorize
++population production, sequential stopping, or paper-level Experiment B claims.
++Those remain blocked on calibration decisions and crossed-statistics implementation.
+ 
+ ## Sprint intent
+ 
+@@ -48,17 +48,14 @@ affects:
+ - node expansions;
+ - actuator, output, and Cartesian path geometry.
+ 
+-## Entry gates
++## Activation decision
+ 
+-Do not activate this sprint until:
++The bounded implementation is activated because:
+ 
+ 1. Experiment A semantics are documented for both V2.10 Dijkstra and V2.11 A*;
+-2. [ADR-019](../../../architecture/adr/ADR-019-v2-cartesian-task-domain.md) is
+-   accepted, not merely proposed;
+-3. [ADR-020](../../../architecture/adr/ADR-020-v2-goal-set-search.md) is
+-   accepted, not merely proposed;
+-4. the [crossed statistical design](../../../architecture/notes/PROJECT_NOTE_EXPERIMENT_B_CROSSED_STATISTICS.md)
+-   is specific enough to implement and test;
++2. [ADR-019](../../../architecture/adr/ADR-019-v2-cartesian-task-domain.md) accepts the fixed smoke/calibration domain;
++3. [ADR-020](../../../architecture/adr/ADR-020-v2-goal-set-search.md) accepts generalized goal-set search and the actuator-distance A* heuristic;
++4. crossed statistics is explicitly not needed to validate one-pair smoke correctness and remains a production gate;
+ 5. the shared-\(\mathcal Q\) pair invariant remains green;
+ 6. exact start query support from V2.6 remains reproducible;
+ 7. the Experiment B protocol is reviewed.
+@@ -82,30 +79,21 @@ This sprint does not include:
+ - copying V2.10 pair-nested sequential precision unchanged;
+ - implementing against the proposed ADR placeholders.
+ 
+-## Prerequisite work items
++## Resolved design gates and remaining production gate
+ 
+-These are design gates, not an invitation to begin production code.
++### V2B-P1 — Cartesian-domain ADR — accepted
+ 
+-### V2B-P1 — Cartesian-domain ADR
++ADR-019 freezes `planar2r_left_workcell_v1`, area-uniform sampling, attachment radii, and separation for smoke/calibration.
+ 
+-Accept ADR-019. Freeze \(\mathcal D_X\), exclusions, start–goal separation,
+-\(\epsilon_X\) relationship, boundary sampling, and bank schema.
++### V2B-P2 — Goal-set search ADR — accepted
+ 
+-### V2B-P2 — Goal-set search ADR
++ADR-020 freezes the generalized solver API, deterministic termination, Dijkstra oracle, and `input_euclidean_goal_set` A*.
+ 
+-Accept ADR-020. Freeze the generalized solver API, termination, ties,
+-instrumentation, Dijkstra correctness, and goal-set A* admissibility rules.
++### V2B-P3 — Crossed statistical design — production gate
+ 
+-### V2B-P3 — Crossed statistical design
++Before any population campaign, accept and implement uncertainty/stopping logic that preserves both mechanism and task dependence. Smoke rows are correctness evidence only.
+ 
+-Accept the Experiment B uncertainty and stopping design. Sequential precision
+-must preserve mechanism and task dependence, or use a conservative resampling
+-scheme that does not treat task rows as iid.
+-
+-## Implementation work packages after activation
+-
+-The following packages are listed so the held sprint has a bounded shape. They
+-are blocked until activation.
++## Implementation work packages
+ 
+ ### V2B-001 — Uniform-area Cartesian sampler
+ 
+@@ -160,7 +148,24 @@ external-domain primary mean.
+ 
+ Reuse V2.10 operational lessons (generate-only bank, hardware preflight, shard
+ lifecycle) only after the clustering unit is updated for the crossed design.
+-Production begins with Dijkstra.
++Production compares separately configured Dijkstra and A* campaigns only after the crossed design is accepted.
++
++## Activated kickoff scope
++
++The first patch is complete only when it provides:
++
++1. backward-compatible single-goal plus explicit/predicate goal-set search;
++2. `input_euclidean_goal_set` objective resolution and admissibility tests;
++3. analytic planar-2R IK for task diagnostics;
++4. the fixed annular-sector task sampler and deterministic graph attachment;
++5. pair-identity hard gates for start and goal sets;
++6. one versioned smoke config and CLI that run both Dijkstra and A*;
++7. immutable task, trial, failure, config, and manifest outputs;
++8. Dijkstra/A* optimal-cost agreement as a run-time hard gate.
++
++The kickoff does **not** implement population-bank orchestration, crossed
++bootstrap confidence intervals, sequential precision, calibration decisions,
++or an evidence canvas.
+ 
+ ## Primary outputs
+ 
+diff --git a/scripts/run_v2_cartesian_goal_region.py b/scripts/run_v2_cartesian_goal_region.py
+new file mode 100755
+index 0000000..9d40641
+--- /dev/null
++++ b/scripts/run_v2_cartesian_goal_region.py
+@@ -0,0 +1,40 @@
++#!/usr/bin/env python3
++"""Run the bounded Experiment B Cartesian goal-region Dijkstra/A* smoke."""
++
++from __future__ import annotations
++
++import sys
++from pathlib import Path
++
++_REPO_ROOT = Path(__file__).resolve().parents[1]
++_SRC = _REPO_ROOT / "src"
++if _SRC.is_dir() and str(_SRC) not in sys.path:
++    sys.path.insert(0, str(_SRC))
++
++import typer  # noqa: E402
++
++from inequality_mechanisms.experiments.v2_cartesian_goal_region import (  # noqa: E402
++    run_cartesian_goal_region_from_path,
++)
++
++app = typer.Typer(add_completion=False)
++
++
++@app.command()
++def main(
++    config: Path = typer.Option(..., "--config", "-c", exists=True, dir_okay=False),
++    results_root: Path | None = typer.Option(None, "--results-root"),
++    run_id: str | None = typer.Option(None, "--run-id"),
++) -> None:
++    result = run_cartesian_goal_region_from_path(
++        config, results_root=results_root, run_id=run_id
++    )
++    typer.echo(f"run_id={result.run_id}")
++    typer.echo(f"path={result.path}")
++    typer.echo(f"n_tasks={result.n_tasks}")
++    typer.echo(f"n_trial_rows={result.n_trial_rows}")
++    typer.echo(f"n_failure_rows={result.n_failure_rows}")
++
++
++if __name__ == "__main__":
++    app()
+diff --git a/src/inequality_mechanisms/experiments/v2_cartesian_goal_region.py b/src/inequality_mechanisms/experiments/v2_cartesian_goal_region.py
+new file mode 100644
+index 0000000..6001e29
+--- /dev/null
++++ b/src/inequality_mechanisms/experiments/v2_cartesian_goal_region.py
+@@ -0,0 +1,356 @@
++"""Experiment B smoke runner: known state to Cartesian position goal set.
++
++This is deliberately a bounded activation runner. It proves the shared-Q query,
++goal-set Dijkstra/A*, result schema, and immutable evidence package for one
++configured four-bar / span-matched gearbox pair. Crossed-population production
++orchestration remains a later V2.12 work package.
++"""
++
++from __future__ import annotations
++
++import json
++from dataclasses import dataclass
++from datetime import UTC, datetime
++from pathlib import Path
++from typing import Any
++
++import numpy as np
++import yaml  # type: ignore[import-untyped]
++
++from inequality_mechanisms.experiments.registry import (
++    capture_environment,
++    capture_revision,
++    default_results_root,
++    generate_run_id,
++    validate_run_id,
++)
++from inequality_mechanisms.experiments.v2_cartesian_tasks import (
++    CartesianAnnularSectorDomain,
++    assert_paired_cartesian_query_identity,
++    generate_cartesian_task_bank,
++    ik_family,
++    resolve_cartesian_task,
++)
++from inequality_mechanisms.experiments.v2_config import (
++    V2ExperimentConfig,
++    validate_v2_config_mapping,
++)
++from inequality_mechanisms.experiments.v2_runner import (
++    build_graphs,
++    build_mechanism_branches,
++)
++from inequality_mechanisms.graphs.pair_invariants import assert_shared_q_pair_invariants
++from inequality_mechanisms.kinematics.planar_2r import Planar2R
++from inequality_mechanisms.search.graph_solver import production_graph_solver
++from inequality_mechanisms.search.v2_objectives import resolve_v2_goal_set_objective
++
++
++@dataclass(frozen=True, slots=True)
++class CartesianGoalRegionRunConfig:
++    """Validated kickoff configuration loaded from one Experiment B YAML."""
++
++    experiment_id: str
++    seed: int
++    task_count: int
++    algorithms: tuple[str, ...]
++    record_expanded: bool
++    base_experiment: V2ExperimentConfig
++    domain: CartesianAnnularSectorDomain
++
++
++@dataclass(frozen=True, slots=True)
++class CartesianGoalRegionRunResult:
++    run_id: str
++    path: Path
++    n_tasks: int
++    n_trial_rows: int
++    n_failure_rows: int
++
++
++def _require_mapping(value: Any, name: str) -> dict[str, Any]:
++    if not isinstance(value, dict):
++        raise ValueError(f"{name} must be a mapping")
++    return value
++
++
++def load_cartesian_goal_region_config(
++    path: Path | str,
++) -> CartesianGoalRegionRunConfig:
++    """Load the strict nested kickoff config without weakening V2 config gates."""
++    config_path = Path(path)
++    raw = yaml.safe_load(config_path.read_text(encoding="utf-8"))
++    root = _require_mapping(raw, "config root")
++    if int(root.get("experiment_b_schema_version", -1)) != 1:
++        raise ValueError("experiment_b_schema_version must equal 1")
++    base = validate_v2_config_mapping(
++        _require_mapping(root.get("base_experiment"), "base_experiment")
++    )
++    if base.mechanisms.dim != 2:
++        raise ValueError("Experiment B kickoff requires a planar 2R base experiment")
++    if base.sampling.domain != "output":
++        raise ValueError("Experiment B requires the shared uniform-Q graph")
++    if base.objective.cost != "actuator_travel":
++        raise ValueError("Experiment B primary objective must be actuator_travel")
++
++    domain_raw = _require_mapping(root.get("cartesian_domain"), "cartesian_domain")
++    domain = CartesianAnnularSectorDomain(
++        domain_id=str(domain_raw["domain_id"]),
++        radial_min=float(domain_raw["radial_min"]),
++        radial_max=float(domain_raw["radial_max"]),
++        angle_min=float(domain_raw["angle_min"]),
++        angle_max=float(domain_raw["angle_max"]),
++        start_tolerance=float(domain_raw["start_tolerance"]),
++        goal_radius=float(domain_raw["goal_radius"]),
++        min_start_goal_separation=float(
++            domain_raw["min_start_goal_separation"]
++        ),
++        L1=float(domain_raw.get("L1", 1.0)),
++        L2=float(domain_raw.get("L2", 1.0)),
++    )
++    algorithms = tuple(str(a) for a in root.get("algorithms", ["dijkstra", "astar"]))
++    if not algorithms or len(set(algorithms)) != len(algorithms):
++        raise ValueError("algorithms must be non-empty and unique")
++    if any(a not in {"dijkstra", "astar"} for a in algorithms):
++        raise ValueError("Experiment B kickoff supports dijkstra and astar only")
++    task_count = int(root.get("task_count", 0))
++    if task_count < 1:
++        raise ValueError("task_count must be positive")
++    return CartesianGoalRegionRunConfig(
++        experiment_id=str(root.get("experiment_id", "experiment_b_cartesian_goal_region")),
++        seed=int(root["seed"]),
++        task_count=task_count,
++        algorithms=algorithms,
++        record_expanded=bool(root.get("record_expanded", False)),
++        base_experiment=base,
++        domain=domain,
++    )
++
++
++def _path_lengths(graph: Any, path: tuple[int, ...], fk: Planar2R) -> dict[str, float]:
++    length_u = 0.0
++    length_q = 0.0
++    length_x = 0.0
++    for a, b in zip(path[:-1], path[1:]):
++        length_u += float(np.linalg.norm(graph.u_state(b) - graph.u_state(a)))
++        length_q += float(
++            graph.branch.output_space.distance(graph.q_state(a), graph.q_state(b))
++        )
++        length_x += float(np.linalg.norm(fk.forward(graph.q_state(b)) - fk.forward(graph.q_state(a))))
++    return {
++        "path_length_u": length_u,
++        "path_length_q": length_q,
++        "path_length_x": length_x,
++    }
++
++
++def _jsonl(rows: list[dict[str, Any]]) -> str:
++    return "".join(json.dumps(row, sort_keys=True) + "\n" for row in rows)
++
++
++def run_cartesian_goal_region(
++    config: CartesianGoalRegionRunConfig,
++    *,
++    results_root: Path | str | None = None,
++    run_id: str | None = None,
++) -> CartesianGoalRegionRunResult:
++    """Execute the bounded Experiment B Dijkstra/A* smoke package."""
++    root = Path(results_root) if results_root is not None else default_results_root()
++    root.mkdir(parents=True, exist_ok=True)
++    rid = validate_run_id(run_id) if run_id is not None else generate_run_id(seed=config.seed)
++    run_dir = root / rid
++    if run_dir.exists():
++        raise FileExistsError(f"run directory already exists: {run_dir}")
++
++    branches = build_mechanism_branches(config.base_experiment)
++    graphs = build_graphs(config.base_experiment, branches)
++    if len(graphs) != 2:
++        raise RuntimeError("Experiment B paired smoke requires exactly two mechanisms")
++    graph_items = list(graphs.items())
++    assert_shared_q_pair_invariants(
++        graph_items[0][1],
++        graph_items[1][1],
++        residual_tol=config.base_experiment.branch.inverse_tolerance,
++        edge_n_samples=config.base_experiment.edge_validation.samples,
++        raise_on_failure=True,
++    )
++
++    fk = Planar2R(config.domain.L1, config.domain.L2)
++    tasks = generate_cartesian_task_bank(
++        config.domain, n_tasks=config.task_count, seed=config.seed
++    )
++    task_rows: list[dict[str, Any]] = []
++    trial_rows: list[dict[str, Any]] = []
++    failure_rows: list[dict[str, Any]] = []
++
++    for task in tasks:
++        resolved_by_mechanism = {
++            mechanism_id: resolve_cartesian_task(graph, task, config.domain, fk=fk)
++            for mechanism_id, graph in graph_items
++        }
++        resolved_values = list(resolved_by_mechanism.values())
++        assert_paired_cartesian_query_identity(
++            graph_items[0][1],
++            graph_items[1][1],
++            resolved_values[0],
++            resolved_values[1],
++        )
++        reference = resolved_values[0]
++        task_rows.append(reference.to_dict())
++        if not reference.accepted:
++            failure_rows.append(
++                {
++                    "experiment_id": config.experiment_id,
++                    "task_id": task.task_id,
++                    "cartesian_domain_id": config.domain.domain_id,
++                    "failure_or_exclusion_reason": reference.rejection_reason,
++                    "requested_start_x": task.requested_start_x.tolist(),
++                    "requested_goal_x": task.requested_goal_x.tolist(),
++                    "start_residual": reference.start_residual,
++                    "nearest_goal_residual": reference.nearest_goal_residual,
++                    "goal_set_size": len(reference.goal_node_ids),
++                }
++            )
++            continue
++        assert reference.start_node_id is not None
++
++        for mechanism_id, graph in graph_items:
++            algorithm_results: dict[str, Any] = {}
++            for algorithm in config.algorithms:
++                heuristic_name = (
++                    "zero" if algorithm == "dijkstra" else "input_euclidean_goal_set"
++                )
++                objective = resolve_v2_goal_set_objective(
++                    graph,
++                    reference.goal_node_ids,
++                    cost_name="actuator_travel",
++                    heuristic_name=heuristic_name,
++                    edge_n_samples=config.base_experiment.edge_validation.samples,
++                )
++                solver = production_graph_solver(algorithm)
++                result = solver.solve(
++                    graph,
++                    reference.start_node_id,
++                    None,
++                    objective,
++                    goal_node_ids=reference.goal_node_ids,
++                    record_expanded=config.record_expanded,
++                )
++                if not result.found or not result.path:
++                    failure_rows.append(
++                        {
++                            "experiment_id": config.experiment_id,
++                            "task_id": task.task_id,
++                            "mechanism_id": mechanism_id,
++                            "algorithm": algorithm,
++                            "failure_or_exclusion_reason": "search_disconnected_or_failed",
++                            "goal_set_size": len(reference.goal_node_ids),
++                        }
++                    )
++                    continue
++                selected_goal = int(result.path[-1])
++                selected_x = fk.forward(graph.q_state(selected_goal))
++                row = {
++                    "experiment_id": config.experiment_id,
++                    "task_id": task.task_id,
++                    "cartesian_domain_id": config.domain.domain_id,
++                    "mechanism_id": mechanism_id,
++                    "algorithm": algorithm,
++                    "objective_cost": objective.cost_name,
++                    "heuristic": objective.heuristic_name,
++                    "selected_start_node_id": reference.start_node_id,
++                    "selected_start_q": graph.q_state(reference.start_node_id).tolist(),
++                    "selected_start_u": graph.u_state(reference.start_node_id).tolist(),
++                    "selected_start_ik_family": reference.selected_start_ik_family,
++                    "requested_start_x": task.requested_start_x.tolist(),
++                    "requested_goal_x": task.requested_goal_x.tolist(),
++                    "goal_radius_x": config.domain.goal_radius,
++                    "goal_set_size": len(reference.goal_node_ids),
++                    "selected_goal_node_id": selected_goal,
++                    "selected_goal_q": graph.q_state(selected_goal).tolist(),
++                    "selected_goal_u": graph.u_state(selected_goal).tolist(),
++                    "selected_goal_x": selected_x.tolist(),
++                    "selected_goal_residual_x": float(
++                        np.linalg.norm(selected_x - task.requested_goal_x)
++                    ),
++                    "selected_goal_ik_family": ik_family(graph.q_state(selected_goal)),
++                    "found": result.found,
++                    "cost": result.cost,
++                    "n_expanded": result.n_expanded,
++                    "n_generated": result.n_generated,
++                    "n_stale": result.n_stale,
++                    "path_node_ids": list(result.path),
++                    **_path_lengths(graph, result.path, fk),
++                }
++                trial_rows.append(row)
++                algorithm_results[algorithm] = result
++            if {"dijkstra", "astar"}.issubset(algorithm_results):
++                dijkstra = algorithm_results["dijkstra"]
++                astar = algorithm_results["astar"]
++                if dijkstra.found != astar.found or not np.isclose(
++                    dijkstra.cost, astar.cost, atol=1e-10, rtol=1e-10
++                ):
++                    raise AssertionError(
++                        f"Dijkstra/A* goal-set disagreement for {mechanism_id} "
++                        f"task {task.task_id}: {dijkstra.cost} vs {astar.cost}"
++                    )
++
++    run_dir.mkdir(parents=True)
++    (run_dir / "config.json").write_text(
++        json.dumps(
++            {
++                "experiment_id": config.experiment_id,
++                "seed": config.seed,
++                "task_count": config.task_count,
++                "algorithms": list(config.algorithms),
++                "record_expanded": config.record_expanded,
++                "cartesian_domain": config.domain.to_dict(),
++                "base_experiment": config.base_experiment.model_dump(mode="json"),
++            },
++            indent=2,
++            sort_keys=True,
++        )
++        + "\n",
++        encoding="utf-8",
++    )
++    (run_dir / "tasks.json").write_text(
++        json.dumps(task_rows, indent=2, sort_keys=True) + "\n", encoding="utf-8"
++    )
++    (run_dir / "trials.jsonl").write_text(_jsonl(trial_rows), encoding="utf-8")
++    (run_dir / "failures.jsonl").write_text(_jsonl(failure_rows), encoding="utf-8")
++    manifest = {
++        "run_id": rid,
++        "experiment_id": config.experiment_id,
++        "experiment_b_schema_version": 1,
++        "created_at": datetime.now(UTC).replace(microsecond=0).isoformat(),
++        "n_tasks": len(tasks),
++        "n_trial_rows": len(trial_rows),
++        "n_failure_rows": len(failure_rows),
++        "mechanism_ids": list(graphs),
++        "algorithms": list(config.algorithms),
++        "cartesian_domain": config.domain.to_dict(),
++        "revision": capture_revision(cwd=None),
++        "environment": capture_environment(),
++    }
++    (run_dir / "manifest.json").write_text(
++        json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8"
++    )
++    return CartesianGoalRegionRunResult(
++        run_id=rid,
++        path=run_dir,
++        n_tasks=len(tasks),
++        n_trial_rows=len(trial_rows),
++        n_failure_rows=len(failure_rows),
++    )
++
++
++def run_cartesian_goal_region_from_path(
++    config_path: Path | str,
++    *,
++    results_root: Path | str | None = None,
++    run_id: str | None = None,
++) -> CartesianGoalRegionRunResult:
++    return run_cartesian_goal_region(
++        load_cartesian_goal_region_config(config_path),
++        results_root=results_root,
++        run_id=run_id,
++    )
+diff --git a/src/inequality_mechanisms/experiments/v2_cartesian_tasks.py b/src/inequality_mechanisms/experiments/v2_cartesian_tasks.py
+new file mode 100644
+index 0000000..5cfa077
+--- /dev/null
++++ b/src/inequality_mechanisms/experiments/v2_cartesian_tasks.py
+@@ -0,0 +1,346 @@
++"""Frozen Cartesian task sampling and graph attachment for Experiment B.
++
++The sampler owns the external Cartesian exam. Mechanism-specific graph
++attachment is a separate deterministic step so reachability remains an outcome.
++"""
++
++from __future__ import annotations
++
++from dataclasses import dataclass
++from typing import Any
++
++import numpy as np
++from numpy.typing import ArrayLike, NDArray
++
++from inequality_mechanisms.kinematics.planar_2r import Planar2R
++
++
++@dataclass(frozen=True, slots=True)
++class CartesianAnnularSectorDomain:
++    """Area-uniform annular-sector task domain in the planar base frame."""
++
++    domain_id: str
++    radial_min: float
++    radial_max: float
++    angle_min: float
++    angle_max: float
++    start_tolerance: float
++    goal_radius: float
++    min_start_goal_separation: float
++    L1: float = 1.0
++    L2: float = 1.0
++
++    def __post_init__(self) -> None:
++        values = (
++            self.radial_min,
++            self.radial_max,
++            self.angle_min,
++            self.angle_max,
++            self.start_tolerance,
++            self.goal_radius,
++            self.min_start_goal_separation,
++            self.L1,
++            self.L2,
++        )
++        if not all(np.isfinite(v) for v in values):
++            raise ValueError("Cartesian domain values must be finite")
++        if not (0.0 <= self.radial_min < self.radial_max):
++            raise ValueError("require 0 <= radial_min < radial_max")
++        if not self.angle_min < self.angle_max:
++            raise ValueError("require angle_min < angle_max")
++        if self.start_tolerance <= 0.0 or self.goal_radius <= 0.0:
++            raise ValueError("start_tolerance and goal_radius must be positive")
++        if self.min_start_goal_separation < 2.0 * max(
++            self.start_tolerance, self.goal_radius
++        ):
++            raise ValueError(
++                "min_start_goal_separation must be at least twice the larger "
++                "attachment radius"
++            )
++        if self.L1 <= 0.0 or self.L2 <= 0.0:
++            raise ValueError("link lengths must be positive")
++
++    def sample_point(self, rng: np.random.Generator) -> NDArray[np.float64]:
++        """Draw one point uniformly with respect to Cartesian area."""
++        radius_sq = rng.uniform(self.radial_min**2, self.radial_max**2)
++        radius = float(np.sqrt(radius_sq))
++        angle = float(rng.uniform(self.angle_min, self.angle_max))
++        return np.asarray(
++            [radius * np.cos(angle), radius * np.sin(angle)], dtype=np.float64
++        )
++
++    def contains(self, x: ArrayLike, *, atol: float = 1e-12) -> bool:
++        point = _as_x2(x)
++        radius = float(np.linalg.norm(point))
++        angle = float(np.arctan2(point[1], point[0]))
++        while angle < self.angle_min:
++            angle += 2.0 * np.pi
++        return bool(
++            self.radial_min - atol <= radius <= self.radial_max + atol
++            and self.angle_min - atol <= angle <= self.angle_max + atol
++        )
++
++    def to_dict(self) -> dict[str, Any]:
++        return {
++            "domain_id": self.domain_id,
++            "shape": "annular_sector",
++            "radial_min": float(self.radial_min),
++            "radial_max": float(self.radial_max),
++            "angle_min": float(self.angle_min),
++            "angle_max": float(self.angle_max),
++            "start_tolerance": float(self.start_tolerance),
++            "goal_radius": float(self.goal_radius),
++            "min_start_goal_separation": float(self.min_start_goal_separation),
++            "L1": float(self.L1),
++            "L2": float(self.L2),
++            "area_measure": "uniform_cartesian_area",
++        }
++
++
++@dataclass(frozen=True, slots=True)
++class CartesianPositionTask:
++    """One external start-position / goal-region query."""
++
++    task_id: str
++    requested_start_x: NDArray[np.float64]
++    requested_goal_x: NDArray[np.float64]
++
++    def to_dict(self) -> dict[str, Any]:
++        return {
++            "task_id": self.task_id,
++            "requested_start_x": self.requested_start_x.tolist(),
++            "requested_goal_x": self.requested_goal_x.tolist(),
++            "cartesian_separation": float(
++                np.linalg.norm(self.requested_goal_x - self.requested_start_x)
++            ),
++        }
++
++
++@dataclass(frozen=True, slots=True)
++class ResolvedCartesianTask:
++    """A Cartesian task attached to one shared-Q graph pair."""
++
++    task: CartesianPositionTask
++    start_node_id: int | None
++    start_residual: float | None
++    goal_node_ids: tuple[int, ...]
++    nearest_goal_residual: float | None
++    analytic_start_ik: tuple[dict[str, Any], ...]
++    selected_start_ik_family: str | None
++    rejection_reason: str | None
++
++    @property
++    def accepted(self) -> bool:
++        return self.rejection_reason is None
++
++    def to_dict(self) -> dict[str, Any]:
++        payload = self.task.to_dict()
++        payload.update(
++            {
++                "start_node_id": self.start_node_id,
++                "start_residual": self.start_residual,
++                "goal_node_ids": list(self.goal_node_ids),
++                "goal_set_size": len(self.goal_node_ids),
++                "nearest_goal_residual": self.nearest_goal_residual,
++                "analytic_start_ik": list(self.analytic_start_ik),
++                "selected_start_ik_family": self.selected_start_ik_family,
++                "rejection_reason": self.rejection_reason,
++            }
++        )
++        return payload
++
++
++def default_experiment_b_domain() -> CartesianAnnularSectorDomain:
++    """Return ADR-019's fixed left-facing unit-link workcell."""
++    return CartesianAnnularSectorDomain(
++        domain_id="planar2r_left_workcell_v1",
++        radial_min=0.50,
++        radial_max=1.50,
++        angle_min=2.15,
++        angle_max=3.55,
++        start_tolerance=0.06,
++        goal_radius=0.06,
++        min_start_goal_separation=0.30,
++        L1=1.0,
++        L2=1.0,
++    )
++
++
++def generate_cartesian_task_bank(
++    domain: CartesianAnnularSectorDomain,
++    *,
++    n_tasks: int,
++    seed: int,
++    max_attempts_per_task: int = 10_000,
++) -> tuple[CartesianPositionTask, ...]:
++    """Generate a deterministic external bank without mechanism feedback."""
++    if n_tasks < 1:
++        raise ValueError("n_tasks must be positive")
++    if max_attempts_per_task < 1:
++        raise ValueError("max_attempts_per_task must be positive")
++    rng = np.random.default_rng(int(seed))
++    out: list[CartesianPositionTask] = []
++    for task_index in range(n_tasks):
++        for _attempt in range(max_attempts_per_task):
++            start = domain.sample_point(rng)
++            goal = domain.sample_point(rng)
++            if (
++                float(np.linalg.norm(goal - start))
++                < domain.min_start_goal_separation
++            ):
++                continue
++            out.append(
++                CartesianPositionTask(
++                    task_id=f"xb{task_index:05d}",
++                    requested_start_x=start,
++                    requested_goal_x=goal,
++                )
++            )
++            break
++        else:
++            raise RuntimeError(
++                f"failed to sample task {task_index} after "
++                f"{max_attempts_per_task} attempts"
++            )
++    return tuple(out)
++
++
++def ik_family(q: ArrayLike, *, tolerance: float = 1e-9) -> str:
++    q_arr = np.asarray(q, dtype=np.float64)
++    s = float(np.sin(q_arr[1]))
++    if abs(s) <= tolerance:
++        return "singular"
++    return "elbow_up" if s > 0.0 else "elbow_down"
++
++
++def graph_cartesian_positions(
++    graph: Any, fk: Planar2R
++) -> tuple[NDArray[np.int64], NDArray[np.float64]]:
++    """Return valid node ids and their Cartesian positions in node-id order."""
++    node_ids = np.asarray(
++        [node_id for node_id in range(graph.node_count) if graph.node_is_valid(node_id)],
++        dtype=np.int64,
++    )
++    if node_ids.size == 0:
++        return node_ids, np.empty((0, 2), dtype=np.float64)
++    x = np.vstack([fk.forward(graph.q_state(int(node_id))) for node_id in node_ids])
++    return node_ids, np.asarray(x, dtype=np.float64)
++
++
++def resolve_cartesian_task(
++    graph: Any,
++    task: CartesianPositionTask,
++    domain: CartesianAnnularSectorDomain,
++    *,
++    fk: Planar2R | None = None,
++) -> ResolvedCartesianTask:
++    """Attach one external task to a graph with deterministic tie-breaking."""
++    model = fk if fk is not None else Planar2R(domain.L1, domain.L2)
++    node_ids, positions = graph_cartesian_positions(graph, model)
++    analytic: list[dict[str, Any]] = []
++    for q in model.inverse(task.requested_start_x):
++        in_box = bool(graph.branch.output_space.contains(q))
++        analytic.append(
++            {
++                "family": ik_family(q),
++                "q": np.asarray(q, dtype=np.float64).tolist(),
++                "inside_certified_q_box": in_box,
++            }
++        )
++    if node_ids.size == 0:
++        return ResolvedCartesianTask(
++            task=task,
++            start_node_id=None,
++            start_residual=None,
++            goal_node_ids=(),
++            nearest_goal_residual=None,
++            analytic_start_ik=tuple(analytic),
++            selected_start_ik_family=None,
++            rejection_reason="no_valid_graph_nodes",
++        )
++
++    start_dist = np.linalg.norm(positions - task.requested_start_x, axis=1)
++    start_candidates = np.flatnonzero(start_dist <= domain.start_tolerance)
++    goal_dist = np.linalg.norm(positions - task.requested_goal_x, axis=1)
++    goal_candidates = np.flatnonzero(goal_dist <= domain.goal_radius)
++    nearest_goal = float(np.min(goal_dist)) if goal_dist.size else None
++
++    if start_candidates.size == 0:
++        return ResolvedCartesianTask(
++            task=task,
++            start_node_id=None,
++            start_residual=float(np.min(start_dist)),
++            goal_node_ids=tuple(int(node_ids[i]) for i in goal_candidates),
++            nearest_goal_residual=nearest_goal,
++            analytic_start_ik=tuple(analytic),
++            selected_start_ik_family=None,
++            rejection_reason="start_region_has_no_graph_node",
++        )
++    ranked_start = sorted(
++        (float(start_dist[i]), int(node_ids[i])) for i in start_candidates
++    )
++    start_residual, start_node_id = ranked_start[0]
++    goals = tuple(sorted(int(node_ids[i]) for i in goal_candidates))
++    if not goals:
++        return ResolvedCartesianTask(
++            task=task,
++            start_node_id=start_node_id,
++            start_residual=start_residual,
++            goal_node_ids=(),
++            nearest_goal_residual=nearest_goal,
++            analytic_start_ik=tuple(analytic),
++            selected_start_ik_family=ik_family(graph.q_state(start_node_id)),
++            rejection_reason="goal_region_has_no_graph_node",
++        )
++    if start_node_id in goals:
++        return ResolvedCartesianTask(
++            task=task,
++            start_node_id=start_node_id,
++            start_residual=start_residual,
++            goal_node_ids=goals,
++            nearest_goal_residual=nearest_goal,
++            analytic_start_ik=tuple(analytic),
++            selected_start_ik_family=ik_family(graph.q_state(start_node_id)),
++            rejection_reason="start_node_inside_goal_region",
++        )
++    return ResolvedCartesianTask(
++        task=task,
++        start_node_id=start_node_id,
++        start_residual=start_residual,
++        goal_node_ids=goals,
++        nearest_goal_residual=nearest_goal,
++        analytic_start_ik=tuple(analytic),
++        selected_start_ik_family=ik_family(graph.q_state(start_node_id)),
++        rejection_reason=None,
++    )
++
++
++def assert_paired_cartesian_query_identity(
++    graph_a: Any,
++    graph_b: Any,
++    resolved_a: ResolvedCartesianTask,
++    resolved_b: ResolvedCartesianTask,
++    *,
++    atol: float = 1e-12,
++) -> None:
++    """Hard gate: shared-Q pair must resolve exactly the same Cartesian query."""
++    if resolved_a.start_node_id != resolved_b.start_node_id:
++        raise AssertionError("paired Cartesian start node mismatch")
++    if resolved_a.goal_node_ids != resolved_b.goal_node_ids:
++        raise AssertionError("paired Cartesian goal-set mismatch")
++    if resolved_a.rejection_reason != resolved_b.rejection_reason:
++        raise AssertionError("paired Cartesian rejection mismatch")
++    for node_id in range(graph_a.node_count):
++        if graph_a.node_is_valid(node_id) != graph_b.node_is_valid(node_id):
++            raise AssertionError(f"paired valid-node mismatch at {node_id}")
++        if graph_a.node_is_valid(node_id) and not np.allclose(
++            graph_a.q_state(node_id), graph_b.q_state(node_id), atol=atol, rtol=0.0
++        ):
++            raise AssertionError(f"paired Q-state mismatch at {node_id}")
++
++
++def _as_x2(x: ArrayLike) -> NDArray[np.float64]:
++    arr = np.asarray(x, dtype=np.float64)
++    if arr.shape != (2,) or not np.all(np.isfinite(arr)):
++        raise ValueError("Cartesian point must be finite with shape (2,)")
++    return arr
+diff --git a/src/inequality_mechanisms/kinematics/planar_2r.py b/src/inequality_mechanisms/kinematics/planar_2r.py
+index f37fec1..e248b8c 100644
+--- a/src/inequality_mechanisms/kinematics/planar_2r.py
++++ b/src/inequality_mechanisms/kinematics/planar_2r.py
+@@ -59,6 +59,39 @@ class Planar2R:
+         y = self.L1 * np.sin(q1) + self.L2 * np.sin(q1 + q2)
+         return np.asarray([x, y], dtype=np.float64)
+ 
++    def inverse(
++        self, position: ArrayLike, *, tolerance: float = 1e-10
++    ) -> tuple[NDArray[np.floating], ...]:
++        """Return analytic IK configurations for a reachable Cartesian point.
++
++        Solutions are ordered with positive ``q2`` first, then negative
++        ``q2``. Tangent/singular solutions are deduplicated. An unreachable
++        point returns an empty tuple. Joint limits are intentionally not
++        applied here; Experiment B records that filtering separately.
++        """
++        x_arr = np.asarray(position, dtype=np.float64)
++        if x_arr.shape != (2,) or not np.all(np.isfinite(x_arr)):
++            raise ValueError("position must be a finite vector with shape (2,)")
++        if not np.isfinite(tolerance) or tolerance < 0.0:
++            raise ValueError("tolerance must be finite and nonnegative")
++        x, y = float(x_arr[0]), float(x_arr[1])
++        cos_q2 = (x * x + y * y - self.L1**2 - self.L2**2) / (
++            2.0 * self.L1 * self.L2
++        )
++        if cos_q2 < -1.0 - tolerance or cos_q2 > 1.0 + tolerance:
++            return ()
++        cos_q2 = float(np.clip(cos_q2, -1.0, 1.0))
++        q2_abs = float(np.arccos(cos_q2))
++        q2_values = (q2_abs,) if abs(q2_abs) <= tolerance else (q2_abs, -q2_abs)
++        out: list[NDArray[np.floating]] = []
++        for q2 in q2_values:
++            q1 = float(
++                np.arctan2(y, x)
++                - np.arctan2(self.L2 * np.sin(q2), self.L1 + self.L2 * np.cos(q2))
++            )
++            out.append(np.asarray([q1, q2], dtype=np.float64))
++        return tuple(out)
++
+     def elbow(self, q: ArrayLike) -> NDArray[np.floating]:
+         """Return the intermediate joint position ``(x, y)``."""
+         q_arr = _as_q2(q)
+diff --git a/src/inequality_mechanisms/search/core.py b/src/inequality_mechanisms/search/core.py
+index da21c33..434e916 100644
+--- a/src/inequality_mechanisms/search/core.py
++++ b/src/inequality_mechanisms/search/core.py
+@@ -15,8 +15,14 @@ from __future__ import annotations
+ 
+ import heapq
+ import math
+-
+-from inequality_mechanisms.search.protocol import EdgeCost, Heuristic, SearchGraph
++from collections.abc import Collection
++
++from inequality_mechanisms.search.protocol import (
++    EdgeCost,
++    GoalTest,
++    Heuristic,
++    SearchGraph,
++)
+ from inequality_mechanisms.search.result import SearchResult
+ 
+ 
+@@ -33,8 +39,10 @@ def _reconstruct_path(came_from: dict[int, int], goal: int) -> tuple[int, ...]:
+ def best_first_search(
+     graph: SearchGraph,
+     start: int,
+-    goal: int,
++    goal: int | None,
+     *,
++    goal_node_ids: Collection[int] | None = None,
++    goal_test: GoalTest | None = None,
+     edge_cost: EdgeCost,
+     heuristic: Heuristic,
+     record_expanded: bool = False,
+@@ -52,7 +60,13 @@ def best_first_search(
+         Any object satisfying :class:`SearchGraph` (node count, node
+         validity, and neighbor iteration by flat node id).
+     start, goal :
+-        Flat node ids. Both must be valid nodes of ``graph``.
++        Flat start node id and optional backward-compatible single goal.
++    goal_node_ids :
++        Explicit non-empty valid goal set. Mutually exclusive with ``goal``
++        and ``goal_test``.
++    goal_test :
++        Graph-generic goal predicate. Mutually exclusive with the explicit
++        goal forms.
+     edge_cost :
+         Required ``(u_id, v_id) -> float`` edge weight. The generic core
+         constructs no graph-specific default; callers resolve one (e.g.
+@@ -72,17 +86,47 @@ def best_first_search(
+     Raises
+     ------
+     ValueError
+-        If ``start`` or ``goal`` is out of range or not a valid node.
++        If goal forms are ambiguous, an explicit goal set is empty, or an
++        explicit start/goal node is out of range or invalid.
+     """
+     n_nodes = graph.node_count
+     if start < 0 or start >= n_nodes:
+         raise ValueError(f"start node_id out of range: {start}")
+-    if goal < 0 or goal >= n_nodes:
+-        raise ValueError(f"goal node_id out of range: {goal}")
+     if not graph.node_is_valid(start):
+         raise ValueError(f"start node {start} is not valid under graph constraints")
+-    if not graph.node_is_valid(goal):
+-        raise ValueError(f"goal node {goal} is not valid under graph constraints")
++
++    active_goal_forms = int(goal is not None) + int(goal_node_ids is not None) + int(
++        goal_test is not None
++    )
++    if active_goal_forms != 1:
++        raise ValueError(
++            "exactly one of goal, goal_node_ids, or goal_test must be provided"
++        )
++
++    explicit_goals: frozenset[int] | None = None
++    if goal is not None:
++        if goal < 0 or goal >= n_nodes:
++            raise ValueError(f"goal node_id out of range: {goal}")
++        if not graph.node_is_valid(goal):
++            raise ValueError(f"goal node {goal} is not valid under graph constraints")
++        explicit_goals = frozenset({int(goal)})
++    elif goal_node_ids is not None:
++        explicit_goals = frozenset(int(node_id) for node_id in goal_node_ids)
++        if not explicit_goals:
++            raise ValueError("goal_node_ids must contain at least one node")
++        for node_id in sorted(explicit_goals):
++            if node_id < 0 or node_id >= n_nodes:
++                raise ValueError(f"goal node_id out of range: {node_id}")
++            if not graph.node_is_valid(node_id):
++                raise ValueError(
++                    f"goal node {node_id} is not valid under graph constraints"
++                )
++
++    if explicit_goals is not None:
++        is_goal: GoalTest = explicit_goals.__contains__
++    else:
++        assert goal_test is not None
++        is_goal = goal_test
+ 
+     cost_fn = edge_cost
+ 
+@@ -118,12 +162,13 @@ def best_first_search(
+         if record_expanded:
+             expanded_order.append(u)
+ 
+-        if u == goal:
+-            path = _reconstruct_path(came_from, goal)
++        if bool(is_goal(u)):
++            selected_goal = int(u)
++            path = _reconstruct_path(came_from, selected_goal)
+             return SearchResult(
+                 found=True,
+                 path=path,
+-                cost=float(g_best[goal]),
++                cost=float(g_best[selected_goal]),
+                 n_expanded=n_expanded,
+                 n_generated=n_generated,
+                 n_stale=n_stale,
+diff --git a/src/inequality_mechanisms/search/graph_solver.py b/src/inequality_mechanisms/search/graph_solver.py
+index 358d644..119bf1f 100644
+--- a/src/inequality_mechanisms/search/graph_solver.py
++++ b/src/inequality_mechanisms/search/graph_solver.py
+@@ -7,9 +7,10 @@ solvers remain deferred behind the same protocol.
+ 
+ from __future__ import annotations
+ 
++from collections.abc import Collection
+ from typing import Protocol, runtime_checkable
+ 
+-from inequality_mechanisms.search.protocol import SearchGraph
++from inequality_mechanisms.search.protocol import GoalTest, SearchGraph
+ from inequality_mechanisms.search.result import SearchResult
+ from inequality_mechanisms.search.v2_objectives import V2PlanningObjective
+ 
+@@ -34,12 +35,14 @@ class GraphSolver(Protocol):
+         self,
+         graph: SearchGraph,
+         start: int,
+-        goal: int,
++        goal: int | None,
+         objective: V2PlanningObjective,
+         *,
++        goal_node_ids: Collection[int] | None = None,
++        goal_test: GoalTest | None = None,
+         record_expanded: bool = False,
+     ) -> SearchResult:
+-        """Return one search result on ``graph`` from ``start`` to ``goal``."""
++        """Return one exact search result for one active goal representation."""
+ 
+ 
+ class DijkstraGraphSolver:
+@@ -53,9 +56,11 @@ class DijkstraGraphSolver:
+         self,
+         graph: SearchGraph,
+         start: int,
+-        goal: int,
++        goal: int | None,
+         objective: V2PlanningObjective,
+         *,
++        goal_node_ids: Collection[int] | None = None,
++        goal_test: GoalTest | None = None,
+         record_expanded: bool = False,
+     ) -> SearchResult:
+         from inequality_mechanisms.search.core import best_first_search
+@@ -64,6 +69,8 @@ class DijkstraGraphSolver:
+             graph,
+             start,
+             goal,
++            goal_node_ids=goal_node_ids,
++            goal_test=goal_test,
+             edge_cost=objective.edge_cost,
+             heuristic=objective.heuristic,
+             record_expanded=record_expanded,
+@@ -81,9 +88,11 @@ class AStarGraphSolver:
+         self,
+         graph: SearchGraph,
+         start: int,
+-        goal: int,
++        goal: int | None,
+         objective: V2PlanningObjective,
+         *,
++        goal_node_ids: Collection[int] | None = None,
++        goal_test: GoalTest | None = None,
+         record_expanded: bool = False,
+     ) -> SearchResult:
+         from inequality_mechanisms.search.core import best_first_search
+@@ -92,6 +101,8 @@ class AStarGraphSolver:
+             graph,
+             start,
+             goal,
++            goal_node_ids=goal_node_ids,
++            goal_test=goal_test,
+             edge_cost=objective.edge_cost,
+             heuristic=objective.heuristic,
+             record_expanded=record_expanded,
+diff --git a/src/inequality_mechanisms/search/protocol.py b/src/inequality_mechanisms/search/protocol.py
+index 57fc0f8..6c46966 100644
+--- a/src/inequality_mechanisms/search/protocol.py
++++ b/src/inequality_mechanisms/search/protocol.py
+@@ -41,3 +41,6 @@ EdgeCost = Callable[[int, int], float]
+ 
+ Heuristic = Callable[[int], float]
+ """Cost-to-go estimate ``h(node_id) -> float``."""
++
++GoalTest = Callable[[int], bool]
++"""Goal-set membership predicate ``goal_test(node_id) -> bool``."""
+diff --git a/src/inequality_mechanisms/search/v2_objectives.py b/src/inequality_mechanisms/search/v2_objectives.py
+index 36d196a..9e56023 100644
+--- a/src/inequality_mechanisms/search/v2_objectives.py
++++ b/src/inequality_mechanisms/search/v2_objectives.py
+@@ -386,6 +386,27 @@ def input_euclidean_heuristic_v2(graph: _V2GraphLike, goal: int) -> Heuristic:
+     return h
+ 
+ 
++def input_euclidean_goal_set_heuristic_v2(
++    graph: _V2GraphLike, goal_node_ids: tuple[int, ...] | list[int] | set[int]
++) -> Heuristic:
++    """Distance to the nearest explicit goal in actuator coordinates.
++
++    For actuator-travel edge cost, each edge weight is Euclidean actuator
++    displacement. The Euclidean distance to a set is therefore an admissible
++    and consistent lower bound by the triangle inequality.
++    """
++    goals = tuple(sorted({int(node_id) for node_id in goal_node_ids}))
++    if not goals:
++        raise ValueError("goal_node_ids must contain at least one node")
++    goal_u = np.vstack([np.asarray(graph.u_state(node_id), dtype=np.float64) for node_id in goals])
++
++    def h(node_id: int) -> float:
++        u = np.asarray(graph.u_state(node_id), dtype=np.float64)
++        return float(np.min(np.linalg.norm(goal_u - u, axis=1)))
++
++    return h
++
++
+ def uniform_step_heuristic_v2(graph: _V2GraphLike, goal: int) -> Heuristic:
+     """Admissible lattice Manhattan lower bound on hop count (unit edge cost).
+ 
+@@ -590,3 +611,45 @@ def resolve_v2_objective(
+         s_q=None if s_q is None else float(s_q),
+         s_u=None if s_u is None else float(s_u),
+     )
++
++
++def resolve_v2_goal_set_objective(
++    graph: _V2GraphLike,
++    goal_node_ids: tuple[int, ...] | list[int] | set[int],
++    cost_name: str = "actuator_travel",
++    heuristic_name: str | None = None,
++    *,
++    edge_n_samples: int = 17,
++) -> V2PlanningObjective:
++    """Resolve the narrow Experiment-B actuator-travel goal-set objective.
++
++    ``input_euclidean_goal_set`` is admissible/consistent for
++    ``actuator_travel`` and ``input_euclidean``. ``zero`` is the Dijkstra
++    baseline. Other cost families remain blocked until separately proved.
++    """
++    goals = tuple(sorted({int(node_id) for node_id in goal_node_ids}))
++    if not goals:
++        raise ValueError("goal_node_ids must contain at least one node")
++    cost = str(cost_name)
++    if cost not in {"actuator_travel", "input_euclidean"}:
++        raise ValueError(
++            "goal-set objective currently supports only actuator_travel or "
++            "input_euclidean"
++        )
++    h_name = "input_euclidean_goal_set" if heuristic_name is None else str(heuristic_name)
++    if h_name not in {"input_euclidean_goal_set", "zero"}:
++        raise ValueError(
++            "goal-set actuator objective requires input_euclidean_goal_set or zero"
++        )
++    edge_cost = build_v2_edge_cost(graph, cost, edge_n_samples=edge_n_samples)
++    heuristic = (
++        zero_heuristic_v2
++        if h_name == "zero"
++        else input_euclidean_goal_set_heuristic_v2(graph, goals)
++    )
++    return V2PlanningObjective(
++        edge_cost=edge_cost,
++        heuristic=heuristic,
++        cost_name=cost,
++        heuristic_name=h_name,
++    )
+diff --git a/tests/experiments_v2/test_v2_cartesian_tasks.py b/tests/experiments_v2/test_v2_cartesian_tasks.py
+new file mode 100644
+index 0000000..abe80f5
+--- /dev/null
++++ b/tests/experiments_v2/test_v2_cartesian_tasks.py
+@@ -0,0 +1,103 @@
++from __future__ import annotations
++
++from types import SimpleNamespace
++
++import numpy as np
++
++from inequality_mechanisms.experiments.v2_cartesian_tasks import (
++    CartesianAnnularSectorDomain,
++    CartesianPositionTask,
++    assert_paired_cartesian_query_identity,
++    generate_cartesian_task_bank,
++    resolve_cartesian_task,
++)
++from inequality_mechanisms.kinematics.planar_2r import Planar2R
++
++
++class OutputSpace:
++    def contains(self, _q) -> bool:
++        return True
++
++    def distance(self, a, b) -> float:
++        return float(np.linalg.norm(np.asarray(b) - np.asarray(a)))
++
++
++class CartesianStubGraph:
++    def __init__(self) -> None:
++        self._q = np.asarray(
++            [
++                [0.0, np.pi / 2.0],
++                [np.pi / 4.0, np.pi / 2.0],
++                [np.pi / 2.0, np.pi / 2.0],
++            ],
++            dtype=np.float64,
++        )
++        self.branch = SimpleNamespace(output_space=OutputSpace())
++
++    @property
++    def node_count(self) -> int:
++        return len(self._q)
++
++    def node_is_valid(self, node_id: int) -> bool:
++        return 0 <= node_id < self.node_count
++
++    def q_state(self, node_id: int):
++        return self._q[node_id]
++
++    def u_state(self, node_id: int):
++        return self._q[node_id]
++
++
++def domain() -> CartesianAnnularSectorDomain:
++    return CartesianAnnularSectorDomain(
++        domain_id="test",
++        radial_min=0.5,
++        radial_max=1.6,
++        angle_min=0.0,
++        angle_max=np.pi,
++        start_tolerance=0.02,
++        goal_radius=0.02,
++        min_start_goal_separation=0.2,
++    )
++
++
++def test_sampler_is_uniform_in_radius_squared_and_respects_separation() -> None:
++    d = domain()
++    tasks = generate_cartesian_task_bank(d, n_tasks=4000, seed=7)
++    starts = np.vstack([task.requested_start_x for task in tasks])
++    r2 = np.sum(starts * starts, axis=1)
++    normalized = (r2 - d.radial_min**2) / (d.radial_max**2 - d.radial_min**2)
++    assert abs(float(np.mean(normalized)) - 0.5) < 0.02
++    assert all(
++        np.linalg.norm(task.requested_goal_x - task.requested_start_x)
++        >= d.min_start_goal_separation
++        for task in tasks
++    )
++
++
++def test_planar_2r_inverse_round_trip() -> None:
++    fk = Planar2R()
++    q = np.asarray([0.3, 1.2])
++    x = fk.forward(q)
++    solutions = fk.inverse(x)
++    assert len(solutions) == 2
++    assert any(np.allclose(fk.forward(candidate), x, atol=1e-10) for candidate in solutions)
++
++
++def test_task_resolution_and_pair_identity() -> None:
++    graph_a = CartesianStubGraph()
++    graph_b = CartesianStubGraph()
++    fk = Planar2R()
++    task = CartesianPositionTask(
++        task_id="xb00000",
++        requested_start_x=fk.forward(graph_a.q_state(0)),
++        requested_goal_x=fk.forward(graph_a.q_state(2)),
++    )
++    resolved_a = resolve_cartesian_task(graph_a, task, domain(), fk=fk)
++    resolved_b = resolve_cartesian_task(graph_b, task, domain(), fk=fk)
++    assert resolved_a.accepted
++    assert resolved_a.start_node_id == 0
++    assert resolved_a.goal_node_ids == (2,)
++    assert_paired_cartesian_query_identity(
++        graph_a, graph_b, resolved_a, resolved_b
++    )
+diff --git a/tests/search/test_goal_set_search.py b/tests/search/test_goal_set_search.py
+new file mode 100644
+index 0000000..a8118c7
+--- /dev/null
++++ b/tests/search/test_goal_set_search.py
+@@ -0,0 +1,107 @@
++from __future__ import annotations
++
++from dataclasses import dataclass
++
++import pytest
++
++from inequality_mechanisms.search.core import best_first_search
++
++
++@dataclass
++class TinyGraph:
++    adjacency: dict[int, tuple[int, ...]]
++
++    @property
++    def node_count(self) -> int:
++        return len(self.adjacency)
++
++    def node_is_valid(self, node_id: int) -> bool:
++        return node_id in self.adjacency
++
++    def neighbors(self, node_id: int):
++        return self.adjacency[node_id]
++
++
++def edge_cost(a: int, b: int) -> float:
++    weights = {
++        frozenset({0, 1}): 1.0,
++        frozenset({1, 2}): 1.0,
++        frozenset({0, 3}): 1.0,
++        frozenset({3, 4}): 4.0,
++    }
++    return weights[frozenset({a, b})]
++
++
++def graph() -> TinyGraph:
++    return TinyGraph(
++        {
++            0: (1, 3),
++            1: (0, 2),
++            2: (1,),
++            3: (0, 4),
++            4: (3,),
++        }
++    )
++
++
++def test_single_goal_backward_compatibility() -> None:
++    result = best_first_search(
++        graph(), 0, 2, edge_cost=edge_cost, heuristic=lambda _n: 0.0
++    )
++    assert result.path == (0, 1, 2)
++    assert result.cost == 2.0
++
++
++def test_explicit_goal_set_selects_cheapest_settled_goal() -> None:
++    result = best_first_search(
++        graph(),
++        0,
++        None,
++        goal_node_ids={2, 4},
++        edge_cost=edge_cost,
++        heuristic=lambda _n: 0.0,
++    )
++    assert result.path[-1] == 2
++    assert result.cost == 2.0
++
++
++def test_goal_predicate_matches_explicit_set() -> None:
++    explicit = best_first_search(
++        graph(),
++        0,
++        None,
++        goal_node_ids={2, 4},
++        edge_cost=edge_cost,
++        heuristic=lambda _n: 0.0,
++    )
++    predicate = best_first_search(
++        graph(),
++        0,
++        None,
++        goal_test=lambda node_id: node_id in {2, 4},
++        edge_cost=edge_cost,
++        heuristic=lambda _n: 0.0,
++    )
++    assert predicate.path == explicit.path
++    assert predicate.cost == explicit.cost
++
++
++def test_ambiguous_and_empty_goal_forms_fail_closed() -> None:
++    with pytest.raises(ValueError, match="exactly one"):
++        best_first_search(
++            graph(),
++            0,
++            2,
++            goal_node_ids={4},
++            edge_cost=edge_cost,
++            heuristic=lambda _n: 0.0,
++        )
++    with pytest.raises(ValueError, match="at least one"):
++        best_first_search(
++            graph(),
++            0,
++            None,
++            goal_node_ids=(),
++            edge_cost=edge_cost,
++            heuristic=lambda _n: 0.0,
++        )
+diff --git a/tests/search/test_v2_goal_set_objective.py b/tests/search/test_v2_goal_set_objective.py
+new file mode 100644
+index 0000000..9373cae
+--- /dev/null
++++ b/tests/search/test_v2_goal_set_objective.py
+@@ -0,0 +1,81 @@
++from __future__ import annotations
++
++from types import SimpleNamespace
++
++import numpy as np
++
++from inequality_mechanisms.search.core import best_first_search
++from inequality_mechanisms.search.v2_objectives import (
++    input_euclidean_goal_set_heuristic_v2,
++    resolve_v2_goal_set_objective,
++)
++
++
++class LineGraph:
++    def __init__(self) -> None:
++        self._u = np.asarray([[0.0], [1.0], [2.0], [3.0], [4.0]])
++        self.branch = SimpleNamespace(output_space=None)
++        self.topology = None
++
++    @property
++    def node_count(self) -> int:
++        return len(self._u)
++
++    def node_is_valid(self, node_id: int) -> bool:
++        return 0 <= node_id < self.node_count
++
++    def neighbors(self, node_id: int):
++        out = []
++        if node_id > 0:
++            out.append(node_id - 1)
++        if node_id + 1 < self.node_count:
++            out.append(node_id + 1)
++        return tuple(out)
++
++    def u_state(self, node_id: int):
++        return self._u[node_id]
++
++    def q_state(self, node_id: int):
++        return self._u[node_id]
++
++
++def test_goal_set_heuristic_is_zero_on_goals_and_consistent() -> None:
++    graph = LineGraph()
++    goals = {1, 4}
++    h = input_euclidean_goal_set_heuristic_v2(graph, goals)
++    assert h(1) == 0.0
++    assert h(4) == 0.0
++    for a in range(graph.node_count):
++        for b in graph.neighbors(a):
++            cost = float(np.linalg.norm(graph.u_state(b) - graph.u_state(a)))
++            assert h(a) <= cost + h(b) + 1e-12
++
++
++def test_goal_set_astar_matches_dijkstra_and_expands_no_more() -> None:
++    graph = LineGraph()
++    goals = {3, 4}
++    dijkstra_obj = resolve_v2_goal_set_objective(
++        graph, goals, heuristic_name="zero"
++    )
++    astar_obj = resolve_v2_goal_set_objective(
++        graph, goals, heuristic_name="input_euclidean_goal_set"
++    )
++    dijkstra = best_first_search(
++        graph,
++        0,
++        None,
++        goal_node_ids=goals,
++        edge_cost=dijkstra_obj.edge_cost,
++        heuristic=dijkstra_obj.heuristic,
++    )
++    astar = best_first_search(
++        graph,
++        0,
++        None,
++        goal_node_ids=goals,
++        edge_cost=astar_obj.edge_cost,
++        heuristic=astar_obj.heuristic,
++    )
++    assert astar.cost == dijkstra.cost
++    assert astar.path[-1] == dijkstra.path[-1] == 3
++    assert astar.n_expanded <= dijkstra.n_expanded

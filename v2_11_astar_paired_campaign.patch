@@ -1,0 +1,1415 @@
+diff --git a/configs/v2/production_astar.yaml b/configs/v2/production_astar.yaml
+new file mode 100644
+index 0000000..5358f6c
+--- /dev/null
++++ b/configs/v2/production_astar.yaml
+@@ -0,0 +1,80 @@
++architecture_version: 2
++result_schema_version: 2
++production_schema_version: 1
++planning_space: output
++seed: 20260804
++
++study:
++  name: production_monte_carlo_astar
++  stage: production
++  sample_bank: configs/v2/sample_banks/production_v1.json
++  calibration_decisions: results/v2_10_decisions
++  reference_run: results/v2_10_production
++  objective_cost: actuator_travel
++
++search:
++  algorithm: astar
++  heuristic: input_euclidean
++
++execution:
++  workers: 1
++  tasks_parallel_within_mechanism: false
++  numerical_threads_per_worker: 1
++  checkpoint_unit: mechanism_pair
++  atomic_shards: true
++  resume: true
++  max_estimated_memory_fraction: 0.65
++  require_override_above_limit: true
++  memory_override: false
++  worker_peak_rss_bytes: 137494528
++
++population:
++  smoke_mechanisms: 2
++  calibration_mechanisms: 8
++  variance_pilot_mechanisms: 50
++  minimum_production_mechanisms: 100
++  maximum_production_mechanisms: 500
++  production_batch_size: 25
++  candidate_tasks_per_mechanism: [8, 12, 16]
++  tasks_per_mechanism: 8
++  candidate_pool_multiplier: 4
++  confirmation_fraction: 0.15
++  candidate_resolutions: [32, 48, 64, 96, 128]
++  production_shape_n: 64
++
++stopping:
++  minimum_mechanisms: 100
++  batch_size: 25
++  maximum_mechanisms: 500
++  confidence_level: 0.95
++  target_ci_half_width_log_ratio: 0.05
++  stable_batches_required: 3
++  max_relative_estimate_change: 0.05
++  hierarchical_bootstrap_samples: 200
++  hierarchical_bootstrap_seed: 0
++
++visualization:
++  production_path_samples: 5
++  render_during_search: false
++  generate_canvas_after_run: true
++
++branch:
++  selection: monotonic_interval
++  certification_samples_per_axis: 17
++  minimum_abs_gain: 0.05
++  inverse_tolerance: 1.0e-6
++  endpoint_margin_fraction: 0.02
++  n_samples: 361
++  min_u_width: 0.3
++  table_samples_per_axis: 65
++
++sampling:
++  domain: output
++  shape: [64, 64]
++  include_endpoints: true
++
++edge_validation:
++  samples: 9
++
++matching_rule: span
++tasks_output_tolerance: 100.0
+diff --git a/configs/v2/production_astar_confirmation.yaml b/configs/v2/production_astar_confirmation.yaml
+new file mode 100644
+index 0000000..cba90a9
+--- /dev/null
++++ b/configs/v2/production_astar_confirmation.yaml
+@@ -0,0 +1,81 @@
++architecture_version: 2
++result_schema_version: 2
++production_schema_version: 1
++planning_space: output
++seed: 20260804
++
++study:
++  name: production_monte_carlo_astar
++  stage: high_resolution_confirmation
++  sample_bank: configs/v2/sample_banks/production_v1.json
++  calibration_decisions: results/v2_10_decisions
++  reference_run: results/v2_10_confirmation
++  confirmation_subset: results/v2_10_confirmation/confirmation_subset.json
++  objective_cost: actuator_travel
++
++search:
++  algorithm: astar
++  heuristic: input_euclidean
++
++execution:
++  workers: 1
++  tasks_parallel_within_mechanism: false
++  numerical_threads_per_worker: 1
++  checkpoint_unit: mechanism_pair
++  atomic_shards: true
++  resume: true
++  max_estimated_memory_fraction: 0.65
++  require_override_above_limit: true
++  memory_override: false
++  worker_peak_rss_bytes: 137494528
++
++population:
++  smoke_mechanisms: 2
++  calibration_mechanisms: 8
++  variance_pilot_mechanisms: 50
++  minimum_production_mechanisms: 100
++  maximum_production_mechanisms: 500
++  production_batch_size: 25
++  candidate_tasks_per_mechanism: [8, 12, 16]
++  tasks_per_mechanism: 8
++  candidate_pool_multiplier: 4
++  confirmation_fraction: 0.15
++  candidate_resolutions: [32, 48, 64, 96, 128]
++  production_shape_n: 64
++
++stopping:
++  minimum_mechanisms: 100
++  batch_size: 25
++  maximum_mechanisms: 500
++  confidence_level: 0.95
++  target_ci_half_width_log_ratio: 0.05
++  stable_batches_required: 3
++  max_relative_estimate_change: 0.05
++  hierarchical_bootstrap_samples: 200
++  hierarchical_bootstrap_seed: 0
++
++visualization:
++  production_path_samples: 2
++  render_during_search: false
++  generate_canvas_after_run: true
++
++branch:
++  selection: monotonic_interval
++  certification_samples_per_axis: 17
++  minimum_abs_gain: 0.05
++  inverse_tolerance: 1.0e-6
++  endpoint_margin_fraction: 0.02
++  n_samples: 361
++  min_u_width: 0.3
++  table_samples_per_axis: 65
++
++sampling:
++  domain: output
++  shape: [64, 64]
++  include_endpoints: true
++
++edge_validation:
++  samples: 9
++
++matching_rule: span
++tasks_output_tolerance: 100.0
+diff --git a/configs/v2/production_astar_pilot.yaml b/configs/v2/production_astar_pilot.yaml
+new file mode 100644
+index 0000000..2b080e0
+--- /dev/null
++++ b/configs/v2/production_astar_pilot.yaml
+@@ -0,0 +1,80 @@
++architecture_version: 2
++result_schema_version: 2
++production_schema_version: 1
++planning_space: output
++seed: 20260804
++
++study:
++  name: production_monte_carlo_astar
++  stage: variance_pilot
++  sample_bank: configs/v2/sample_banks/production_v1.json
++  calibration_decisions: results/v2_10_decisions
++  reference_run: results/v2_10_pilot
++  objective_cost: actuator_travel
++
++search:
++  algorithm: astar
++  heuristic: input_euclidean
++
++execution:
++  workers: 1
++  tasks_parallel_within_mechanism: false
++  numerical_threads_per_worker: 1
++  checkpoint_unit: mechanism_pair
++  atomic_shards: true
++  resume: true
++  max_estimated_memory_fraction: 0.65
++  require_override_above_limit: true
++  memory_override: false
++  worker_peak_rss_bytes: 137494528
++
++population:
++  smoke_mechanisms: 2
++  calibration_mechanisms: 8
++  variance_pilot_mechanisms: 50
++  minimum_production_mechanisms: 100
++  maximum_production_mechanisms: 500
++  production_batch_size: 25
++  candidate_tasks_per_mechanism: [8, 12, 16]
++  tasks_per_mechanism: 8
++  candidate_pool_multiplier: 4
++  confirmation_fraction: 0.15
++  candidate_resolutions: [32, 48, 64, 96, 128]
++  production_shape_n: 64
++
++stopping:
++  minimum_mechanisms: 50
++  batch_size: 25
++  maximum_mechanisms: 50
++  confidence_level: 0.95
++  target_ci_half_width_log_ratio: 0.10
++  stable_batches_required: 1
++  max_relative_estimate_change: 0.10
++  hierarchical_bootstrap_samples: 120
++  hierarchical_bootstrap_seed: 0
++
++visualization:
++  production_path_samples: 2
++  render_during_search: false
++  generate_canvas_after_run: true
++
++branch:
++  selection: monotonic_interval
++  certification_samples_per_axis: 17
++  minimum_abs_gain: 0.05
++  inverse_tolerance: 1.0e-6
++  endpoint_margin_fraction: 0.02
++  n_samples: 361
++  min_u_width: 0.3
++  table_samples_per_axis: 65
++
++sampling:
++  domain: output
++  shape: [64, 64]
++  include_endpoints: true
++
++edge_validation:
++  samples: 9
++
++matching_rule: span
++tasks_output_tolerance: 100.0
+diff --git a/configs/v2/production_astar_smoke.yaml b/configs/v2/production_astar_smoke.yaml
+new file mode 100644
+index 0000000..ff6bf00
+--- /dev/null
++++ b/configs/v2/production_astar_smoke.yaml
+@@ -0,0 +1,77 @@
++architecture_version: 2
++result_schema_version: 2
++production_schema_version: 1
++planning_space: output
++seed: 20260804
++
++study:
++  name: production_monte_carlo_astar
++  stage: smoke
++  sample_bank: null
++  objective_cost: actuator_travel
++
++search:
++  algorithm: astar
++  heuristic: input_euclidean
++
++execution:
++  workers: 1
++  tasks_parallel_within_mechanism: false
++  numerical_threads_per_worker: 1
++  checkpoint_unit: mechanism_pair
++  atomic_shards: true
++  resume: true
++  max_estimated_memory_fraction: 0.65
++  require_override_above_limit: true
++  memory_override: false
++
++population:
++  smoke_mechanisms: 2
++  calibration_mechanisms: 8
++  variance_pilot_mechanisms: 50
++  minimum_production_mechanisms: 100
++  maximum_production_mechanisms: 500
++  production_batch_size: 25
++  candidate_tasks_per_mechanism: [8, 12, 16]
++  tasks_per_mechanism: 2
++  candidate_pool_multiplier: 3
++  confirmation_fraction: 0.15
++  candidate_resolutions: [8, 12, 16]
++  production_shape_n: 8
++
++stopping:
++  minimum_mechanisms: 2
++  batch_size: 2
++  maximum_mechanisms: 8
++  confidence_level: 0.95
++  target_ci_half_width_log_ratio: 0.50
++  stable_batches_required: 1
++  max_relative_estimate_change: 0.50
++  hierarchical_bootstrap_samples: 40
++  hierarchical_bootstrap_seed: 0
++
++visualization:
++  production_path_samples: 1
++  render_during_search: false
++  generate_canvas_after_run: true
++
++branch:
++  selection: monotonic_interval
++  certification_samples_per_axis: 9
++  minimum_abs_gain: 0.05
++  inverse_tolerance: 1.0e-6
++  endpoint_margin_fraction: 0.05
++  n_samples: 64
++  min_u_width: 0.3
++  table_samples_per_axis: 17
++
++sampling:
++  domain: output
++  shape: [8, 8]
++  include_endpoints: true
++
++edge_validation:
++  samples: 5
++
++matching_rule: span
++tasks_output_tolerance: 100.0
+diff --git a/docs/software/architecture/adr/ADR-018-astar-actuator-travel-heuristic.md b/docs/software/architecture/adr/ADR-018-astar-actuator-travel-heuristic.md
+new file mode 100644
+index 0000000..303614e
+--- /dev/null
++++ b/docs/software/architecture/adr/ADR-018-astar-actuator-travel-heuristic.md
+@@ -0,0 +1,39 @@
++# ADR-018 — A* heuristic for actuator-travel production campaigns
++
++**Status:** Accepted for Sprint V2.11
++
++## Context
++
++V2.10 used Dijkstra with the `actuator_travel` objective on the shared output
++lattice. V2.11 must change only the solver while retaining exact optimality and
++the frozen V2.10 scientific basis.
++
++## Decision
++
++A* uses the input-Euclidean heuristic
++
++\[
++h(u)=\lVert u-u_g\rVert_2.
++\]
++
++The production branch chart is bounded and nonperiodic. Each graph edge is
++weighted by Euclidean actuator displacement. By the triangle inequality, the
++straight-line actuator displacement to the goal is no greater than the cost of
++any graph path to the goal. The heuristic is admissible and consistent.
++
++The configuration contract is strict:
++
++- `dijkstra` permits only `zero` or an omitted heuristic;
++- `astar` requires `input_euclidean`;
++- solver lists remain forbidden;
++- A* pilot and production require a Dijkstra reference run;
++- A* confirmation requires the frozen V2.10 confirmation-subset file.
++
++## Consequences
++
++- A* may be compared with Dijkstra on identical graphs, tasks, costs, and IDs.
++- Closed nodes do not need reopening under the consistent heuristic.
++- A* and Dijkstra must return identical optimal costs; any disagreement blocks
++  the campaign.
++- The A* campaign replays the completed Dijkstra population and does not use an
++  independent sequential stop.
+diff --git a/docs/software/planning/ACTIVE_SPRINT.md b/docs/software/planning/ACTIVE_SPRINT.md
+index 7b0815b..3259110 100644
+--- a/docs/software/planning/ACTIVE_SPRINT.md
++++ b/docs/software/planning/ACTIVE_SPRINT.md
+@@ -1,6 +1,6 @@
+ # Active sprint
+ 
+-**Current focus:** Review of [Sprint V2.10 Dijkstra production evidence](../experiments/reports/V2_10_PRODUCTION_DIJKSTRA_SUMMARY.md). Later A\* (and other solvers) reuse the frozen bank `configs/v2/sample_banks/production_v1.json` — see [Sequenced Search-Algorithm Expansion](../architecture/notes/PROJECT_NOTE_FUTURE_SEARCH_ALGORITHMS.md).
++**Current focus:** [Sprint V2.11 — A* Paired Campaign](sprints/v2/SPRINT_V2_11_ASTAR_PAIRED_CAMPAIGN.md), reusing the immutable V2.10 bank, completed production IDs, and frozen high-resolution confirmation subset.
+ 
+ **Completed:** V2.0, V2.1, V2.2, V2.3, V2.4, V2.5, V2.6, V2.8, V2.9, V2.10
+-**Held:** [Sprint V2.7 — 3R Planar Extension](sprints/v2/SPRINT_V2_7_3R_EXTENSION.md) (deferred until trusted 2R production evidence is reviewed)
++**Held:** [Sprint V2.7 — 3R Planar Extension](sprints/v2/SPRINT_V2_7_3R_EXTENSION.md) (deferred until trusted 2R solver evidence is reviewed)
+diff --git a/docs/software/planning/sprints/v2/README.md b/docs/software/planning/sprints/v2/README.md
+index 4ce6918..06ad948 100644
+--- a/docs/software/planning/sprints/v2/README.md
++++ b/docs/software/planning/sprints/v2/README.md
+@@ -33,9 +33,9 @@ V2.0 Contract + V1 baseline
+                                             └── V2.8 Shared-Q paired study
+                                                   └── V2.9 U-distance-only paired study
+                                                         └── V2.10 Production Monte Carlo (Dijkstra)
+-                                                              └── evidence review
+-                                                                    └── (deferred) V2.7 3R extension
+-                                                                    └── later A* campaign on frozen bank
++                                                              └── V2.11 paired A* campaign
++                                                                    └── paired solver evidence review
++                                                                          └── (deferred) V2.7 3R extension
+ ```
+ 
+ V2.1 and early V2.2 design work may overlap after ADR acceptance, but V2.3 implementation must not begin until both contracts are stable.
+@@ -53,7 +53,8 @@ V2.1 and early V2.2 design work may overlap after ADR acceptance, but V2.3 imple
+ | Shared-Q pair invariants and pure-Q null controls pass | V2.8 interpretation |
+ | V2.8 2R evidence reviewed | V2.9 U-distance-only revision |
+ | V2.9 U-distance diagnostic reviewed | V2.10 Dijkstra production Monte Carlo |
+-| V2.10 production evidence reviewed | 3R implementation (deferred) and later A* campaign |
++| V2.10 production evidence reviewed | V2.11 paired A* campaign |
++| V2.11 paired solver evidence reviewed | 3R implementation (deferred) |
+ 
+ ## Scope boundary
+ 
+diff --git a/docs/software/planning/sprints/v2/SPRINT_V2_11_ASTAR_PAIRED_CAMPAIGN.md b/docs/software/planning/sprints/v2/SPRINT_V2_11_ASTAR_PAIRED_CAMPAIGN.md
+new file mode 100644
+index 0000000..98d88ab
+--- /dev/null
++++ b/docs/software/planning/sprints/v2/SPRINT_V2_11_ASTAR_PAIRED_CAMPAIGN.md
+@@ -0,0 +1,173 @@
++# Sprint V2.11 — A* Paired Campaign
++
++**Status:** Planned / implementation patch ready
++**Depends on:** completed V2.10 Dijkstra production package
++**Primary solver:** A* only
++**Reference solver:** frozen V2.10 Dijkstra artifacts; Dijkstra is not rerun inside this campaign
++
++## Objective
++
++Run A* on exactly the scientific basis frozen by V2.10, changing only the graph
++solver and its heuristic. The campaign answers two paired questions:
++
++1. Does the four-bar versus span-matched gearbox expansion effect persist under
++   informed exact search?
++2. How much does the admissible heuristic reduce work for each mechanism family
++   relative to the already completed Dijkstra reference?
++
++## Frozen basis
++
++V2.11 must reuse without regeneration:
++
++- `configs/v2/sample_banks/production_v1.json`;
++- sample-bank digest `0216920c5703a2d74992171054c9fbdec75927ce4af49909f3b19020a7ccdf20`;
++- production resolution `64 x 64`;
++- task count `K=8`;
++- objective `actuator_travel`;
++- all branch, graph, overlay, edge-validation, and tie-breaking semantics;
++- the exact completed mechanism IDs in `results/v2_10_production`;
++- the exact frozen confirmation IDs in
++  `results/v2_10_confirmation/confirmation_subset.json`.
++
++The A* production campaign does **not** apply an independent sequential stop.
++It replays every completed Dijkstra production mechanism so solver comparisons
++remain fully paired.
++
++## Heuristic contract
++
++For actuator-travel edge cost, V2.11 uses
++`input_euclidean`:
++
++\[
++h(u)=\lVert u-u_g\rVert_2.
++\]
++
++The V2 branch chart is bounded and nonperiodic. Edge costs are Euclidean input
++increments, so straight-line input distance is a lower bound on every graph
++path and satisfies the triangle inequality. The heuristic is therefore
++admissible and consistent for this campaign.
++
++A* release gates:
++
++- configuration rejects every other heuristic;
++- A* and Dijkstra return the same optimal cost on deterministic smoke fixtures;
++- repeated A* runs produce identical paths and counters;
++- manifest records solver and heuristic IDs;
++- production rows record heuristic evaluations, stale entries, generated nodes,
++  expansions, runtime, and optimal cost.
++
++## Stages
++
++### V2-1101 — A* smoke
++
++Run `configs/v2/production_astar_smoke.yaml` and verify:
++
++- shared-Q pair invariants;
++- 100% task feasibility;
++- Dijkstra/A* optimal-cost equality on the smoke fixture;
++- deterministic A* outputs;
++- correct solver/heuristic metadata.
++
++### V2-1102 — Paired pilot
++
++Run `configs/v2/production_astar_pilot.yaml` against the 50 completed mechanism
++IDs in `results/v2_10_pilot`.
++
++Report:
++
++- A* four-bar/gearbox mechanism effect;
++- expansion reduction relative to Dijkstra by mechanism family;
++- optimal-cost agreement failures, which are campaign blockers;
++- runtime and heuristic-call distributions.
++
++### V2-1103 — Paired production
++
++Run `configs/v2/production_astar.yaml` against the completed IDs in
++`results/v2_10_production` (161 in the V2.10 closeout package).
++
++Do not stop early. Complete the full Dijkstra reference set.
++
++### V2-1104 — Frozen high-resolution confirmation
++
++Run `configs/v2/production_astar_confirmation.yaml` at `96 x 96`, reusing the
++15 mechanism IDs frozen before V2.10 confirmation search.
++
++### Campaign commands
++
++```bash
++python scripts/run_v2_production.py \
++  --config configs/v2/production_astar_smoke.yaml \
++  --run-id v2_11_astar_smoke
++
++python scripts/run_v2_production.py \
++  --config configs/v2/production_astar_pilot.yaml \
++  --run-id v2_11_astar_pilot
++
++python scripts/run_v2_production.py \
++  --config configs/v2/production_astar.yaml \
++  --run-id v2_11_astar_production
++
++python scripts/run_v2_production.py \
++  --config configs/v2/production_astar_confirmation.yaml \
++  --run-id v2_11_astar_confirmation
++
++python scripts/compare_v2_solver_campaigns.py \
++  --dijkstra-run results/v2_10_production \
++  --astar-run results/v2_11_astar_production \
++  --output results/v2_11_astar_production/reports/solver_comparison.json
++```
++
++The production runner also writes the comparison report automatically when
++`study.reference_run` is configured; the explicit comparison command is kept
++for reproducible regeneration and audit.
++
++### V2-1105 — Solver comparison report
++
++Join Dijkstra and A* rows by:
++
++- sample-bank digest;
++- mechanism-pair ID;
++- mechanism side;
++- task ID;
++- graph shape;
++- objective ID.
++
++Primary paired quantities:
++
++\[
++\Delta_{A^*-D}
++=
++\log\!\left(\frac{N_{fb,A^*}+1}{N_{gb,A^*}+1}\right)
++-
++\log\!\left(\frac{N_{fb,D}+1}{N_{gb,D}+1}\right),
++\]
++
++and mechanism-specific heuristic savings
++
++\[
++S_m=1-\frac{N_{expanded,A^*}+1}{N_{expanded,D}+1}.
++\]
++
++Inference remains mechanism-clustered. Tasks are nested observations, not iid
++samples.
++
++## Exit criteria
++
++V2.11 is complete when:
++
++1. all A* configs are single-solver and use `input_euclidean`;
++2. the bank digest and reference mechanism IDs match V2.10 exactly;
++3. A* and Dijkstra optimal costs agree for every paired feasible query;
++4. production completes all reference IDs without an independent stop;
++5. confirmation reuses the frozen 15-ID subset at `96 x 96`;
++6. a report separates the mechanism effect under A* from the heuristic savings
++   relative to Dijkstra;
++7. the frozen bank remains byte-for-byte unchanged.
++
++## Out of scope
++
++- weighted or anytime A*;
++- bidirectional search;
++- PRM, RRT, OMPL, or any sampled roadmap/tree construction;
++- new mechanisms, tasks, resolutions, objectives, or bank regeneration;
++- workers greater than one unless separately requalified.
+diff --git a/scripts/compare_v2_solver_campaigns.py b/scripts/compare_v2_solver_campaigns.py
+new file mode 100755
+index 0000000..eea2636
+--- /dev/null
++++ b/scripts/compare_v2_solver_campaigns.py
+@@ -0,0 +1,34 @@
++#!/usr/bin/env python3
++"""Write the paired V2.11 Dijkstra/A* comparison JSON."""
++
++from __future__ import annotations
++
++import argparse
++import json
++from pathlib import Path
++
++from inequality_mechanisms.experiments.v2_solver_comparison import (
++    compare_exact_solver_runs,
++)
++
++
++def main() -> int:
++    parser = argparse.ArgumentParser()
++    parser.add_argument("--dijkstra-run", type=Path, required=True)
++    parser.add_argument("--astar-run", type=Path, required=True)
++    parser.add_argument("--output", type=Path, required=True)
++    parser.add_argument("--cost-tolerance", type=float, default=1.0e-10)
++    args = parser.parse_args()
++    payload = compare_exact_solver_runs(
++        args.dijkstra_run,
++        args.astar_run,
++        cost_tolerance=args.cost_tolerance,
++    )
++    args.output.parent.mkdir(parents=True, exist_ok=True)
++    args.output.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n")
++    print(args.output)
++    return 0
++
++
++if __name__ == "__main__":
++    raise SystemExit(main())
+diff --git a/scripts/run_v2_production.py b/scripts/run_v2_production.py
+old mode 100644
+new mode 100755
+index 4c4f7b5..98e2ed0
+--- a/scripts/run_v2_production.py
++++ b/scripts/run_v2_production.py
+@@ -1,5 +1,5 @@
+ #!/usr/bin/env python3
+-"""Run a Version 2 Dijkstra production Monte Carlo campaign."""
++"""Run a Version 2 single-solver production Monte Carlo campaign."""
+ 
+ from __future__ import annotations
+ 
+@@ -20,7 +20,7 @@ from inequality_mechanisms.experiments.v2_production_runner import (  # noqa: E4
+ 
+ app = typer.Typer(
+     add_completion=False,
+-    help="Run a Version 2 Dijkstra production Monte Carlo config.",
++    help="Run a Version 2 single-solver production Monte Carlo config.",
+ )
+ 
+ 
+diff --git a/src/inequality_mechanisms/experiments/v2_production_analysis.py b/src/inequality_mechanisms/experiments/v2_production_analysis.py
+index 3ba3e6f..45bdd6a 100644
+--- a/src/inequality_mechanisms/experiments/v2_production_analysis.py
++++ b/src/inequality_mechanisms/experiments/v2_production_analysis.py
+@@ -210,6 +210,10 @@ def analyze_production_trials(
+     min_accepted_tasks: int = 1,
+ ) -> dict[str, Any]:
+     """Aggregate trial rows into mechanism summaries and precision reports."""
++    algorithms = {str(row.get("algorithm")) for row in trials if row.get("algorithm")}
++    if len(algorithms) > 1:
++        raise ValueError(f"production analysis requires one solver, got {algorithms}")
++    algorithm = next(iter(algorithms), "dijkstra")
+     analysis_rows: list[dict[str, Any]] = []
+     for row in trials:
+         if not row.get("found"):
+@@ -219,7 +223,7 @@ def analyze_production_trials(
+                 "mechanism_id": row.get("mechanism_pair_id"),
+                 "task_id": row.get("task_id"),
+                 "mechanism": row.get("mechanism"),
+-                "algorithm": row.get("algorithm", "dijkstra"),
++                "algorithm": row.get("algorithm", algorithm),
+                 "cost_type": row.get("cost_type", "actuator_travel"),
+                 "found": True,
+                 "n_expanded": row.get("n_expanded"),
+@@ -232,21 +236,21 @@ def analyze_production_trials(
+     summaries, exclusions = mechanism_level_effects(
+         analysis_rows,
+         metric="log_expansion_ratio",
+-        algorithm="dijkstra",
++        algorithm=algorithm,
+         cost_type="actuator_travel",
+         min_accepted_tasks=min_accepted_tasks,
+     )
+     cost_summaries, _ = mechanism_level_effects(
+         analysis_rows,
+         metric="optimal_cost_diff",
+-        algorithm="dijkstra",
++        algorithm=algorithm,
+         cost_type="actuator_travel",
+         min_accepted_tasks=min_accepted_tasks,
+     )
+     path_u_summaries, _ = mechanism_level_effects(
+         analysis_rows,
+         metric="path_length_u_diff",
+-        algorithm="dijkstra",
++        algorithm=algorithm,
+         cost_type="actuator_travel",
+         min_accepted_tasks=min_accepted_tasks,
+     )
+@@ -299,6 +303,7 @@ def analyze_production_trials(
+     )
+     return {
+         "primary_metric": "log_expansion_ratio",
++        "algorithm": algorithm,
+         "mechanism_summaries": summaries,
+         "cost_summaries": cost_summaries,
+         "path_length_u_summaries": path_u_summaries,
+diff --git a/src/inequality_mechanisms/experiments/v2_production_config.py b/src/inequality_mechanisms/experiments/v2_production_config.py
+index 912aa88..df04217 100644
+--- a/src/inequality_mechanisms/experiments/v2_production_config.py
++++ b/src/inequality_mechanisms/experiments/v2_production_config.py
+@@ -2,7 +2,8 @@
+ 
+ Production configs are distinct from diagnostic :class:`V2ExperimentConfig`
+ and shared-Q study configs. They require a scalar ``search.algorithm`` and
+-reject solver lists. V2.10 science configs accept only ``dijkstra``.
++reject solver lists. V2.10 freezes Dijkstra; V2.11 adds a separately configured
++A* campaign while preserving the one-solver-per-campaign rule.
+ """
+ 
+ from __future__ import annotations
+@@ -35,6 +36,7 @@ ProductionStageName = Literal[
+ ]
+ MatchingRuleName = Literal["span"]
+ CostName = Literal["actuator_travel"]
++HeuristicName = Literal["zero", "input_euclidean"]
+ 
+ 
+ class V2ProductionConfigError(ValueError):
+@@ -46,7 +48,21 @@ class V2ProductionSearchConfig(BaseModel):
+ 
+     model_config = ConfigDict(extra="forbid")
+ 
+-    algorithm: Literal["dijkstra"]
++    algorithm: Literal["dijkstra", "astar"]
++    heuristic: HeuristicName | None = None
++
++    @model_validator(mode="after")
++    def _solver_heuristic_contract(self) -> V2ProductionSearchConfig:
++        if self.algorithm == "dijkstra":
++            if self.heuristic not in {None, "zero"}:
++                raise ValueError("Dijkstra production requires heuristic: zero or null")
++        elif self.heuristic != "input_euclidean":
++            raise ValueError("A* production requires heuristic: input_euclidean")
++        return self
++
++    @property
++    def resolved_heuristic(self) -> HeuristicName:
++        return "zero" if self.algorithm == "dijkstra" else "input_euclidean"
+ 
+ 
+ class V2ProductionExecutionConfig(BaseModel):
+@@ -74,7 +90,8 @@ class V2ProductionExecutionConfig(BaseModel):
+     def _serial_tasks(cls, value: bool) -> bool:
+         if value:
+             raise ValueError(
+-                "execution.tasks_parallel_within_mechanism must be false in V2.10"
++                "execution.tasks_parallel_within_mechanism must be false "
++                "in production campaigns"
+             )
+         return value
+ 
+@@ -185,10 +202,15 @@ class V2ProductionStudyMeta(BaseModel):
+ 
+     model_config = ConfigDict(extra="forbid")
+ 
+-    name: Literal["production_monte_carlo_dijkstra"] = "production_monte_carlo_dijkstra"
++    name: Literal[
++        "production_monte_carlo_dijkstra",
++        "production_monte_carlo_astar",
++    ] = "production_monte_carlo_dijkstra"
+     stage: ProductionStageName = "smoke"
+     sample_bank: str | None = None
+     calibration_decisions: str | None = None
++    reference_run: str | None = None
++    confirmation_subset: str | None = None
+     objective_cost: CostName = "actuator_travel"
+ 
+ 
+@@ -232,6 +254,28 @@ class V2ProductionConfig(BaseModel):
+             raise ValueError(
+                 "production Monte Carlo currently requires 2R sampling.shape"
+             )
++        expected_name = f"production_monte_carlo_{self.search.algorithm}"
++        if self.study.name != expected_name:
++            raise ValueError(
++                f"study.name must be {expected_name!r} for "
++                f"search.algorithm={self.search.algorithm!r}"
++            )
++        if self.search.algorithm == "astar":
++            if self.study.stage in {"variance_pilot", "production"}:
++                if not self.study.reference_run:
++                    raise ValueError(
++                        "A* pilot/production requires study.reference_run so the "
++                        "Dijkstra mechanism IDs are replayed exactly"
++                    )
++            if self.study.stage == "high_resolution_confirmation":
++                if not self.study.reference_run:
++                    raise ValueError(
++                        "A* confirmation requires the V2.10 confirmation reference run"
++                    )
++                if not self.study.confirmation_subset:
++                    raise ValueError(
++                        "A* confirmation requires study.confirmation_subset from V2.10"
++                    )
+         return self
+ 
+ 
+@@ -241,13 +285,12 @@ def _reject_solver_lists(raw: dict[str, Any]) -> None:
+         return
+     if "algorithms" in search:
+         raise V2ProductionConfigError(
+-            "search.algorithms lists are forbidden; "
+-            "use scalar search.algorithm: dijkstra"
++            "search.algorithms lists are forbidden; use one scalar search.algorithm"
+         )
+     algorithm = search.get("algorithm")
+-    if algorithm is not None and algorithm != "dijkstra":
++    if algorithm is not None and algorithm not in {"dijkstra", "astar"}:
+         raise V2ProductionConfigError(
+-            "V2.10 production configs require search.algorithm: dijkstra, "
++            "production configs require search.algorithm in {'dijkstra', 'astar'}, "
+             f"got {algorithm!r}"
+         )
+ 
+@@ -302,7 +345,10 @@ def is_v2_production_mapping(raw: dict[str, Any]) -> bool:
+     study = raw.get("study")
+     if not isinstance(study, dict):
+         return False
+-    return study.get("name") == "production_monte_carlo_dijkstra"
++    return study.get("name") in {
++        "production_monte_carlo_dijkstra",
++        "production_monte_carlo_astar",
++    }
+ 
+ 
+ def stage_mechanism_count(config: V2ProductionConfig, stage: str | None = None) -> int:
+diff --git a/src/inequality_mechanisms/experiments/v2_production_runner.py b/src/inequality_mechanisms/experiments/v2_production_runner.py
+index 6a9594a..3b07bf6 100644
+--- a/src/inequality_mechanisms/experiments/v2_production_runner.py
++++ b/src/inequality_mechanisms/experiments/v2_production_runner.py
+@@ -1,4 +1,4 @@
+-"""Resumable Dijkstra production Monte Carlo runner (V2-905–V2-911)."""
++"""Resumable single-solver production Monte Carlo runner (V2.10–V2.11)."""
+ 
+ from __future__ import annotations
+ 
+@@ -47,6 +47,9 @@ from inequality_mechanisms.experiments.v2_production_preflight import (
+     assert_preflight_allowed,
+     memory_preflight,
+ )
++from inequality_mechanisms.experiments.v2_solver_comparison import (
++    compare_exact_solver_runs,
++)
+ from inequality_mechanisms.experiments.v2_production_sample_bank import (
+     V2SampleBank,
+     build_v2_sample_bank,
+@@ -159,8 +162,15 @@ def _validate_resume(
+     if not manifest_path.is_file():
+         raise FileNotFoundError(f"cannot resume without manifest: {manifest_path}")
+     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+-    if manifest.get("solver_id") != "dijkstra":
++    if manifest.get("solver_id") != config.search.algorithm:
+         raise ValueError("resume solver_id mismatch")
++    expected_heuristic = (
++        None
++        if config.search.algorithm == "dijkstra"
++        else config.search.resolved_heuristic
++    )
++    if manifest.get("heuristic_id") != expected_heuristic:
++        raise ValueError("resume heuristic_id mismatch")
+     if int(manifest.get("production_schema_version", -1)) != PRODUCTION_SCHEMA_VERSION:
+         raise ValueError("resume production schema mismatch")
+     if manifest.get("sample_bank_digest") != bank.digest:
+@@ -444,9 +454,13 @@ def run_v2_production(
+                 "package_kind": "production_monte_carlo",
+                 "stage": stage_name,
+                 "status": "running",
+-                "solver_id": "dijkstra",
++                "solver_id": config.search.algorithm,
+                 "solver_schema_version": 1,
+-                "heuristic_id": None,
++                "heuristic_id": (
++                    None
++                    if config.search.algorithm == "dijkstra"
++                    else config.search.resolved_heuristic
++                ),
+                 "production_schema_version": PRODUCTION_SCHEMA_VERSION,
+                 "sample_bank_digest": sample_bank.digest,
+                 "sample_bank_version": sample_bank.schema_version,
+@@ -454,6 +468,8 @@ def run_v2_production(
+                 "code_revision": revision.get("git_commit"),
+                 "grid_anisotropy_limitation": GRID_ANISOTROPY_LIMITATION,
+                 "objective_id": "actuator_travel",
++                "reference_run": config.study.reference_run,
++                "confirmation_subset_source": config.study.confirmation_subset,
+             },
+         )
+ 
+@@ -461,6 +477,34 @@ def run_v2_production(
+         raise RuntimeError("sample bank missing after run setup")
+     if export_sample_bank is not None:
+         save_v2_sample_bank(sample_bank, export_sample_bank)
++    reference_ids: list[str] | None = None
++    if config.study.reference_run:
++        reference_dir = Path(config.study.reference_run)
++        reference_manifest_path = reference_dir / "manifest.json"
++        if not reference_manifest_path.is_file():
++            raise FileNotFoundError(
++                f"reference run manifest not found: {reference_manifest_path}"
++            )
++        reference_manifest = json.loads(
++            reference_manifest_path.read_text(encoding="utf-8")
++        )
++        if reference_manifest.get("solver_id") != "dijkstra":
++            raise ValueError("A* reference run must be a Dijkstra campaign")
++        if reference_manifest.get("sample_bank_digest") != sample_bank.digest:
++            raise ValueError("reference run sample-bank digest mismatch")
++        reference_completed, _reference_failed = _shard_status_ids(reference_dir)
++        reference_ids = [
++            m.mechanism_id
++            for m in sample_bank.mechanisms
++            if m.mechanism_id in reference_completed
++        ]
++        if not reference_ids:
++            raise ValueError("reference run has no completed mechanism shards")
++        manifest_path = run_dir / "manifest.json"
++        manifest_payload = json.loads(manifest_path.read_text(encoding="utf-8"))
++        manifest_payload["reference_mechanism_count"] = len(reference_ids)
++        manifest_payload["reference_mechanism_ids"] = reference_ids
++        _atomic_write_json(manifest_path, manifest_payload)
+     if stage_name == "build_sample_bank":
+         manifest = json.loads((run_dir / "manifest.json").read_text(encoding="utf-8"))
+         manifest["status"] = "completed"
+@@ -489,6 +533,16 @@ def run_v2_production(
+         if subset_path.is_file():
+             subset_payload = json.loads(subset_path.read_text(encoding="utf-8"))
+             confirmation_ids = [str(x) for x in subset_payload.get("mechanism_ids", [])]
++        elif config.study.confirmation_subset:
++            source_subset = Path(config.study.confirmation_subset)
++            subset_payload = json.loads(source_subset.read_text(encoding="utf-8"))
++            confirmation_ids = [str(x) for x in subset_payload.get("mechanism_ids", [])]
++            if not confirmation_ids:
++                raise ValueError("configured confirmation subset contains no IDs")
++            copied_payload = dict(subset_payload)
++            copied_payload["reused_from"] = str(source_subset)
++            copied_payload["solver_campaign"] = config.search.algorithm
++            _atomic_write_json(subset_path, copied_payload)
+         else:
+             selected = select_confirmation_subset(
+                 sample_bank, n_mechanisms=n_mech, seed=config.seed
+@@ -507,6 +561,10 @@ def run_v2_production(
+         working_bank = subset_sample_bank(
+             sample_bank, mechanism_ids=confirmation_ids, n_tasks=n_tasks
+         )
++    elif reference_ids is not None:
++        working_bank = subset_sample_bank(
++            sample_bank, mechanism_ids=reference_ids, n_tasks=n_tasks
++        )
+     else:
+         working_bank = subset_sample_bank(
+             sample_bank, n_mechanisms=n_mech, n_tasks=n_tasks
+@@ -661,7 +719,11 @@ def run_v2_production(
+                                 pool.terminate()
+                                 break
+                             _consume_result(_result_from_worker_payload(payload))
+-            if stage_name == "production" and not _INTERRUPT:
++            if (
++                stage_name == "production"
++                and not _INTERRUPT
++                and reference_ids is None
++            ):
+                 interim = merge_production_run(run_dir, config)
+                 precision = interim["analysis"]["precision"]
+                 if precision.get("stop"):
+@@ -711,6 +773,23 @@ def run_v2_production(
+             config,
+             expected_mechanism_ids=[m.mechanism_id for m in working_bank.mechanisms],
+         )
++    if status == "completed" and config.study.reference_run:
++        if summary is None:
++            summary = merge_production_run(run_dir, config)
++        solver_comparison = compare_exact_solver_runs(
++            config.study.reference_run,
++            run_dir,
++        )
++        _atomic_write_json(
++            run_dir / "reports" / "solver_comparison.json",
++            solver_comparison,
++        )
++        summary["solver_comparison"] = {
++            key: value
++            for key, value in solver_comparison.items()
++            if key != "paired_trials"
++        }
++        _atomic_write_json(run_dir / "merged" / "summary.json", summary)
+     if status == "completed" and config.visualization.generate_canvas_after_run:
+         if summary is None:
+             summary = merge_production_run(run_dir, config)
+diff --git a/src/inequality_mechanisms/experiments/v2_production_work_unit.py b/src/inequality_mechanisms/experiments/v2_production_work_unit.py
+index 9bffb4c..adb16fe 100644
+--- a/src/inequality_mechanisms/experiments/v2_production_work_unit.py
++++ b/src/inequality_mechanisms/experiments/v2_production_work_unit.py
+@@ -1,4 +1,4 @@
+-"""One mechanism-pair Dijkstra work unit (V2-904)."""
++"""One mechanism-pair exact-search work unit (V2.10 Dijkstra / V2.11 A*)."""
+ 
+ from __future__ import annotations
+ 
+@@ -39,7 +39,7 @@ from inequality_mechanisms.graphs.pair_invariants import (
+     assert_shared_q_pair_invariants,
+ )
+ from inequality_mechanisms.graphs.query_overlay import QueryOverlayGraph
+-from inequality_mechanisms.search.graph_solver import production_dijkstra_solver
++from inequality_mechanisms.search.graph_solver import production_graph_solver
+ from inequality_mechanisms.search.v2_objectives import (
+     pair_box_scales,
+     resolve_v2_objective,
+@@ -94,7 +94,10 @@ def _pair_experiment_config(
+             shape=list(shape),
+             include_endpoints=True,
+         ),
+-        objective=V2ObjectiveConfig(cost="actuator_travel", heuristic="zero"),
++        objective=V2ObjectiveConfig(
++            cost="actuator_travel",
++            heuristic=config.search.resolved_heuristic,
++        ),
+         edge_validation=config.edge_validation,
+         tasks=V2TasksConfig(
+             source="fixed_output_pairs",
+@@ -102,7 +105,7 @@ def _pair_experiment_config(
+             use_query_overlays=True,
+             pairs=[V2OutputPair(start_q=[0.0, 0.0], goal_q=[1.0, 1.0])],
+         ),
+-        algorithms=["dijkstra"],
++        algorithms=[config.search.algorithm],
+         seed=config.seed,
+         trials=1,
+     )
+@@ -124,9 +127,9 @@ def run_mechanism_pair_work_unit(
+     retain_paths: bool = False,
+     code_revision: str | None = None,
+ ) -> MechanismPairWorkResult:
+-    """Execute all bank tasks serially for one mechanism pair under Dijkstra."""
++    """Execute all bank tasks serially for one mechanism pair and one solver."""
+     graph_shape = tuple(int(x) for x in (shape or tuple(config.sampling.shape)))
+-    solver = production_dijkstra_solver()
++    solver = production_graph_solver(config.search.algorithm)
+     exp_cfg = _pair_experiment_config(config, mechanism, shape=graph_shape)
+     t0 = time.perf_counter()
+     try:
+@@ -245,7 +248,7 @@ def run_mechanism_pair_work_unit(
+                 graph,  # type: ignore[arg-type]
+                 goal_id,
+                 "actuator_travel",
+-                "zero",
++                config.search.resolved_heuristic,
+             )
+             search_t0 = time.perf_counter()
+             result = solver.solve(graph, start_id, goal_id, objective)
+@@ -280,7 +283,7 @@ def run_mechanism_pair_work_unit(
+                 "objective_id": "actuator_travel",
+                 "objective_parameters": {},
+                 "cost_type": "actuator_travel",
+-                "algorithm": "dijkstra",
++                "algorithm": config.search.algorithm,
+                 "start_q": list(map(float, requested.requested_start_q)),
+                 "goal_q": list(map(float, requested.requested_goal_q)),
+                 "requested_start_q": list(map(float, requested.requested_start_q)),
+@@ -296,6 +299,7 @@ def run_mechanism_pair_work_unit(
+                 "n_generated": int(result.n_generated),
+                 "n_reopened": 0,
+                 "n_stale": int(result.n_stale),
++                "n_heuristic_calls": int(result.n_generated),
+                 "reachable_node_count": reachable,
+                 "valid_node_count": valid_count,
+                 "expansion_fraction": expansion_fraction,
+diff --git a/src/inequality_mechanisms/experiments/v2_solver_comparison.py b/src/inequality_mechanisms/experiments/v2_solver_comparison.py
+new file mode 100644
+index 0000000..88162c5
+--- /dev/null
++++ b/src/inequality_mechanisms/experiments/v2_solver_comparison.py
+@@ -0,0 +1,82 @@
++"""Paired Dijkstra/A* comparison for V2.11."""
++
++from __future__ import annotations
++
++import json
++import math
++from pathlib import Path
++from typing import Any
++
++
++def _read_jsonl(path: Path) -> list[dict[str, Any]]:
++    return [json.loads(line) for line in path.read_text().splitlines() if line.strip()]
++
++
++def compare_exact_solver_runs(
++    dijkstra_run: Path | str,
++    astar_run: Path | str,
++    *,
++    cost_tolerance: float = 1.0e-10,
++) -> dict[str, Any]:
++    """Join exact-solver rows and enforce the frozen paired-campaign contract."""
++    droot, aroot = Path(dijkstra_run), Path(astar_run)
++    dman = json.loads((droot / "manifest.json").read_text())
++    aman = json.loads((aroot / "manifest.json").read_text())
++    if dman.get("solver_id") != "dijkstra" or aman.get("solver_id") != "astar":
++        raise ValueError("expected Dijkstra reference and A* campaign manifests")
++    if dman.get("sample_bank_digest") != aman.get("sample_bank_digest"):
++        raise ValueError("solver campaigns use different sample-bank digests")
++    drows = _read_jsonl(droot / "merged" / "trials.jsonl")
++    arows = _read_jsonl(aroot / "merged" / "trials.jsonl")
++    def key(row: dict[str, Any]) -> tuple[Any, ...]:
++        return (
++            row.get("mechanism_pair_id"),
++            row.get("mechanism_id"),
++            row.get("task_id"),
++            tuple(row.get("graph_shape") or ()),
++            row.get("objective_id"),
++        )
++    dmap = {key(row): row for row in drows}
++    amap = {key(row): row for row in arows}
++    if dmap.keys() != amap.keys():
++        raise ValueError("Dijkstra and A* trial keys are not identical")
++    paired: list[dict[str, Any]] = []
++    max_cost_delta = 0.0
++    for trial_key in sorted(dmap, key=str):
++        drow, arow = dmap[trial_key], amap[trial_key]
++        if bool(drow.get("found")) != bool(arow.get("found")):
++            raise ValueError(f"solver feasibility disagreement for {trial_key}")
++        if not drow.get("found"):
++            continue
++        cost_delta = abs(float(drow["optimal_cost"]) - float(arow["optimal_cost"]))
++        max_cost_delta = max(max_cost_delta, cost_delta)
++        if cost_delta > cost_tolerance:
++            raise ValueError(
++                f"optimal-cost disagreement {cost_delta} for {trial_key}"
++            )
++        d_exp = int(drow["n_expanded"])
++        a_exp = int(arow["n_expanded"])
++        paired.append(
++            {
++                "mechanism_pair_id": trial_key[0],
++                "mechanism_id": trial_key[1],
++                "task_id": trial_key[2],
++                "dijkstra_expanded": d_exp,
++                "astar_expanded": a_exp,
++                "heuristic_savings": 1.0 - (a_exp + 1.0) / (d_exp + 1.0),
++                "log_astar_to_dijkstra": math.log((a_exp + 1.0) / (d_exp + 1.0)),
++                "cost_delta": cost_delta,
++            }
++        )
++    mean_savings = (
++        sum(float(row["heuristic_savings"]) for row in paired) / len(paired)
++        if paired
++        else None
++    )
++    return {
++        "sample_bank_digest": dman.get("sample_bank_digest"),
++        "n_paired_trials": len(paired),
++        "max_optimal_cost_delta": max_cost_delta,
++        "mean_heuristic_savings": mean_savings,
++        "paired_trials": paired,
++    }
+diff --git a/src/inequality_mechanisms/search/graph_solver.py b/src/inequality_mechanisms/search/graph_solver.py
+index 04e221a..358d644 100644
+--- a/src/inequality_mechanisms/search/graph_solver.py
++++ b/src/inequality_mechanisms/search/graph_solver.py
+@@ -1,8 +1,8 @@
+ """Narrow graph-solver protocol for sequenced production campaigns.
+ 
+-Sprint V2.10 implements Dijkstra only. Later campaigns may add A* or
+-sampling-based solvers that satisfy the same protocol without changing the
+-production runner's one-solver-per-campaign rule.
++Sprint V2.10 implements Dijkstra and V2.11 adds A*. Each campaign still
++selects exactly one solver so solver effects remain isolated. Sampling-based
++solvers remain deferred behind the same protocol.
+ """
+ 
+ from __future__ import annotations
+@@ -70,6 +70,43 @@ class DijkstraGraphSolver:
+         )
+ 
+ 
++class AStarGraphSolver:
++    """Exact A* using the frozen admissible input-Euclidean heuristic."""
++
++    solver_id = "astar"
++    heuristic_id = "input_euclidean"
++    solver_schema_version = 1
++
++    def solve(
++        self,
++        graph: SearchGraph,
++        start: int,
++        goal: int,
++        objective: V2PlanningObjective,
++        *,
++        record_expanded: bool = False,
++    ) -> SearchResult:
++        from inequality_mechanisms.search.core import best_first_search
++
++        return best_first_search(
++            graph,
++            start,
++            goal,
++            edge_cost=objective.edge_cost,
++            heuristic=objective.heuristic,
++            record_expanded=record_expanded,
++        )
++
++
++def production_graph_solver(algorithm: str) -> GraphSolver:
++    """Resolve the single exact graph solver selected for one campaign."""
++    if algorithm == "dijkstra":
++        return DijkstraGraphSolver()
++    if algorithm == "astar":
++        return AStarGraphSolver()
++    raise ValueError(f"unknown production graph solver {algorithm!r}")
++
++
+ def production_dijkstra_solver() -> DijkstraGraphSolver:
+-    """Return the only solver permitted in the V2.10 production campaign."""
++    """Backward-compatible V2.10 Dijkstra factory."""
+     return DijkstraGraphSolver()
+diff --git a/tests/experiments_v2/test_v2_astar_campaign.py b/tests/experiments_v2/test_v2_astar_campaign.py
+new file mode 100644
+index 0000000..3eb8f88
+--- /dev/null
++++ b/tests/experiments_v2/test_v2_astar_campaign.py
+@@ -0,0 +1,91 @@
++from __future__ import annotations
++
++from pathlib import Path
++
++import numpy as np
++import pytest
++import yaml
++
++from inequality_mechanisms.experiments.v2_production_config import (
++    V2ProductionConfigError,
++    load_v2_production_config,
++    validate_v2_production_config_mapping,
++)
++from inequality_mechanisms.experiments.v2_production_sample_bank import (
++    build_v2_sample_bank,
++)
++from inequality_mechanisms.experiments.v2_production_work_unit import (
++    run_mechanism_pair_work_unit,
++)
++
++REPO = Path(__file__).resolve().parents[2]
++DIJKSTRA = REPO / "configs" / "v2" / "production_dijkstra_smoke.yaml"
++ASTAR = REPO / "configs" / "v2" / "production_astar_smoke.yaml"
++
++
++def test_astar_config_is_single_solver_with_frozen_heuristic() -> None:
++    config = load_v2_production_config(ASTAR)
++    assert config.study.name == "production_monte_carlo_astar"
++    assert config.search.algorithm == "astar"
++    assert config.search.resolved_heuristic == "input_euclidean"
++
++
++def test_astar_zero_heuristic_is_rejected() -> None:
++    raw = yaml.safe_load(ASTAR.read_text())
++    raw["search"]["heuristic"] = "zero"
++    with pytest.raises(V2ProductionConfigError, match="input_euclidean"):
++        validate_v2_production_config_mapping(raw)
++
++
++def test_dijkstra_nonzero_heuristic_is_rejected() -> None:
++    raw = yaml.safe_load(DIJKSTRA.read_text())
++    raw["search"]["heuristic"] = "input_euclidean"
++    with pytest.raises(V2ProductionConfigError, match="Dijkstra"):
++        validate_v2_production_config_mapping(raw)
++
++
++def test_astar_and_dijkstra_return_identical_optimal_costs() -> None:
++    dijkstra = load_v2_production_config(DIJKSTRA)
++    astar = load_v2_production_config(ASTAR)
++    bank = build_v2_sample_bank(dijkstra, n_mechanisms=1, n_tasks=2)
++    mechanism = bank.mechanisms[0]
++    d_result = run_mechanism_pair_work_unit(
++        dijkstra, bank, mechanism, run_id="dijkstra", shape=(8, 8)
++    )
++    a_result = run_mechanism_pair_work_unit(
++        astar, bank, mechanism, run_id="astar", shape=(8, 8)
++    )
++    assert d_result.status == a_result.status == "completed"
++    d_rows = {(r["mechanism_id"], r["task_id"]): r for r in d_result.trials}
++    a_rows = {(r["mechanism_id"], r["task_id"]): r for r in a_result.trials}
++    assert d_rows.keys() == a_rows.keys()
++    for key in d_rows:
++        assert d_rows[key]["found"] == a_rows[key]["found"]
++        assert np.isclose(
++            float(d_rows[key]["optimal_cost"]),
++            float(a_rows[key]["optimal_cost"]),
++            rtol=0.0,
++            atol=1.0e-10,
++        )
++        assert a_rows[key]["solver_id"] == "astar"
++        assert a_rows[key]["heuristic_id"] == "input_euclidean"
++        assert int(a_rows[key]["n_heuristic_calls"]) >= 1
++
++
++def test_production_and_confirmation_reuse_v2_10_artifacts() -> None:
++    production = load_v2_production_config(
++        REPO / "configs" / "v2" / "production_astar.yaml"
++    )
++    confirmation = load_v2_production_config(
++        REPO / "configs" / "v2" / "production_astar_confirmation.yaml"
++    )
++    assert production.study.reference_run == "results/v2_10_production"
++    assert confirmation.study.reference_run == "results/v2_10_confirmation"
++    assert confirmation.study.confirmation_subset == (
++        "results/v2_10_confirmation/confirmation_subset.json"
++    )
++    assert production.study.sample_bank == confirmation.study.sample_bank
++    assert production.population.production_shape_n == 64
++    assert confirmation.population.production_shape_n == 64
++    assert production.population.tasks_per_mechanism == 8
++    assert confirmation.population.tasks_per_mechanism == 8
+diff --git a/tests/experiments_v2/test_v2_production_monte_carlo.py b/tests/experiments_v2/test_v2_production_monte_carlo.py
+index a5d3d2d..5e5f219 100644
+--- a/tests/experiments_v2/test_v2_production_monte_carlo.py
++++ b/tests/experiments_v2/test_v2_production_monte_carlo.py
+@@ -84,10 +84,10 @@ class TestProductionConfig:
+         with pytest.raises(V2ProductionConfigError, match="algorithms lists"):
+             validate_v2_production_config_mapping(raw)
+ 
+-    def test_non_dijkstra_rejected(self) -> None:
++    def test_unknown_solver_rejected(self) -> None:
+         raw = yaml.safe_load(SMOKE_CONFIG.read_text())
+-        raw["search"] = {"algorithm": "astar"}
+-        with pytest.raises(V2ProductionConfigError, match="dijkstra"):
++        raw["search"] = {"algorithm": "not_a_solver"}
++        with pytest.raises(V2ProductionConfigError, match="dijkstra.*astar"):
+             validate_v2_production_config_mapping(raw)
+ 
+     def test_alpha_rejected(self) -> None:
+diff --git a/tests/experiments_v2/test_v2_solver_comparison.py b/tests/experiments_v2/test_v2_solver_comparison.py
+new file mode 100644
+index 0000000..6b1366a
+--- /dev/null
++++ b/tests/experiments_v2/test_v2_solver_comparison.py
+@@ -0,0 +1,50 @@
++from __future__ import annotations
++
++import json
++from pathlib import Path
++
++import pytest
++
++from inequality_mechanisms.experiments.v2_solver_comparison import (
++    compare_exact_solver_runs,
++)
++
++
++def _write_run(root: Path, solver: str, expanded: int, cost: float) -> None:
++    (root / "merged").mkdir(parents=True)
++    (root / "manifest.json").write_text(
++        json.dumps({"solver_id": solver, "sample_bank_digest": "bank"})
++    )
++    row = {
++        "mechanism_pair_id": "m000000",
++        "mechanism_id": "fourbar",
++        "task_id": "t0",
++        "graph_shape": [64, 64],
++        "objective_id": "actuator_travel",
++        "found": True,
++        "optimal_cost": cost,
++        "n_expanded": expanded,
++    }
++    (root / "merged" / "trials.jsonl").write_text(json.dumps(row) + "\n")
++
++
++def test_exact_solver_comparison_checks_cost_and_reports_savings(tmp_path: Path) -> None:
++    dijkstra = tmp_path / "dijkstra"
++    astar = tmp_path / "astar"
++    _write_run(dijkstra, "dijkstra", expanded=100, cost=2.0)
++    _write_run(astar, "astar", expanded=40, cost=2.0)
++    result = compare_exact_solver_runs(dijkstra, astar)
++    assert result["n_paired_trials"] == 1
++    assert result["max_optimal_cost_delta"] == 0.0
++    assert result["mean_heuristic_savings"] == pytest.approx(
++        1.0 - 41.0 / 101.0
++    )
++
++
++def test_exact_solver_comparison_rejects_cost_disagreement(tmp_path: Path) -> None:
++    dijkstra = tmp_path / "dijkstra"
++    astar = tmp_path / "astar"
++    _write_run(dijkstra, "dijkstra", expanded=100, cost=2.0)
++    _write_run(astar, "astar", expanded=40, cost=2.1)
++    with pytest.raises(ValueError, match="optimal-cost disagreement"):
++        compare_exact_solver_runs(dijkstra, astar)

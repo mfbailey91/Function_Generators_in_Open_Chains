@@ -1,0 +1,1253 @@
+--- a/docs/software/PROJECT_PLAN.md
++++ b/docs/software/PROJECT_PLAN.md
+@@ -1,6 +1,6 @@
+ # Inequality Mechanisms — Software Project Plan
+
+ **Repository:** <https://github.com/mfbailey91/Function_Generators_in_Open_Chains>
+-**Planning status:** Version 2 rearchitecture proposed
++**Planning status:** Version 2 2R architecture and V2.10 Dijkstra evidence complete; Experiment B planned / held
+ **Version 1 status:** Preserved as the full-cycle, input-state research baseline
+ ## Objective
+@@ -15,5 +15,7 @@
+ The Version 2 comparison separates three effects:
+ 1. **Sampling effect** — uniform increments in \(\mathcal U\) become nonuniform nodes and edge lengths in \(\mathcal Q\).
+ 2. **Metric and capability effect** — actuator travel, transmission ratio, resolution, torque tendency, and later energy remain mechanism-dependent even on a common uniform-\(\mathcal Q\) graph.
+-3. **Task effect** — in later redundant or constrained manipulators, those fields may influence path and posture selection.
++3. **Task effect** — the query definition determines which portions of the induced metric are exercised. This begins in 2R position-only goal-set planning and becomes richer when 3R and 6R tasks add independently specified orientation.
++
++The evidence program must therefore distinguish a controlled mechanism probe from a representative robot-planning task distribution. A result from one task definition must not be presented as a mechanism-wide effect without naming that task distribution.
+ ## Scope decision
+@@ -177,2 +179,102 @@
+ Any failure is an implementation defect or an undocumented experiment difference.
++
++## Evidence ladder: from mechanism probe to robot task
++
++Version 2 uses a staged task ladder rather than treating every start-goal
++definition as interchangeable.
++
++### Experiment A — centered normalized \(\mathcal Q\)-space probes
++
++**Status:** completed for the V2.10 Dijkstra production campaign; later solvers
++may reuse the same frozen bank.
++
++Experiment A uses:
++
++- a shared uniform-\(\mathcal Q\) graph for each four-bar / span-matched gearbox
++  pair;
++- a fixed known start configuration and a fixed known goal configuration;
++- eight normalized \(\mathcal Q\)-space displacement probes;
++- probe midpoints concentrated near the center of the normalized output box;
++- actuator-travel edge cost;
++- exact point-to-point graph search.
++
++Its estimand is the equal-weight mean mechanism effect over the frozen canonical
++probe set. It is a controlled diagnostic of how the transmission-induced
++actuator metric changes search under fixed graph topology and fixed
++configuration endpoints.
++
++Experiment A does **not** estimate:
++
++- the average effect over uniformly random \(\mathcal Q\) endpoints;
++- the average effect over uniformly random Cartesian positions;
++- workspace coverage;
++- position-only IK choice;
++- planning to a Cartesian goal region;
++- full pose planning.
++
++The authoritative interpretation is
++[`EXPERIMENT_A_CENTERED_Q_PROBES.md`](experiments/protocols/EXPERIMENT_A_CENTERED_Q_PROBES.md).
++
++### Experiment B — 2R Cartesian position goal-region planning
++
++**Status:** accepted future work; design only until the planned sprint is
++activated.
++
++Experiment B changes the query, not the mechanism population:
++
++\[
++\text{known start state } \mathbf q_s
++\longrightarrow
++\mathcal R_X(\mathbf x_g),
++\]
++
++where
++
++\[
++\mathcal R_X(\mathbf x_g)
++=
++\left\{
++\mathbf x:
++\|\mathbf x-\mathbf x_g\|_2\le\epsilon_X
++\right\}.
++\]
++
++The graph goal set is
++
++\[
++V_G
++=
++\left\{
++v:
++f(\mathbf q_v)\in\mathcal R_X(\mathbf x_g)
++\right\}.
++\]
++
++The start Cartesian position is sampled from the task distribution and resolved
++once to a frozen, known start configuration. The goal remains position-only:
++the planner may terminate at any valid graph node in the Cartesian goal region.
++
++The primary task distribution is a **fixed external Cartesian domain** sampled
++uniformly by area and frozen before mechanism search. This gives every mechanism
++the same external exam. Reachability and conditional search performance must be
++reported separately.
++
++A secondary pair-local reachable-workspace distribution may be run as a control
++to estimate planning performance conditional on each mechanism pair's own
++workspace. It must not replace the external-domain primary result.
++
++The authoritative design is
++[`EXPERIMENT_B_CARTESIAN_GOAL_REGION.md`](experiments/protocols/EXPERIMENT_B_CARTESIAN_GOAL_REGION.md).
++
++### Higher-dimensional task roadmap
++
++The illustrative task sequence is:
++
++1. **2R planar:** position-only task \((x,y)\);
++2. **3R planar:** full planar pose \((x,y,\theta)\in SE(2)\);
++3. **6R spatial:** full spatial pose \((x,y,z,R)\in SE(3)\).
++
++This sequence increases task completeness rather than merely adding joints. The
++2R study must establish trusted Cartesian goal-set semantics before 3R or 6R
++claims are made.
+ ## Architecture
+@@ -397,9 +493,28 @@
+ ### V2 evaluation deliverable — HTML run printout
+
+ After V2.6, each Version 2 run package must support a Sprint-6-style HTML printout (`results/<run_id>/index.html`) summarizing manifest metadata, null-control status, trials, failures, branch certificates, diagnostics, and figures. Regenerate with `scripts/generate_v2_canvas.py`. Use this printout (and the controlled 2R study artifacts) to evaluate 2R evidence before any higher-dimension work.
+-### V2-M7 — 3R extension (deferred)
++### V2-M7 — Cartesian position goal-region planning
+
+-**Status: deferred / held.** Extend the proven abstractions to 3R planar planning only after trusted 2R evaluation. First with full pose \((x,y,\phi)\), then with position-only redundant goals.
++**Status: planned / held.** Implement Experiment B for the 2R robot: frozen
++external Cartesian task bank, known start states, position-only goal sets,
++goal-set Dijkstra, reachability accounting, and task-distribution-aware
++statistics.
++
++**Planned sprint:**
++[`SPRINT_V2_12_CARTESIAN_GOAL_REGION_PLANNING.md`](planning/sprints/v2/SPRINT_V2_12_CARTESIAN_GOAL_REGION_PLANNING.md)
++
++### V2-M8 — 3R extension (deferred)
++
++**Status: deferred / held.** Extend the proven abstractions to 3R planar
++planning only after trusted 2R Cartesian goal-region evaluation. The primary 3R
++task is full planar pose \((x,y,\theta)\). Position-only redundant 3R goals may
++follow as a separate control.
+
+ **Sprint:** [`SPRINT_V2_7_3R_EXTENSION.md`](planning/sprints/v2/SPRINT_V2_7_3R_EXTENSION.md) (not in the active execution sequence)
++
++### Beyond Version 2 — 6R spatial pose
++
++After the 3R planar pose formulation is trusted, extend the task-region
++abstraction to full spatial pose in \(SE(3)\). This is a research-program
++milestone, not current implementation scope.
+ ## Migration strategy
+--- a/docs/software/experiments/README.md
++++ b/docs/software/experiments/README.md
+@@ -6,4 +6,9 @@
+ - `schemas/` explains human-readable config and result contracts; Python remains the executable validator.
+ - `reports/` interprets accepted completed runs and links to immutable results.
+
++Current task-definition documents:
++
++- [`EXPERIMENT_A_CENTERED_Q_PROBES.md`](protocols/EXPERIMENT_A_CENTERED_Q_PROBES.md) — retrospective statement of what the V2.10 canonical task bank measured.
++- [`EXPERIMENT_B_CARTESIAN_GOAL_REGION.md`](protocols/EXPERIMENT_B_CARTESIAN_GOAL_REGION.md) — accepted future 2R position-only Cartesian planning design.
++
+ Generated results remain under `results/`, `diagnostics/`, or `artifacts/`; do not copy complete run products into `docs/`.
+--- a/docs/software/experiments/reports/V2_10_PRODUCTION_DIJKSTRA_SUMMARY.md
++++ b/docs/software/experiments/reports/V2_10_PRODUCTION_DIJKSTRA_SUMMARY.md
+@@ -84,4 +84,34 @@
+ | `joint2_dominant` | 161 | −0.0065 |
+ | `near_boundary` | 161 | −0.0056 |
+ | `joint1_dominant` | 161 | −0.0044 |
++
++### Task-set interpretation
++
++The eight tasks above are a frozen **canonical probe set**, not a random sample
++from a population of robot tasks.
++
++- Endpoints are specified as normalized fractions of each mechanism pair's
++  output-coordinate box.
++- Probe midpoints are concentrated near the center of that normalized box.
++- The set deliberately varies displacement length and axis direction while
++  approximately controlling location.
++- The production effect is therefore an equal-weight mean over these eight
++  probes and the sampled mechanism population.
++
++This campaign does not estimate an average over uniformly sampled output
++configurations or uniformly sampled Cartesian positions. The category names
++describe individual displacement probes; they do not identify workspace
++regions.
++
++The comparatively large `medium_diagonal` mean is retained as an unresolved
++observation. It may represent a genuine interaction among task direction,
++length, start-rooted Dijkstra cost basins, and the transmission-induced actuator
++metric. It may also be sensitive to grid anisotropy, deterministic tie handling,
++or other metric-specific effects. One task per category is not sufficient to
++separate these explanations.
++
++See
++[`EXPERIMENT_A_CENTERED_Q_PROBES.md`](../protocols/EXPERIMENT_A_CENTERED_Q_PROBES.md)
++and
++[`PROJECT_NOTE_EXPERIMENT_A_TASK_SET_EFFECT.md`](../../architecture/notes/PROJECT_NOTE_EXPERIMENT_A_TASK_SET_EFFECT.md).
+ ### Descriptor–effect correlations (production)
+--- a/docs/software/planning/BACKLOG.md
++++ b/docs/software/planning/BACKLOG.md
+@@ -6,7 +6,10 @@
+ ## Current backlog
+
+ - **V2 HTML run printout (evaluation tooling):** implemented beside the V2 runner (`v2_canvas.py`, `scripts/generate_v2_canvas.py`). Keep regenerable; do not treat as a substitute for V2.7.
+-- **Sprint V2.7 (3R):** deferred pending 2R evaluation review. See [sprints/v2/SPRINT_V2_7_3R_EXTENSION.md](sprints/v2/SPRINT_V2_7_3R_EXTENSION.md).
++- **Experiment B / Sprint V2.12 — 2R Cartesian goal-region planning:** accepted and planned, but not active. Implement a frozen external Cartesian task bank, known start states, position-only goal sets, goal-set search, reachability reporting, and crossed task/mechanism analysis. See [protocol](../experiments/protocols/EXPERIMENT_B_CARTESIAN_GOAL_REGION.md) and [planned sprint](sprints/v2/SPRINT_V2_12_CARTESIAN_GOAL_REGION_PLANNING.md).
++- **Experiment A task-location atlas:** deferred diagnostic. Translate and reverse selected canonical displacements across the output box only if Experiment B or the same-bank A* campaign indicates that the task-set effect is scientifically useful. Do not promote the current `medium_diagonal` observation into a claim. See [project note](../architecture/notes/PROJECT_NOTE_EXPERIMENT_A_TASK_SET_EFFECT.md).
++- **Sprint V2.7 (3R):** deferred until Experiment B establishes trusted 2R Cartesian goal-set semantics. The primary 3R task is full planar pose \((x,y,\theta)\). See [sprints/v2/SPRINT_V2_7_3R_EXTENSION.md](sprints/v2/SPRINT_V2_7_3R_EXTENSION.md).
++- **6R spatial pose:** research-program milestone after trusted 3R planar pose; not current implementation scope.
+ ## Intake rules
+
+ Add an item only when:
+--- a/docs/software/planning/sprints/v2/README.md
++++ b/docs/software/planning/sprints/v2/README.md
+@@ -10,10 +10,16 @@
+ 8. [Sprint V2.8 — Shared-Q Paired Mechanism Study](SPRINT_V2_8_SHARED_Q_PAIRED_STUDY.md) (completed)
+ 9. [Sprint V2.9 — Shared-Q Paired Mechanism Study (U-distance only)](SPRINT_V2_9_SHARED_Q_PAIRED_STUDY.md) (completed diagnostic)
+ 10. [Sprint V2.10 — Production Monte Carlo Orchestration: Dijkstra Campaign](SPRINT_V2_10_PRODUCTION_MONTE_CARLO_ORCHESTRATION.md) (completed; [evidence report](../../../experiments/reports/V2_10_PRODUCTION_DIJKSTRA_SUMMARY.md))
+-V2.10 is complete. Dijkstra production evidence and the frozen sample bank `configs/v2/sample_banks/production_v1.json` are the handoff for later A* on the same bank. V2.7 remains held pending review of this 2R production evidence.
++11. **Sprint V2.11 — same-bank A\* campaign:** planned separately; must reuse `configs/v2/sample_banks/production_v1.json` and preserve Experiment A semantics.
++12. [Sprint V2.12 — Cartesian Goal-Region Planning](SPRINT_V2_12_CARTESIAN_GOAL_REGION_PLANNING.md) (planned / held)
++
++V2.10 is complete. Dijkstra production evidence and the frozen sample bank are
++the handoff for later A* on the same Experiment A probes. Experiment B is the
++next task-definition stage and does not alter the interpretation of Experiment
++A retroactively.
+ ## Deferred
+
+-- [Sprint V2.7 — 3R Planar Extension](SPRINT_V2_7_3R_EXTENSION.md) — **held** pending review of trusted 2R V2.10 production evidence. Do not start until entry gates below and that review are both satisfied.
++- [Sprint V2.7 — 3R Planar Extension](SPRINT_V2_7_3R_EXTENSION.md) — **held** until Experiment B establishes trusted 2R Cartesian position goal-set semantics.
+ ## Dependency map
+ ```text
+ V2.0 Contract + V1 baseline
+@@ -27,9 +33,12 @@
+                                             └── V2.8 Shared-Q paired study
+                                                   └── V2.9 U-distance-only paired study
+                                                         └── V2.10 Production Monte Carlo (Dijkstra)
+-                                                              └── evidence review
+-                                                                    └── (deferred) V2.7 3R extension
+-                                                                    └── later A* campaign on frozen bank
++                                                              └── Experiment A evidence review
++                                                                    ├── V2.11 A* on frozen Experiment A bank
++                                                                    └── V2.12 Experiment B: 2R Cartesian goal regions
++                                                                          └── Experiment B review
++                                                                                └── (deferred) V2.7 3R planar pose
++                                                                                      └── later 6R spatial pose
+ ```
+ V2.1 and early V2.2 design work may overlap after ADR acceptance, but V2.3 implementation must not begin until both contracts are stable.
+ ## Hard gates
+@@ -44,7 +53,9 @@
+ | Shared-Q pair invariants and pure-Q null controls pass | V2.8 interpretation |
+ | V2.8 2R evidence reviewed | V2.9 U-distance-only revision |
+ | V2.9 U-distance diagnostic reviewed | V2.10 Dijkstra production Monte Carlo |
+-| V2.10 production evidence reviewed | 3R implementation (deferred) and later A* campaign |
++| V2.10 production evidence and Experiment A task semantics reviewed | later A* campaign and Experiment B planning |
++| Goal-set search invariants and fixed Cartesian task bank frozen | Experiment B production |
++| Experiment B reachability and search evidence reviewed | 3R implementation |
+ ## Scope boundary
+
+ Version 2 does not delete the full-cycle formulation. Use:
+--- a/docs/software/experiments/protocols/EXPERIMENT_A_CENTERED_Q_PROBES.md
++++ b/docs/software/experiments/protocols/EXPERIMENT_A_CENTERED_Q_PROBES.md
+@@ -0,0 +1,182 @@
++# Experiment A — Centered normalized Q-space canonical probes
++
++**Status:** retrospective protocol for completed V2.10 Dijkstra evidence
++**Primary report:** `../reports/V2_10_PRODUCTION_DIJKSTRA_SUMMARY.md`
++**Frozen bank:** `configs/v2/sample_banks/production_v1.json`
++
++## Purpose
++
++Experiment A is a controlled mechanism probe. It asks:
++
++> On a shared output-state graph with identical topology and fixed output
++> configuration endpoints, how does the mechanism-specific actuator-travel
++> metric change graph-search effort?
++
++It was designed to isolate a metric effect after earlier studies had mixed
++graph size, topology, sampling, and endpoint effects.
++
++## Mechanism and graph contract
++
++For each certified monotonic four-bar pair:
++
++1. construct one shared uniform-\(\mathcal Q\) graph;
++2. attach the four-bar actuator realization
++   \(\mathbf u_{\mathrm{fb}}=g_{\mathrm{fb}}^{-1}(\mathbf q)\);
++3. attach a span-matched affine gearbox realization;
++4. preserve identical \(\mathbf q\) nodes, adjacency, and forward kinematics;
++5. compute edge cost from raw Euclidean actuator travel;
++6. run the same deterministic search implementation.
++
++The four-bar and gearbox therefore navigate the same output graph. They differ
++in the actuator metric attached to its edges.
++
++## Task definition
++
++The frozen bank contains eight task templates specified by normalized
++start and goal fractions of each pair's output-coordinate box.
++
++For a task \(t\),
++
++\[
++\mathbf q_s^{(t)}
++=
++\mathbf q_{\min}
+++
++\mathbf r_s^{(t)}
++\odot
++(\mathbf q_{\max}-\mathbf q_{\min}),
++\]
++
++\[
++\mathbf q_g^{(t)}
++=
++\mathbf q_{\min}
+++
++\mathbf r_g^{(t)}
++\odot
++(\mathbf q_{\max}-\mathbf q_{\min}).
++\]
++
++The task is a fixed point-to-point configuration query:
++
++\[
++\mathbf q_s^{(t)}
++\longrightarrow
++\mathbf q_g^{(t)}.
++\]
++
++The planner is not allowed to choose an alternative IK posture or a Cartesian
++goal region.
++
++## Why the probes are centered
++
++Most task midpoints satisfy approximately
++
++\[
++\frac{\mathbf r_s+\mathbf r_g}{2}
++\approx
++(0.5,0.5).
++\]
++
++This approximately controls task location while varying:
++
++- displacement length;
++- joint-1 versus joint-2 dominance;
++- diagonal direction;
++- proximity of endpoints to the output bounds.
++
++Centering was a practical controlled-design choice:
++
++- long displacements remain feasible in several directions;
++- endpoint clipping and boundary failures are reduced;
++- displacement structure can be compared without moving every task to a
++  different part of the mechanism map.
++
++It is not a claim that central tasks represent the full workspace.
++
++## Estimand
++
++Let
++
++\[
++\Delta_{mk}
++=
++\log
++\left(
++\frac{N_{\mathrm{fb},mk}+1}
++{N_{\mathrm{gb},mk}+1}
++\right)
++\]
++
++for mechanism pair \(m\) and canonical task \(k\).
++
++The reported mechanism effect is based on:
++
++\[
++\bar\Delta_m
++=
++\frac{1}{K}
++\sum_{k=1}^{K}
++\Delta_{mk},
++\qquad K=8,
++\]
++
++followed by inference over mechanism pairs.
++
++The result therefore applies to the equal-weight frozen probe set. The tasks are
++nested repeated measurements, not independent random draws from a task
++population.
++
++## What Experiment A captures
++
++Experiment A captures:
++
++- a transmission-induced actuator metric on a common output graph;
++- exact known-start / known-goal configuration planning;
++- task sensitivity across selected displacement archetypes;
++- Dijkstra expansion behavior under actuator-travel cost;
++- mechanism-level uncertainty for the frozen probe suite.
++
++## What Experiment A does not capture
++
++Experiment A does not estimate:
++
++- uniform random start and goal configurations in \(\mathcal Q\);
++- uniform random Cartesian positions in \(\mathcal X\);
++- Cartesian goal-set planning;
++- IK posture choice;
++- workspace coverage;
++- obstacle avoidance;
++- 3R planar pose or 6R spatial pose;
++- a global mechanism advantage independent of task distribution.
++
++## Task-set observation
++
++The production report found a substantially more negative mean for the single
++`medium_diagonal` probe than for the other seven probes. This is an observation,
++not an identified effect.
++
++Possible explanations include:
++
++- a real direction-length-location interaction with the actuator metric;
++- start-rooted Dijkstra basin geometry;
++- the fact that the displacement crosses the central portion of the branch;
++- four-connected grid anisotropy;
++- deterministic tie behavior;
++- one-task-per-category sampling;
++- a metric-specific artifact that will not survive Cartesian goal-set planning.
++
++The observation is preserved in
++`../../architecture/notes/PROJECT_NOTE_EXPERIMENT_A_TASK_SET_EFFECT.md`.
++
++## Relationship to Experiment B
++
++Experiment B does not invalidate Experiment A. The experiments answer different
++questions:
++
++- **Experiment A:** what does the mechanism metric do under controlled fixed
++  configuration probes?
++- **Experiment B:** what does the planner experience when asked to reach a
++  Cartesian position region using any valid final posture?
++
++Both results must name their task distribution explicitly.
+--- a/docs/software/experiments/protocols/EXPERIMENT_B_CARTESIAN_GOAL_REGION.md
++++ b/docs/software/experiments/protocols/EXPERIMENT_B_CARTESIAN_GOAL_REGION.md
+@@ -0,0 +1,336 @@
++# Experiment B — 2R Cartesian position goal-region planning
++
++**Status:** accepted design; not active implementation
++**Robot:** planar 2R
++**Task variable:** Cartesian position \((x,y)\), not full pose
++**Primary graph:** shared uniform-\(\mathcal Q\) Version 2 graph
++**Primary objective:** actuator travel
++**Initial solver:** Dijkstra goal-set search
++
++## Research question
++
++> Starting from a known physical robot state, how does a nonlinear transmission
++> change reachability, selected final posture, path cost, and graph-search effort
++> when the robot is asked to reach a Cartesian position region rather than one
++> preselected joint configuration?
++
++Experiment B is the representative 2R planning case. A two-degree-of-freedom
++planar arm can independently specify Cartesian position \((x,y)\), but it cannot
++independently specify end-effector orientation.
++
++## Query semantics
++
++Each task contains:
++
++- a sampled Cartesian start position \(\mathbf x_s\);
++- one frozen valid start configuration \(\mathbf q_s\);
++- the corresponding known actuator state for each mechanism;
++- a sampled Cartesian goal center \(\mathbf x_g\);
++- a Cartesian goal tolerance \(\epsilon_X\).
++
++The goal region is
++
++\[
++\mathcal R_X(\mathbf x_g,\epsilon_X)
++=
++\left\{
++\mathbf x\in\mathbb R^2:
++\|\mathbf x-\mathbf x_g\|_2\le\epsilon_X
++\right\}.
++\]
++
++For graph \(G=(V,E)\), the goal-node set is
++
++\[
++V_G
++=
++\left\{
++v\in V:
++f(\mathbf q_v)\in\mathcal R_X
++\right\}.
++\]
++
++The search begins at one known start state and terminates when the cheapest goal
++node is settled:
++
++\[
++\mathbf q_s
++\longrightarrow
++\operatorname*{arg\,min}_{v\in V_G}
++C(\mathbf q_s,v).
++\]
++
++The goal is position-only. No particular elbow posture, joint endpoint, or
++actuator endpoint is chosen in advance.
++
++## Why the start is frozen but the goal is a set
++
++A robot begins a planning query in a known physical state. The task generator
++may sample the start Cartesian position, but it must resolve that position once
++to a concrete start configuration before either mechanism is searched.
++
++The goal is different: the external task asks the end effector to reach a
++position region. Any valid final posture satisfying that region is acceptable.
++
++This prevents the experiment from manufacturing an arbitrary goal posture that
++the task itself did not require.
++
++## Start IK policy
++
++For each sampled \(\mathbf x_s\):
++
++1. enumerate all continuous 2R IK solutions inside the shared output bounds;
++2. reject the task if no solution is available under the applicable task-domain
++   policy;
++3. select one solution using a frozen pre-search policy;
++4. store all candidates and the selected candidate;
++5. map the selected \(\mathbf q_s\) to each mechanism's unique branch actuator
++   state.
++
++The primary selector should balance feasible IK families rather than always
++choosing elbow-up or elbow-down. A seeded uniform selection over feasible IK
++solutions is acceptable if the chosen index is frozen in the task bank.
++
++The four-bar and gearbox in a pair must receive the same start
++\(\mathbf q_s\).
++
++## Primary task distribution: fixed external Cartesian domain
++
++Define one external task domain
++
++\[
++\mathcal D_X\subset\mathbb R^2
++\]
++
++from robot link lengths, base frame, and an explicit task-design decision. It
++must not be regenerated from each mechanism's observed expansion results.
++
++Sample start and goal centers uniformly by area:
++
++\[
++\mathbf x_s,\mathbf x_g
++\overset{\mathrm{iid}}{\sim}
++\operatorname{UniformArea}(\mathcal D_X),
++\]
++
++subject to a frozen minimum Cartesian separation.
++
++This is the primary design because the external task exists independently of
++the mechanism. Every mechanism receives the same Cartesian task bank.
++
++### Reachability is an outcome
++
++Across the mechanism population, output bounds may produce different reachable
++Cartesian subsets. Therefore Experiment B reports separately:
++
++\[
++P(\text{start feasible}),
++\]
++
++\[
++P(V_G\neq\varnothing),
++\]
++
++and, conditional on a valid paired query,
++
++\[
++\mathbb E[N_{\mathrm{expanded}}\mid\text{paired reachable}].
++\]
++
++Search metrics must not silently discard unreachable tasks without reporting
++coverage.
++
++Within one four-bar / matched-gearbox pair, the shared \(\mathcal Q\) graph and
++shared forward kinematics require identical Cartesian node positions and
++identical goal sets. A reachability mismatch inside a pair is an implementation
++defect.
++
++## Secondary control: pair-local reachable-workspace sampling
++
++An optional control may sample uniformly from each mechanism pair's own
++reachable Cartesian workspace.
++
++This answers:
++
++> Conditional on using the workspace supplied by this pair, how does the
++> transmission change planning?
++
++It does not give every mechanism the same external exam and must not replace the
++fixed-domain primary analysis.
++
++## Uniform Cartesian sampling
++
++Uniformity applies to Cartesian area, not to graph nodes and not to joint
++coordinates.
++
++The task generator must not approximate Cartesian-uniform sampling by drawing
++uniform \(\mathbf q\) and mapping through forward kinematics. That induces a
++Jacobian-weighted Cartesian distribution.
++
++Acceptable generation methods include:
++
++- direct area-uniform sampling from an analytic domain followed by IK
++  feasibility checks;
++- rejection sampling from a documented bounding region;
++- area-weighted sampling from a precomputed Cartesian occupancy
++  representation, with convergence checks.
++
++The generator must record acceptance rates and all rejection reasons.
++
++## Goal-region calibration
++
++The Cartesian radius \(\epsilon_X\) must be calibrated before production.
++
++It should be large enough that the accepted production graph usually contains
++at least one goal node for reachable centers, but small enough that the query
++still represents local Cartesian accuracy rather than a broad workspace sector.
++
++Calibration must report:
++
++- goal-set cardinality distribution;
++- distance from requested goal center to the nearest graph node;
++- empty-goal-set rate by graph resolution;
++- selected-goal residual;
++- sensitivity of expansion effects to candidate radii.
++
++The accepted radius is frozen before production search.
++
++## Search algorithm
++
++### Dijkstra baseline
++
++Dijkstra requires no new heuristic assumption. The search terminates when a
++valid best-known goal node is removed from the queue.
++
++The implementation must support a goal predicate or explicit goal-node set. It
++must not run one separate search per IK goal.
++
++### A* follow-on
++
++A* is blocked until an admissible heuristic to the goal set is documented and
++validated:
++
++\[
++h(v)
++\le
++\min_{g\in V_G}
++d(v,g).
++\]
++
++Raw Cartesian distance is not automatically admissible under actuator-travel
++edge cost. Zero heuristic remains a valid fallback and is equivalent to
++Dijkstra.
++
++## Paired invariants
++
++For each mechanism pair and Cartesian task:
++
++1. the start \(\mathbf q_s\) is identical;
++2. the Cartesian coordinate attached to every shared graph node is identical;
++3. the goal-node set \(V_G\) is identical;
++4. the start-node and goal-set reachability status is identical;
++5. deterministic search semantics are identical;
++6. only the mechanism-specific actuator realization, edge cost, and resulting
++   search order may differ.
++
++## Result schema additions
++
++Each trial must record at minimum:
++
++```text
++experiment_id
++task_distribution_id
++cartesian_domain_id
++task_id
++requested_start_x
++start_ik_candidates_q
++selected_start_ik_index
++selected_start_q
++realized_start_x
++requested_goal_x
++goal_radius_x
++goal_set_node_ids_or_digest
++goal_set_size
++nearest_goal_node_residual_x
++selected_goal_node_id
++selected_goal_q
++selected_goal_u
++selected_goal_x
++selected_goal_residual_x
++start_feasible
++goal_region_reachable
++paired_query_valid
++failure_or_exclusion_reason
++```
++
++Existing search, path-length, mechanism, graph, and provenance fields remain
++required.
++
++## Statistical design
++
++The external Cartesian task bank is shared across mechanism pairs. Tasks and
++mechanisms therefore form a crossed design, not the Experiment A nested-task
++design.
++
++The analysis must distinguish:
++
++- variation among mechanisms;
++- variation among external Cartesian tasks;
++- mechanism-by-task interaction;
++- structural missingness from reachability.
++
++The primary inference should use a crossed hierarchical model or a documented
++two-way cluster/bootstrap procedure. Task rows must not be treated as iid.
++
++Primary reports:
++
++1. external task coverage and paired solve rate;
++2. conditional paired log expansion ratio;
++3. actuator path-length difference;
++4. selected final posture and IK-family frequency;
++5. task-location, separation, and direction diagnostics;
++6. sensitivity to goal radius and graph resolution.
++
++## Task descriptors
++
++Compute pre-search descriptors from the frozen task bank:
++
++- start radius and polar angle;
++- goal radius and polar angle;
++- Cartesian separation;
++- chord direction;
++- distance to analytic robot-workspace boundaries;
++- number of feasible start IK solutions;
++- goal-set cardinality after graph construction.
++
++These are explanatory descriptors. Do not create post-hoc task categories and
++then present them as preregistered primary hypotheses.
++
++## Relationship to Experiment A
++
++Experiment A remains the controlled \(\mathcal Q\)-space metric probe.
++Experiment B asks how the same graph machinery is used for a robot task:
++
++\[
++\text{known state}
++\rightarrow
++\text{Cartesian position region}.
++\]
++
++The Experiment A diagonal observation may motivate exploratory diagnostics, but
++it does not alter Experiment B's uniform external task distribution.
++
++## Exit criteria
++
++Experiment B is scientifically runnable only when:
++
++1. the external Cartesian domain and frozen task-bank schema are accepted;
++2. Cartesian-uniform sampling is validated;
++3. start IK selection is frozen and mechanism-independent;
++4. goal-set Dijkstra matches an exhaustive small-graph oracle;
++5. pair goal-set invariants pass;
++6. goal-radius and resolution sensitivity stabilize;
++7. unreachable tasks are preserved as outcomes;
++8. crossed task/mechanism uncertainty is implemented;
++9. one versioned command reproduces the smoke and production packages;
++10. the report names the task distribution and conditional estimand explicitly.
+--- a/docs/software/architecture/notes/PROJECT_NOTE_EXPERIMENT_A_TASK_SET_EFFECT.md
++++ b/docs/software/architecture/notes/PROJECT_NOTE_EXPERIMENT_A_TASK_SET_EFFECT.md
+@@ -0,0 +1,110 @@
++# Project note — Experiment A task-set effect
++
++**Status:** unresolved observation; non-normative
++**Source:** V2.10 Dijkstra production report
++**Return condition:** revisit only if later evidence suggests explanatory value
++
++## Observation
++
++The frozen Experiment A task set produced materially different mean paired
++expansion effects by task template. The single `medium_diagonal` probe had the
++largest negative mean log expansion ratio:
++
++\[
++\overline{\Delta}_{\text{medium diagonal}}
++\approx -0.0747.
++\]
++
++The overall eight-probe production estimate was approximately:
++
++\[
++\overline{\Delta}_{\text{all probes}}
++\approx -0.0195.
++\]
++
++Task variation was much larger than between-mechanism variation in the V2.10
++variance decomposition.
++
++## Why this is not yet a finding about diagonal tasks
++
++The task bank was deliberately structured:
++
++- one task per named category;
++- normalized \(\mathcal Q\)-space endpoints;
++- midpoints concentrated near the center of the output box;
++- mostly positive movement in both joint coordinates;
++- fixed point-to-point configuration goals;
++- four-connected grid;
++- actuator-travel cost;
++- start-rooted Dijkstra expansion count.
++
++The category effect therefore entangles:
++
++- displacement direction;
++- displacement length;
++- start location;
++- goal location;
++- passage through the central branch region;
++- local actuator gain;
++- Dijkstra cost-ball geometry;
++- grid and tie semantics.
++
++Calling this an "efficient diagonal area" would exceed the evidence.
++
++## Plausible interpretations
++
++The observation may be useful if it reflects:
++
++- alignment between the diagonal displacement and a favorable actuator-metric
++  corridor;
++- complementary transmission weighting across the two axes;
++- reduced low-cost expansion basin for that start-goal chord;
++- a repeatable task-direction effect that survives relocation and reversal.
++
++It may be metrics slop if it reflects:
++
++- one idiosyncratic canonical task;
++- four-connected lattice anisotropy;
++- deterministic tie-breaking;
++- start-versus-goal asymmetry in settled-node count;
++- a feature specific to fixed \(\mathcal Q\) endpoints that disappears under a
++  Cartesian goal set;
++- a finite-resolution interaction.
++
++## Do not expand scope now
++
++Do not add a task atlas to Experiment B's primary scope. Experiment B should use
++its frozen external Cartesian distribution without being tuned around this
++observation.
++
++## Efficient return path
++
++Revisit this note if either:
++
++1. the same-bank A* campaign shows a consistent task-template interaction; or
++2. Experiment B shows a directional or regional Cartesian effect that could be
++   connected to the Experiment A probe.
++
++The smallest useful follow-up is:
++
++1. reverse each canonical task;
++2. translate a fixed displacement vector across feasible \(\mathcal Q\)
++   midpoints;
++3. separate midpoint, length, and direction;
++4. compare Dijkstra and A*;
++5. repeat at the accepted and confirmation resolutions.
++
++Only after those controls should a formal task-effect field be considered:
++
++\[
++\Delta
++=
++\Delta(
++\mathbf m_Q,
++\|\mathbf d_Q\|,
++\angle\mathbf d_Q,
++\text{solver}
++).
++\]
++
++Until then, preserve the observation and make no directional mechanism claim.
+--- a/docs/software/planning/sprints/v2/SPRINT_V2_12_CARTESIAN_GOAL_REGION_PLANNING.md
++++ b/docs/software/planning/sprints/v2/SPRINT_V2_12_CARTESIAN_GOAL_REGION_PLANNING.md
+@@ -0,0 +1,349 @@
++# Sprint V2.12 — Cartesian Goal-Region Planning
++
++**Status:** planned / held; documentation only
++**Experiment:** Experiment B
++**Robot:** planar 2R
++**Task:** known start state to position-only Cartesian goal region
++**Primary solver:** Dijkstra
++**Primary objective:** actuator travel
++
++## Sprint intent
++
++Implement the first representative task-space planning experiment after the
++centered \(\mathcal Q\)-space mechanism probes.
++
++The sprint changes the query semantics from:
++
++\[
++\mathbf q_s\rightarrow\mathbf q_g
++\]
++
++to:
++
++\[
++\mathbf q_s\rightarrow\mathcal R_X(\mathbf x_g).
++\]
++
++It does not change the certified-branch mechanism contract, shared
++uniform-\(\mathcal Q\) graph, span-matched gearbox control, or actuator-travel
++objective.
++
++## Why this sprint exists
++
++Experiment A was a controlled metric probe. A 2R motion planner is more commonly
++asked to navigate to a Cartesian position than to one arbitrarily preselected
++joint configuration.
++
++Experiment B lets the graph choose any valid final posture satisfying the
++position task. It therefore evaluates how the mechanism-induced actuator metric
++affects:
++
++- reachability under a fixed external task distribution;
++- selected IK posture;
++- path cost;
++- node expansions;
++- actuator, output, and Cartesian path geometry.
++
++## Entry gates
++
++Do not activate this sprint until:
++
++1. V2.10 Dijkstra evidence is closed and Experiment A semantics are documented;
++2. the planned same-bank A* campaign has either closed or explicitly recorded
++   why Experiment B may proceed independently;
++3. the shared-\(\mathcal Q\) pair invariant remains green;
++4. exact start query support from V2.6 remains reproducible;
++5. an ADR or contract amendment accepts goal predicates / goal-node sets;
++6. the Experiment B protocol is reviewed.
++
++## Non-goals
++
++This sprint does not include:
++
++- obstacles or collision checking;
++- dynamics or torque limits;
++- continuous local trajectory optimization;
++- Cartesian orientation;
++- 3R or 6R;
++- full-cycle/noninjective mechanisms;
++- adaptive graph refinement;
++- tuning the external task distribution to favor either mechanism;
++- a task-location atlas for the Experiment A diagonal observation.
++
++## Architecture decision required
++
++Before implementation, write an ADR covering:
++
++1. goal-set search API;
++2. deterministic termination semantics;
++3. goal-set result fields;
++4. start-query overlay compatibility;
++5. A* heuristic contract for goal sets;
++6. reachability and exclusion semantics.
++
++The generic search layer should accept either:
++
++```python
++goal_node_ids: Collection[int]
++```
++
++or:
++
++```python
++goal_test: Callable[[int], bool]
++```
++
++without introducing Cartesian knowledge into the search core.
++
++## Work packages
++
++### V2B-001 — Freeze Experiment A interpretation
++
++Add the retrospective Experiment A protocol and task-set project note.
++
++Acceptance:
++
++- V2.10 report states the canonical-probe estimand;
++- the centered midpoint design is explicit;
++- `medium_diagonal` is labeled unresolved;
++- no report calls the eight probes a random task population.
++
++### V2B-002 — Goal-set search contract
++
++Define generic goal-set semantics for Dijkstra and later A*.
++
++Requirements:
++
++- terminate when a valid best-known goal node is settled;
++- return the selected goal node;
++- preserve deterministic tie behavior;
++- reject an empty goal set with a typed status;
++- support single-goal queries as a backward-compatible special case.
++
++Tests:
++
++- single-goal equivalence;
++- two-goal oracle where the cheaper goal is not the closest by node index;
++- deterministic equal-cost goal selection;
++- disconnected goal-set behavior;
++- empty goal-set behavior.
++
++### V2B-003 — Cartesian task-domain contract
++
++Define the fixed external Cartesian domain:
++
++- coordinate frame;
++- analytic or sampled boundary;
++- relation to \(L_1,L_2\);
++- excluded base-near or singular regions, if any;
++- minimum start-goal separation;
++- area-uniform sampling method;
++- seed and schema version.
++
++The domain must be frozen before mechanism search.
++
++Deliverable:
++
++`docs/software/architecture/contracts/V2_CARTESIAN_TASK_DOMAIN.md`
++
++### V2B-004 — Uniform-area Cartesian sampler
++
++Implement direct or rejection-based area-uniform sampling.
++
++Record:
++
++- proposed samples;
++- accepted samples;
++- rejection reason counts;
++- deterministic seed;
++- empirical spatial-uniformity diagnostics.
++
++Tests:
++
++- fixed-seed reproducibility;
++- all accepted points lie in the declared domain;
++- radial/angular occupancy checks against the declared measure;
++- no dependence on mechanism descriptors or search outcomes.
++
++### V2B-005 — Start IK enumeration and frozen selection
++
++For each sampled start position:
++
++- enumerate feasible continuous 2R IK solutions;
++- filter by shared output bounds;
++- select one using the frozen bank policy;
++- record all candidates and selected index;
++- create or reuse the exact start query overlay.
++
++Tests:
++
++- forward residual within tolerance;
++- elbow-family balance under symmetric fixtures;
++- pair receives identical selected \(\mathbf q_s\);
++- no mechanism-cost field influences selection.
++
++### V2B-006 — Cartesian goal-region builder
++
++Build \(V_G\) from graph-node Cartesian coordinates and the frozen goal radius.
++
++Requirements:
++
++- one shared goal-set digest per mechanism pair and task;
++- pair invariants prove identical node membership;
++- record size, nearest-node residual, and connected-component relation to start;
++- distinguish empty goal set from disconnected nonempty goal set.
++
++### V2B-007 — Goal-radius calibration
++
++Evaluate candidate \(\epsilon_X\) values over several graph resolutions.
++
++Decision metrics:
++
++- empty-set rate for analytically reachable goals;
++- goal-set size distribution;
++- selected-goal Cartesian residual;
++- expansion-effect stability;
++- path-cost stability.
++
++Write a decision JSON. Production refuses a missing radius decision.
++
++### V2B-008 — Fixed external task-bank export
++
++Export an immutable Cartesian bank before production search.
++
++Bank fields include:
++
++- task ID;
++- start and goal Cartesian coordinates;
++- start IK candidates and selected candidate;
++- minimum-separation check;
++- domain and sampler versions;
++- seed;
++- digest.
++
++Do not regenerate in place.
++
++### V2B-009 — Result schema and failure taxonomy
++
++Add fields from the Experiment B protocol.
++
++Typed outcomes must include:
++
++- `start_unreachable`;
++- `goal_region_empty`;
++- `goal_region_disconnected`;
++- `paired_query_valid`;
++- `search_failed`;
++- `solved`.
++
++Unreachable tasks remain trial outcomes and are not silently dropped.
++
++### V2B-010 — Crossed statistical analysis
++
++Experiment B shares external tasks across mechanism pairs.
++
++Implement:
++
++- coverage summaries by task and mechanism;
++- conditional paired mechanism effect;
++- task and mechanism random/crossed variance estimates;
++- two-way clustered or crossed bootstrap confidence intervals;
++- sensitivity to structural reachability missingness.
++
++Task rows must not be analyzed as iid.
++
++### V2B-011 — Search and path diagnostics
++
++For representative tasks, render:
++
++- external task domain;
++- start position;
++- goal disk;
++- all goal graph nodes;
++- selected final node and posture;
++- \(\mathcal Q\)-space settled-node field;
++- actuator-cost field;
++- Cartesian path;
++- four-bar / gearbox side-by-side comparison.
++
++### V2B-012 — Pair-local workspace control
++
++After the external-domain primary pipeline is green, optionally add a
++pair-local reachable-workspace task bank.
++
++This control must:
++
++- have a separate experiment ID;
++- use the same goal-set planner;
++- report its different conditional estimand;
++- never be merged into the external-domain primary mean.
++
++### V2B-013 — Production orchestration
++
++Reuse V2.10 lessons:
++
++- generate-only bank stage;
++- hardware and memory calibration;
++- resolution and task-count decisions;
++- frozen confirmation subset;
++- shard retry and failure preservation;
++- sequential precision at the correct clustering unit.
++
++Production begins with Dijkstra. A* is a later solver cell after an admissible
++goal-set heuristic is accepted.
++
++## Primary outputs
++
++1. fixed external Cartesian task bank;
++2. goal-radius and resolution decisions;
++3. paired reachability table;
++4. conditional expansion-effect estimate;
++5. actuator/output/Cartesian path metrics;
++6. selected-goal posture distribution;
++7. crossed task/mechanism uncertainty;
++8. HTML evidence canvas;
++9. explicit comparison to Experiment A without combining estimands.
++
++## Scientific interpretation rules
++
++Allowed:
++
++> Under the frozen external Cartesian position-task distribution, the
++> transmission changed paired reachability-conditioned search effort by ...
++
++Allowed:
++
++> The mechanism changed which valid goal posture was cheapest under the
++> actuator-travel objective.
++
++Not allowed:
++
++> Four-bars reduce planning complexity in general.
++
++Not allowed:
++
++> The Experiment A medium diagonal proves a diagonal Cartesian advantage.
++
++## Exit criteria
++
++Sprint V2.12 is complete when:
++
++1. goal-set Dijkstra passes oracle tests;
++2. the fixed external Cartesian domain is normative;
++3. Cartesian sampling is uniform under the declared area measure;
++4. start IK selection is frozen and paired;
++5. four-bar and gearbox goal-node sets match exactly within every pair;
++6. goal radius and graph resolution have accepted decisions;
++7. unreachable and disconnected tasks remain visible outcomes;
++8. crossed uncertainty is implemented;
++9. a smoke run and production-ready dry run reproduce from one command;
++10. the report distinguishes Experiment A and Experiment B estimands.
++
++## Handoff
++
++After Experiment B review:
++
++1. decide whether the Experiment A task-location atlas is worth running;
++2. promote the trusted goal-region abstraction to 3R planar full-pose tasks
++   \((x,y,\theta)\);
++3. retain 6R \(SE(3)\) pose planning as the later research-program extension.

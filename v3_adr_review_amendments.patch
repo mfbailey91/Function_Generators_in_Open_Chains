@@ -1,0 +1,525 @@
+--- a/docs/software/architecture/adr/ADR-021-v3-planning-problem-contract.md
++++ b/docs/software/architecture/adr/ADR-021-v3-planning-problem-contract.md
+@@ -32,40 +32,117 @@
+ class PhysicalState:
+     u: NDArray[np.float64]
+     q: NDArray[np.float64]
+-    branch_id: str | None = None
++    assembly_state: Mapping[str, Any] = field(default_factory=dict)
+     auxiliary_state: Mapping[str, Any] = field(default_factory=dict)
+ ```
+ 
+ On a certified monotonic branch, \(u = g_m^{-1}(q)\) is unique. The explicit `u` field remains because objectives, diagnostics, and later noninjective mechanisms require it.
+ 
++A `PhysicalState` is valid only when all redundant coordinates describe the same mechanism state:
++
++\[
++\left\|q-g_m(u,\text{assembly state})\right\|
++\le \epsilon_{\mathrm{state}}.
++\]
++
++Callers must not construct unchecked physical states and then allow one subsystem to read \(u\) while another reads an inconsistent \(q\). States are created or certified through `RobotModel`.
++
+ ### Robot model
+ 
+ ```python
++@dataclass(frozen=True)
++class StateCandidate:
++    state: PhysicalState
++    residual: float
++    provenance: Mapping[str, Any] = field(default_factory=dict)
++
++
+ class RobotModel(Protocol):
+     @property
+     def dof(self) -> int: ...
+ 
+-    def input_to_output(self, u) -> NDArray[np.float64]: ...
+-    def output_to_inputs(self, q) -> Sequence[NDArray[np.float64]]: ...
++    def state_from_input(
++        self,
++        u,
++        assembly_state: Mapping[str, Any] | None = None,
++    ) -> PhysicalState: ...
++
++    def states_from_output(
++        self,
++        q,
++    ) -> Sequence[StateCandidate]: ...
++
++    def validate_state(
++        self,
++        state: PhysicalState,
++        tolerance: float,
++    ) -> bool: ...
++
+     def forward_kinematics(self, state: PhysicalState) -> Pose: ...
+     def jacobian_q_to_x(self, state: PhysicalState) -> NDArray[np.float64]: ...
+     def state_within_limits(self, state: PhysicalState) -> bool: ...
+ ```
+ 
+-### Goal, scene, local motion, objective, planner, result
++`states_from_output` returns complete branch-bearing physical candidates rather than actuator vectors alone. This preserves assembly state, inverse residual, and provenance for later noninjective mechanisms.
+ 
+-- `GoalConstraint` is a task predicate (`satisfied`, `residual`, `sample_candidates`), not necessarily one configuration.
++### Goal predicates and candidate generation
++
++`GoalConstraint` defines task semantics only:
++
++```python
++class GoalConstraint(Protocol):
++    def satisfied(self, state: PhysicalState) -> bool: ...
++    def residual(self, state: PhysicalState) -> GoalResidual: ...
++```
++
++Candidate generation is a separate service:
++
++```python
++class GoalStateGenerator(Protocol):
++    def generate(
++        self,
++        robot: RobotModel,
++        goal: GoalConstraint,
++        request: GoalSamplingRequest,
++    ) -> Sequence[StateCandidate]: ...
++```
++
++This separation prevents a task predicate from silently choosing an IK family, discretization, or planner-specific sampling strategy. A valid goal region may exist even when no candidate generator is available.
++
++### Scene, local motion, objective, planner, and result
++
+ - `PlanningScene` validates states and continuous local motions.
+ - `LocalMotionModel.connect` returns a continuous motion or `None`.
+-- `PlanningObjective` evaluates trajectories; endpoint Euclidean cost is allowed only after calibrated approximation at the connection scale.
++- `PlanningObjective` evaluates complete trajectories.
++- An objective used by an incremental or optimizing planner must additionally define compatible motion-cost composition and, when A* or another informed method is used, a documented lower bound.
+ - `Planner.solve(problem) -> PlanningResult` is the sole planner entry; problem definitions must not contain planner-specific fields.
+-- `PlanningResult` carries status, trajectory, selected goal state, wall time, objective cost, path lengths in \(U\)/\(Q\)/\(X\), validity-check counts, task class, residual, namespaced `planner_metrics`, and provenance.
++- `PlanningResult` carries status, trajectory, selected goal state, timing decomposition, objective cost, path lengths in \(U\)/\(Q\)/\(X\), validity-check counts, task class, residual, namespaced `planner_metrics`, and provenance.
++
++A minimal incremental objective contract is:
++
++```python
++class IncrementalPlanningObjective(PlanningObjective, Protocol):
++    def identity_cost(self) -> Cost: ...
++    def motion_cost(self, motion: LocalMotion) -> Cost: ...
++    def combine(self, prefix: Cost, edge: Cost) -> Cost: ...
++    def is_better(self, a: Cost, b: Cost) -> bool: ...
++    def cost_to_go_lower_bound(
++        self,
++        state: PhysicalState,
++        goal: GoalConstraint,
++    ) -> Cost: ...
++```
++
++A planner may reject an otherwise valid `PlanningProblem` when the selected objective does not provide the algebra or lower bound that planner requires. Heuristic and edge-cost compatibility must never be inferred from unrelated Euclidean coordinates.
+ 
+ Keep the following eight concepts independent: physical state, task, planning representation, local motion, validity, objective, planner, and benchmark protocol. No experiment runner may define all eight internally.
+ 
+ ## Consequences
+ 
+ - Direct, lattice, roadmap, tree, OMPL, and later MoveIt backends consume the same problem type.
++- Physical-state invariants are checked at construction or adapter boundaries.
++- Goal semantics remain independent of IK and candidate-generation policy.
++- Search algorithms declare the objective operations and heuristic guarantees they require.
+ - Version 2 runners remain historical; they are not the Version 3 problem API.
+ - Implementation begins in Sprint V3.1 only after this ADR is accepted.
+ - No production Monte Carlo, obstacle framework, OMPL, or MoveIt dependency is authorized by this ADR alone.
+--- a/docs/software/architecture/adr/ADR-022-v3-state-and-representation.md
++++ b/docs/software/architecture/adr/ADR-022-v3-state-and-representation.md
+@@ -13,7 +13,7 @@
+ 
+ Freeze four distinct layers:
+ 
+-1. **Physical state** — \(\,(u, q, \text{branch_id}, \ldots)\,\) uniquely identifies the mechanism and robot for objectives, validity, and later noninjective maps.
++1. **Physical state** — \(\,(u, q, \text{assembly state}, \ldots)\,\) uniquely identifies the mechanism and robot for objectives, validity, and later noninjective maps.
+ 2. **Planner representation** — coordinates or discrete states used by a specific planner (lattice node, roadmap vertex, OMPL state, etc.).
+ 3. **Task-space pose** — \(f(q)\) or richer \(SE(2)/SE(3)\) quantities used by goal predicates and diagnostics.
+ 4. **Graph or planner internal bookkeeping** — parent pointers, open-set handles, heuristic caches; never task semantics.
+@@ -24,6 +24,16 @@
+ \mathcal U \xrightarrow{g_m} \mathcal Q \xrightarrow{f} \mathcal X.
+ \]
+ 
++### Structured assembly state
++
++Assembly identity is represented structurally rather than as one scalar `branch_id`. A robot may contain several mechanism modules with independent assembly modes, winding states, or continuation sheets.
++
++```python
++assembly_state: Mapping[str, Any]
++```
++
++The current monotonic special case may use an empty or canonical mapping. The representation must not prevent later per-module branch state.
++
+ ### Initial comparative special case
+ 
+ For certified monotonic operating branches, Version 3 may use a shared bounded \(\mathcal Q\) representation across paired mechanisms while inducing actuator costs through \(u_m = g_m^{-1}(q)\):
+@@ -31,6 +41,16 @@
+ \[
+ \text{same }Q\text{ geometry} + \text{same Cartesian task} + \text{mechanism-dependent }U\text{ cost}.
+ \]
++
++The planner representation and visible task geometry may be shared, but the paired mechanisms do not occupy the same `PhysicalState` object. At a common \(q\),
++
++\[
++s_F=(u_F,q,\text{assembly}_F),
++\qquad
++s_G=(u_G,q,\text{assembly}_G),
++\]
++
++and generally \(u_F\neq u_G\).
+ 
+ This comparative formulation is a special case of the general physical-state contract, not the universal state model.
+ 
+@@ -42,7 +62,9 @@
+ 
+ - Adapters must map planner representation ↔ physical state explicitly.
+ - Shared-Q comparative studies must declare the special-case contract.
++- Shared planner coordinates do not imply shared physical state.
+ - Heuristics and objectives that need \(u\) read physical state, not lattice indices alone.
++- Inverse operations return complete physical-state candidates with structured assembly identity.
+ 
+ ## Non-goals
+ 
+--- a/docs/software/architecture/adr/ADR-023-v3-exact-start-and-goal-regions.md
++++ b/docs/software/architecture/adr/ADR-023-v3-exact-start-and-goal-regions.md
+@@ -27,15 +27,22 @@
+ 
+ Goal tolerance must be identical across paired mechanisms. Do not tune tolerance per mechanism to equalize graph-node counts.
+ 
++Goal-state generation is separate from the goal predicate under ADR-021. IK-family selection, discrete representation, and sampling policy must therefore be reported as candidate-generation or planner behavior rather than hidden inside task semantics.
++
+ ### Reporting
+ 
+ Every successful plan reports, where meaningful:
+ 
+-- represented goal-state count (or measure descriptor);
++- a `goal_region_descriptor` that records the physical task and tolerance;
++- `discrete_goal_state_count` when the planner explicitly represents a finite set;
++- `goal_samples_generated` and `goal_samples_accepted` for sampled goal representations;
+ - IK families represented;
+ - final Cartesian (or task) residual;
+ - selected goal `PhysicalState`;
+-- direct-connector availability.
++- the declared `direct_connector_policy`;
++- direct-connector feasibility under that policy.
++
++A finite represented goal-state count is not required for continuous goal predicates. Do not substitute a sample count for the measure of the physical goal region.
+ 
+ ### Relation to Version 2
+ 
+@@ -45,6 +52,8 @@
+ 
+ - Cartesian task banks sample goals and exact starts in task/physical coordinates; attachment is planner-backend logic.
+ - Compatibility fixtures must distinguish V2 nearest-node attachment residuals from V3 exact-start semantics when comparing instrumentation.
++- Goal-region semantics remain stable when planner representations change.
++- Direct feasibility is always qualified by a named connector policy.
+ - Experiment B production promotion remains held; this ADR does not authorize it.
+ 
+ ## Non-goals
+--- a/docs/software/architecture/adr/ADR-024-v3-local-motion-and-cost.md
++++ b/docs/software/architecture/adr/ADR-024-v3-local-motion-and-cost.md
+@@ -17,9 +17,11 @@
+ 
+ Initial connectors:
+ 
+-1. **Output-linear:** \(q(t)=(1-t)q_a+t q_b\), with \(u(t)=g_m^{-1}(q(t))\).
++1. **Output-linear:** \(q(t)=(1-t)q_a+t q_b\), lifted through the physical mechanism state to obtain \(u(t)\).
+ 2. **Input-linear:** \(u(t)=(1-t)u_a+t u_b\), with \(q(t)=g_m(u(t))\).
+ 3. **Cartesian-linear with IK continuation** — later.
++
++On the initial certified monotonic branches, the output-linear lift is the unique inverse \(u(t)=g_m^{-1}(q(t))\). When noninjective maps return, it must be a branch-preserving continuation from the start `PhysicalState`; pointwise inverse lookup may not jump between preimages or assembly sheets.
+ 
+ State and motion validity are continuous checks through `PlanningScene`.
+ 
+@@ -31,9 +33,38 @@
+ J_U[\gamma]=\int_0^1\left\|\frac{du(t)}{dt}\right\|_2\,dt.
+ \]
+ 
+-For a shared output-space connector, each mechanism assigns a different cost to the same visible \(q(t)\) through its inverse map. Required objective families include actuator, output-joint, and Cartesian path lengths, plus later time/energy/clearance terms.
++For a shared output-space connector, each mechanism assigns a different cost to the same visible \(q(t)\) through its lifted inverse map. Required objective families include actuator, output-joint, and Cartesian path lengths, plus later time/energy/clearance terms.
+ 
+-Endpoint Euclidean distance may approximate integrated local cost only when a calibration demonstrates adequacy at the selected connection scale.
++Endpoint formulas have connector-specific meaning:
++
++- For input-linear motion under Euclidean actuator length,
++
++  \[
++  J_U[\gamma]=\|u_b-u_a\|_2,
++  \]
++
++  so endpoint Euclidean distance is exact.
++
++- For output-linear motion through a nonlinear inverse, endpoint actuator distance is generally only a lower bound on the connector arc length and must not replace integration without a demonstrated approximation contract.
++
++- For arbitrary connectors and objectives, the cost implementation must declare whether it is analytic, numerically integrated, or calibrated as an endpoint approximation at the selected connection scale.
++
++### Free-space reference bounds
++
++For fixed actuator endpoints in unconstrained Euclidean \(\mathcal U\), the input-linear path realizes the global path-length lower bound:
++
++\[
++J_U^*=\|u_g-u_s\|_2.
++\]
++
++For a goal region \(\mathcal G\), the appropriate lower bound is
++
++\[
++\inf_{s\in\mathcal G}
++\|u(s)-u_s\|_2,
++\]
++
++evaluated over certified physical goal states or a documented lower-bounding relaxation. The direct distance to one planner-selected goal state is not a universal lower bound for the entire goal region.
+ 
+ ### Lattice baseline
+ 
+@@ -41,7 +72,9 @@
+ 
+ ## Consequences
+ 
+-- Direct input-linear paths between exact endpoints provide free-space reference bounds for optimizing planners.
++- Direct input-linear paths between fixed exact endpoints provide exact free-space reference bounds for Euclidean actuator length.
++- Goal-region bounds are minimized over the region rather than tied to one selected goal state.
++- Output-linear connectors preserve physical branch identity.
+ - V2 four-connected production evidence stays frozen under its declared formulation.
+ - Integrated edge-cost implementations land with lattice work (V3.3), not in V3.0 docs-only sprint.
+ 
+--- a/docs/software/architecture/adr/ADR-025-v3-planner-capabilities-and-adapters.md
++++ b/docs/software/architecture/adr/ADR-025-v3-planner-capabilities-and-adapters.md
+@@ -19,13 +19,38 @@
+ @dataclass(frozen=True)
+ class PlannerCapabilities:
+     deterministic: bool
++    reproducible_with_seed: bool
+     multi_query: bool
+     optimizing: bool
++    probabilistically_complete: bool | None
++    asymptotically_optimal: bool | None
++    requires_metric_space: bool
++    supports_optimization_objective: bool
+     supports_goal_region: bool
++    supports_goal_sampling: bool
++    supports_multi_start: bool
+     supports_path_constraints: bool
++    supports_approximate_solution: bool
++    supports_incremental_solutions: bool
+     reports_graph_exploration: bool
+     supports_exact_start: bool
+ ```
++
++`deterministic` describes the algorithm under fixed inputs. `reproducible_with_seed` states whether a frozen seed, task, configuration, and implementation revision are expected to reproduce the same result. Neither field excuses missing seed and provenance records.
++
++### Planner lifecycle metadata
++
++Multi-query planners must declare how preprocessing is managed:
++
++```python
++class PlannerLifecycle(str, Enum):
++    SINGLE_QUERY = "single_query"
++    BUILD_PER_TASK = "build_per_task"
++    REUSE_WITHIN_RUN = "reuse_within_run"
++    LOAD_FROZEN_STRUCTURE = "load_frozen_structure"
++```
++
++Roadmap construction, loading, query attachment, search, and postprocessing times are reported separately. Any amortized query-time claim must declare the number and distribution of queries over which preprocessing is amortized.
+ 
+ ### Native planner families (roadmap order)
+ 
+@@ -46,11 +71,15 @@
+ 
+ ### Adapter boundary
+ 
+-Native and external adapters consume `PlanningProblem` and return `PlanningResult`. Planner-specific fields belong in capabilities, configuration, and `planner_metrics`, never in the problem definition.
++Native and external adapters consume `PlanningProblem` and return `PlanningResult`. Planner-specific fields belong in capabilities, lifecycle/configuration, and `planner_metrics`, never in the problem definition.
++
++An adapter must reject a problem when the planner cannot honor required task, state, validity, objective, or exact-start semantics. It must not silently project the problem onto a weaker ordinary-joint formulation.
+ 
+ ## Consequences
+ 
+ - Common application metrics and family-specific metrics coexist (ADR-026).
++- Reproducibility and theoretical planner properties are explicit rather than inferred from planner names.
++- PRM-style preprocessing and query cost can be reported both separately and under a declared amortization model.
+ - No OMPL or ROS dependency is introduced until Sprint V3.5 is activated.
+ - No MoveIt workspace is introduced until Sprint V3.10 is activated.
+ 
+--- a/docs/software/architecture/adr/ADR-026-v3-benchmark-classification-and-metrics.md
++++ b/docs/software/architecture/adr/ADR-026-v3-benchmark-classification-and-metrics.md
+@@ -13,26 +13,61 @@
+ 
+ ### Classify before benchmarking
+ 
+-Every task is classified without using the comparative planner outcome:
++Every mechanism-task instance is classified before comparative planner outcomes are known:
+ 
+-1. **already satisfied** — start lies in the goal region;
+-2. **direct/local feasible** — a declared direct connector is valid under the scene and constraints;
+-3. **global planning required** — direct connectors fail;
+-4. **invalid/unreachable** — task cannot be represented or reached.
++1. **already satisfied** — the exact start satisfies the goal predicate;
++2. **direct/local feasible** — at least one declared direct connector is valid under the scene, constraints, and named connector policy;
++3. **direct connector unavailable** — none of the declared direct connectors succeeds, so a nonlocal planner is invoked;
++4. **invalid/unrepresentable** — the start, goal, scene, physical state, or required planner representation cannot be constructed under the declared contract;
++5. **certifiably unreachable** — only when an analytical proof, exhaustive finite search, disconnected-component certificate, or equivalent reachability certificate is available.
+ 
+-Do not pool these regimes into one undifferentiated expansion statistic.
++A planner timeout, sample exhaustion, or failure to find a path is a post-search outcome such as `unsolved` or `timeout`; it is not evidence of unreachability.
++
++“Direct connector unavailable” is relative to the declared connector policy. It does not claim that every conceivable local motion family would fail.
++
++Do not pool these regimes into one undifferentiated expansion or runtime statistic.
++
++### Paired mechanism classification
++
++Classification is recorded per mechanism because direct feasibility may itself be a mechanism effect. Paired studies additionally use strata such as:
++
++- `both_direct`;
++- `fourbar_only_direct`;
++- `gearbox_only_direct`;
++- `neither_direct`;
++- paired invalid or certified-unreachable combinations.
++
++Do not force two mechanisms into one task class when their physical local-motion outcomes differ.
+ 
+ ### Pre-search difficulty descriptors
+ 
+-Record Cartesian start–goal separation, direct input- and output-space distances, goal tolerance, goal-set measure or represented count, IK-family count, boundary proximity, obstacle/constraint class, and direct-connector status. Planner outcome must not be the sole difficulty classifier.
++Record Cartesian start–goal separation, direct input- and output-space distances, goal tolerance, goal-region descriptor, finite represented goal count when applicable, IK-family count, boundary proximity, obstacle/constraint class, declared direct-connector policy, and per-mechanism direct-connector status. Planner outcome must not be the sole difficulty classifier.
+ 
+ ### Common application metrics
+ 
+-Every planner returns, where meaningful: status and failure taxonomy; wall time; selected goal state; objective cost; actuator, output, and Cartesian path lengths; state/motion/collision check counts; direct-connector availability; final task residual; reproducibility metadata.
++Every planner returns, where meaningful:
++
++- status and failure taxonomy;
++- `setup_time`;
++- `preprocessing_time`;
++- `query_time`;
++- `postprocessing_time`;
++- `total_wall_time`;
++- selected goal state;
++- objective cost;
++- actuator, output, and Cartesian path lengths;
++- state/motion/collision check counts;
++- direct-connector policy and availability;
++- final task residual;
++- reproducibility metadata.
++
++For reusable structures, report both standalone total cost and amortized query cost under a declared query count and task distribution.
+ 
+ ### Planner-specific metrics (namespaced)
+ 
+ Examples: graph expansions/generated/reopened/queue ops/heuristic error; roadmap samples/vertices/edges/query attachment; tree samples/extensions/NN ops; trajectory-optimization iterations; industrial generation time. Store under `PlanningResult.planner_metrics` with a planner-family namespace.
++
++Planner-family events are not interchangeable. A graph expansion, roadmap sample, tree extension, and trajectory-optimization iteration may be compared within a stable instrumentation contract, but must not be presented as one cross-family “search effort” count.
+ 
+ ### Paired effect metrics
+ 
+@@ -42,13 +77,15 @@
+ \Delta\log N=\log\frac{N_F+1}{N_G+1},
+ \]
+ 
+-but never report them alone. Also report
++when \(N\) has the same planner-family meaning in both paired arms, but never report it alone. Also report
+ 
+ \[
+-\Delta N=N_F-N_G,\qquad \Delta t=t_F-t_G,\qquad \Delta J=J_F-J_G.
++\Delta N=N_F-N_G,\qquad
++\Delta t=t_F-t_G,\qquad
++\Delta J=J_F-J_G.
+ \]
+ 
+-Report effects by task class and size/difficulty strata before any overall task-distribution mean.
++Report effects by per-mechanism task class, paired direct-feasibility stratum, and size/difficulty strata before any overall task-distribution mean.
+ 
+ ### Diagnostic Q-spanner
+ 
+@@ -56,11 +93,14 @@
+ 
+ ### Schema draft direction
+ 
+-Version 3 result records follow `PlanningResult` in ADR-021, with `task_class` required and planner metrics namespaced. A detailed JSON/YAML schema is authored when Sprint V3.1 implements serialization; this ADR freezes the semantic contract only.
++Version 3 result records follow `PlanningResult` in ADR-021, with per-mechanism `task_class`, post-search `status`, timing decomposition, and planner metrics namespaced. A detailed JSON/YAML schema is authored when Sprint V3.1 implements serialization; this ADR freezes the semantic contract only.
+ 
+ ## Consequences
+ 
+-- Benchmark runners must classify tasks before comparing planners or mechanisms.
++- Benchmark runners classify mechanism-task instances before comparing planner outcomes.
++- Unreachability is claimed only with a recorded certificate.
++- Direct-feasibility asymmetry is retained as a mechanism result rather than averaged away.
++- Cross-family planner metrics remain namespaced and semantically distinct.
+ - Frozen Version 2 reports remain valid under their declared metrics; they are not retrofitted.
+ - Production Monte Carlo remains blocked until task, planner, scene, local-motion, metric, and statistical contracts are stable.
+ 
+--- a/docs/software/planning/sprints/v3/SPRINT_V3_0_ARCHITECTURE_CONTRACT.md
++++ b/docs/software/planning/sprints/v3/SPRINT_V3_0_ARCHITECTURE_CONTRACT.md
+@@ -142,19 +142,13 @@
+ 
+ ### V3-006 — Planner capability and adapter contract
+ 
+-Define capability metadata such as:
+-
+-```python
+-@dataclass(frozen=True)
+-class PlannerCapabilities:
+-    deterministic: bool
+-    multi_query: bool
+-    optimizing: bool
+-    supports_goal_region: bool
+-    supports_path_constraints: bool
+-    reports_graph_exploration: bool
+-    supports_exact_start: bool
+-```
++Define capability and lifecycle metadata, including:
++
++- determinism and seeded reproducibility;
++- single-query versus reusable preprocessing;
++- optimization, completeness, and optimality properties where known;
++- exact-start, goal-region, goal-sampling, multi-start, path-constraint, and approximate-solution support;
++- family-specific instrumentation.
+ 
+ Define native and external adapter boundaries, including OMPL first and MoveIt later.
+ 
+@@ -162,12 +156,14 @@
+ 
+ ### V3-007 — Benchmark classification and metrics contract
+ 
+-Freeze pre-benchmark classes:
++Freeze pre-search classes and post-search outcomes:
+ 
+ - already satisfied;
+-- direct/local feasible;
+-- global planning required;
+-- invalid/unreachable.
++- direct/local feasible under a named connector policy;
++- direct connector unavailable;
++- invalid/unrepresentable;
++- certifiably unreachable only with a recorded certificate;
++- unsolved and timeout as post-search outcomes rather than reachability claims.
+ 
+ Freeze common metrics and planner-specific metric namespaces.
+ 
+@@ -213,6 +209,11 @@
+ 8. Is the Q-spanner preserved without contaminating application-task estimands?
+ 9. Is production Monte Carlo explicitly blocked?
+ 10. Can stable V2 modules migrate through adapters without deletion or reinterpretation?
++11. Can no inconsistent `PhysicalState` expose contradictory \(u\) and \(q\) to different subsystems?
++12. Are goal predicates independent of IK, discretization, and candidate-generation policy?
++13. Does every optimizing or informed planner receive a compatible incremental cost and lower-bound contract?
++14. Are direct-path bounds stated correctly for fixed goals and goal regions?
++15. Is unreachability claimed only when a certificate is available?
+ 
+ ## Exit criteria
+ 
+@@ -227,7 +228,12 @@
+ 7. OMPL and MoveIt boundaries are explicit and distinct;
+ 8. the V3 migration map and compatibility fixture are specified;
+ 9. V3.1 and V3.2 sprint documents exist;
+-10. no production campaign or obstacle sprint has been activated.
++10. no production campaign or obstacle sprint has been activated;
++11. physical-state construction and inverse candidates preserve consistency and assembly identity;
++12. goal semantics are separated from goal-state generation;
++13. local-motion endpoint formulas and free-space bounds are mathematically qualified;
++14. planner lifecycle and reproducibility metadata are frozen;
++15. benchmark taxonomy separates invalidity, certified unreachability, and unsolved outcomes.
+ 
+ ## Handoff
+ 
