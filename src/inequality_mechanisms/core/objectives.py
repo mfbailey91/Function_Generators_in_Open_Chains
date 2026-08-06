@@ -53,11 +53,12 @@ class IncrementalPlanningObjective(PlanningObjective, Protocol):
 
 @dataclass(frozen=True, slots=True)
 class ActuatorTravelObjective:
-    """Endpoint Euclidean actuator travel (V2-equivalent discrete edge cost).
+    """Actuator-path length objective (ADR-024).
 
-    For input-linear motion under Euclidean actuator length the endpoint
-    formula is exact. For discrete lattice edges this matches Version 2
-    ``actuator_travel`` / ``input_euclidean`` edge semantics.
+    Prefer ``LocalMotion.parameters["actuator_path_length"]`` when a connector
+    records an analytic or numerically integrated cost. Otherwise fall back to
+    endpoint Euclidean displacement ``||u_end - u_start||_2``, which is exact
+    for input-linear motion and matches Version 2 discrete edge semantics.
     """
 
     objective_id: str = "actuator_travel"
@@ -67,7 +68,10 @@ class ActuatorTravelObjective:
         return 0.0
 
     def motion_cost(self, motion: LocalMotion) -> Cost:
-        """Return ``||u_end - u_start||_2``."""
+        """Return integrated/declared actuator length or endpoint fallback."""
+        declared = motion.parameters.get("actuator_path_length")
+        if declared is not None:
+            return float(declared)
         return float(np.linalg.norm(motion.end.u - motion.start.u))
 
     def combine(self, prefix: Cost, edge: Cost) -> Cost:

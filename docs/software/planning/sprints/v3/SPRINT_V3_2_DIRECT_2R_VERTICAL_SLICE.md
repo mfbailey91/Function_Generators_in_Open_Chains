@@ -1,8 +1,8 @@
 # Sprint V3.2 — Direct 2R Cartesian Vertical Slice
 
-**Status:** drafted / not activated  
-**Code authorization:** none until this sprint is explicitly activated after V3.1 exit  
-**Depends on:** [Sprint V3.1](SPRINT_V3_1_CORE_PROBLEM_RESULT_MODEL.md); ADRs 021–026  
+**Status:** active — exact-start Cartesian disk goals and direct planners  
+**Code authorization:** V3-200–V3-205 only  
+**Depends on:** [Sprint V3.1](SPRINT_V3_1_CORE_PROBLEM_RESULT_MODEL.md) (completed); ADRs 021–026  
 **Reference:** [V3_PROJECT_PLAN.md](../../../V3_PROJECT_PLAN.md) §16 V3-M2
 
 ## Sprint intent

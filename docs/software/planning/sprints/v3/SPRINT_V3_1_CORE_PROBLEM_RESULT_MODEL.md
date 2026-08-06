@@ -1,7 +1,7 @@
 # Sprint V3.1 — Core Planning Problem and Result Model
 
-**Status:** active — V3-100–V3-104 implemented; compatibility fixture green  
-**Code authorization:** V3-100–V3-104 only (complete pending review closeout)  
+**Status:** completed — core interfaces, adapters, architecture gate, and V2 compatibility fixture  
+**Code authorization:** none (handoff to V3.2)  
 **Depends on:** [Sprint V3.0](SPRINT_V3_0_ARCHITECTURE_CONTRACT.md) (completed); accepted ADRs 021–026  
 **Reference:** [V3_PROJECT_PLAN.md](../../../V3_PROJECT_PLAN.md) §16 V3-M1; [V3_MIGRATION_MAP.md](../../../architecture/notes/V3_MIGRATION_MAP.md)
 
