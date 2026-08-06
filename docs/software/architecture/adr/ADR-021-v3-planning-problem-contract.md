@@ -1,6 +1,6 @@
 # ADR-021 — Version 3 planning problem contract
 
-**Status:** Proposed  
+**Status:** Accepted  
 **Applies to:** Version 3  
 **Related:** ADR-014, ADR-015, ADR-019, ADR-020; [V3_PROJECT_PLAN.md](../../V3_PROJECT_PLAN.md); Sprint V3.0 V3-002  
 **Supersedes:** nothing (Version 2 graph-experiment contracts remain authoritative for frozen V2 evidence)

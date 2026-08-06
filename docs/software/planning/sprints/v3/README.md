@@ -4,8 +4,8 @@ Version 3 builds a planner-agnostic mechanism-aware motion-planning framework. V
 
 ## Recommended sequence
 
-1. [Sprint V3.0 — Architecture Contract and V2 Evidence Freeze](SPRINT_V3_0_ARCHITECTURE_CONTRACT.md)
-2. [Sprint V3.1 — Core Planning Problem and Result Model](SPRINT_V3_1_CORE_PROBLEM_RESULT_MODEL.md) (drafted; not activated)
+1. [Sprint V3.0 — Architecture Contract and V2 Evidence Freeze](SPRINT_V3_0_ARCHITECTURE_CONTRACT.md) (completed)
+2. [Sprint V3.1 — Core Planning Problem and Result Model](SPRINT_V3_1_CORE_PROBLEM_RESULT_MODEL.md) (**active**)
 3. [Sprint V3.2 — Direct 2R Cartesian Vertical Slice](SPRINT_V3_2_DIRECT_2R_VERTICAL_SLICE.md) (drafted; not activated)
 4. Sprint V3.3 — Lattice and Local-Motion Validation
 5. Sprint V3.4 — Native Roadmap and Tree Planners
@@ -17,7 +17,7 @@ Version 3 builds a planner-agnostic mechanism-aware motion-planning framework. V
 11. Sprint V3.10 — 6R and MoveIt Application Adapter
 12. Sprint V3.11 — Production Mechanism Populations
 
-Only V3.0 is authorized for execution while ACTIVE_SPRINT points here. V3.1 and V3.2 are drafted stubs and must be explicitly activated. Later items are roadmap milestones and must receive their own sprint contracts before implementation.
+V3.1 is authorized for execution while ACTIVE_SPRINT points here. V3.2 remains drafted until explicitly activated. Later items are roadmap milestones and must receive their own sprint contracts before implementation.
 
 ## Dependency map
 

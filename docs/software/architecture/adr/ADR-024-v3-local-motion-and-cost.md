@@ -1,6 +1,6 @@
 # ADR-024 — Version 3 local motion and cost contract
 
-**Status:** Proposed  
+**Status:** Accepted  
 **Applies to:** Version 3  
 **Related:** ADR-015, ADR-017, ADR-021; Sprint V3.0 V3-005  
 **Supersedes for Version 3:** treating four-connected lattice adjacency as the definition of physical motion
