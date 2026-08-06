@@ -1,17 +1,22 @@
-"""Version 3 planner-independent core types (Sprint V3.1 / ADR-021–025)."""
+"""Version 3 planner-independent core types (Sprint V3.1–V3.2 / ADR-021–026)."""
 
 from inequality_mechanisms.core.constraints import ConstraintSet
 from inequality_mechanisms.core.goals import (
+    CartesianDiskGoal,
+    CartesianDiskGoalGenerator,
     ExactOutputGoal,
     GoalConstraint,
     GoalResidual,
     GoalSamplingRequest,
     GoalStateGenerator,
+    planar_2r_ik_family,
 )
 from inequality_mechanisms.core.local_motion import (
     EndpointDeclaredMotion,
+    InputLinearMotion,
     LocalMotion,
     LocalMotionModel,
+    OutputLinearMotion,
 )
 from inequality_mechanisms.core.objectives import (
     ActuatorTravelObjective,
@@ -45,6 +50,8 @@ from inequality_mechanisms.core.state import PhysicalState, Pose, StateCandidate
 
 __all__ = [
     "ActuatorTravelObjective",
+    "CartesianDiskGoal",
+    "CartesianDiskGoalGenerator",
     "ConstraintSet",
     "Cost",
     "EndpointDeclaredMotion",
@@ -55,8 +62,10 @@ __all__ = [
     "GoalSamplingRequest",
     "GoalStateGenerator",
     "IncrementalPlanningObjective",
+    "InputLinearMotion",
     "LocalMotion",
     "LocalMotionModel",
+    "OutputLinearMotion",
     "PhysicalState",
     "Planner",
     "PlannerCapabilities",
@@ -73,6 +82,7 @@ __all__ = [
     "Trajectory",
     "physical_state_from_dict",
     "physical_state_to_dict",
+    "planar_2r_ik_family",
     "planner_capabilities_from_dict",
     "planner_capabilities_to_dict",
     "planning_result_from_dict",
