@@ -1,15 +1,16 @@
 # Sprint V2.12 — Cartesian Goal-Region Planning
 
-**Status:** active — bounded smoke implementation; production held
+**Status:** active — smoke and V2B-005 calibration evidence recorded; population held  
+**Evidence:** [`V2_12_CARTESIAN_GOAL_REGION_SUMMARY.md`](../../../experiments/reports/V2_12_CARTESIAN_GOAL_REGION_SUMMARY.md) · [HTML](../../../experiments/reports/V2_12_CARTESIAN_GOAL_REGION.html)  
 **Experiment:** Experiment B
 **Robot:** planar 2R
 **Task:** known start state to position-only Cartesian goal region
 **Primary solvers:** Dijkstra and A* (`input_euclidean_goal_set`)
 **Primary objective:** actuator travel
 
-This sprint is active for the bounded kickoff scope below. It does not authorize
+This sprint is active for the bounded kickoff and calibration tooling below. It does not authorize
 population production, sequential stopping, or paper-level Experiment B claims.
-Those remain blocked on calibration decisions and crossed-statistics implementation.
+Those remain blocked on reviewed decision promotion and crossed-statistics implementation.
 
 ## Sprint intent
 
