@@ -27,15 +27,22 @@ Goals are `GoalConstraint` predicates. Initial Version 3 types include exact out
 
 Goal tolerance must be identical across paired mechanisms. Do not tune tolerance per mechanism to equalize graph-node counts.
 
+Goal-state generation is separate from the goal predicate under ADR-021. IK-family selection, discrete representation, and sampling policy must therefore be reported as candidate-generation or planner behavior rather than hidden inside task semantics.
+
 ### Reporting
 
 Every successful plan reports, where meaningful:
 
-- represented goal-state count (or measure descriptor);
+- a `goal_region_descriptor` that records the physical task and tolerance;
+- `discrete_goal_state_count` when the planner explicitly represents a finite set;
+- `goal_samples_generated` and `goal_samples_accepted` for sampled goal representations;
 - IK families represented;
 - final Cartesian (or task) residual;
 - selected goal `PhysicalState`;
-- direct-connector availability.
+- the declared `direct_connector_policy`;
+- direct-connector feasibility under that policy.
+
+A finite represented goal-state count is not required for continuous goal predicates. Do not substitute a sample count for the measure of the physical goal region.
 
 ### Relation to Version 2
 
@@ -45,6 +52,8 @@ ADR-020 goal-set search remains the Version 2 exact-search contract for frozen E
 
 - Cartesian task banks sample goals and exact starts in task/physical coordinates; attachment is planner-backend logic.
 - Compatibility fixtures must distinguish V2 nearest-node attachment residuals from V3 exact-start semantics when comparing instrumentation.
+- Goal-region semantics remain stable when planner representations change.
+- Direct feasibility is always qualified by a named connector policy.
 - Experiment B production promotion remains held; this ADR does not authorize it.
 
 ## Non-goals

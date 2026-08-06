@@ -142,19 +142,13 @@ Freeze:
 
 ### V3-006 — Planner capability and adapter contract
 
-Define capability metadata such as:
+Define capability and lifecycle metadata, including:
 
-```python
-@dataclass(frozen=True)
-class PlannerCapabilities:
-    deterministic: bool
-    multi_query: bool
-    optimizing: bool
-    supports_goal_region: bool
-    supports_path_constraints: bool
-    reports_graph_exploration: bool
-    supports_exact_start: bool
-```
+- determinism and seeded reproducibility;
+- single-query versus reusable preprocessing;
+- optimization, completeness, and optimality properties where known;
+- exact-start, goal-region, goal-sampling, multi-start, path-constraint, and approximate-solution support;
+- family-specific instrumentation.
 
 Define native and external adapter boundaries, including OMPL first and MoveIt later.
 
@@ -162,12 +156,14 @@ Define native and external adapter boundaries, including OMPL first and MoveIt l
 
 ### V3-007 — Benchmark classification and metrics contract
 
-Freeze pre-benchmark classes:
+Freeze pre-search classes and post-search outcomes:
 
 - already satisfied;
-- direct/local feasible;
-- global planning required;
-- invalid/unreachable.
+- direct/local feasible under a named connector policy;
+- direct connector unavailable;
+- invalid/unrepresentable;
+- certifiably unreachable only with a recorded certificate;
+- unsolved and timeout as post-search outcomes rather than reachability claims.
 
 Freeze common metrics and planner-specific metric namespaces.
 
@@ -213,6 +209,11 @@ Later roadmap milestones remain non-executable until separately specified.
 8. Is the Q-spanner preserved without contaminating application-task estimands?
 9. Is production Monte Carlo explicitly blocked?
 10. Can stable V2 modules migrate through adapters without deletion or reinterpretation?
+11. Can no inconsistent `PhysicalState` expose contradictory \(u\) and \(q\) to different subsystems?
+12. Are goal predicates independent of IK, discretization, and candidate-generation policy?
+13. Does every optimizing or informed planner receive a compatible incremental cost and lower-bound contract?
+14. Are direct-path bounds stated correctly for fixed goals and goal regions?
+15. Is unreachability claimed only when a certificate is available?
 
 ## Exit criteria
 
@@ -227,7 +228,12 @@ Sprint V3.0 is complete when:
 7. OMPL and MoveIt boundaries are explicit and distinct;
 8. the V3 migration map and compatibility fixture are specified;
 9. V3.1 and V3.2 sprint documents exist;
-10. no production campaign or obstacle sprint has been activated.
+10. no production campaign or obstacle sprint has been activated;
+11. physical-state construction and inverse candidates preserve consistency and assembly identity;
+12. goal semantics are separated from goal-state generation;
+13. local-motion endpoint formulas and free-space bounds are mathematically qualified;
+14. planner lifecycle and reproducibility metadata are frozen;
+15. benchmark taxonomy separates invalidity, certified unreachability, and unsolved outcomes.
 
 ## Handoff
 

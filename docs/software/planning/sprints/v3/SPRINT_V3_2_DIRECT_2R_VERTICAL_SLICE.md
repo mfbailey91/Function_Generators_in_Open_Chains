@@ -36,7 +36,7 @@ Build tasks with exact `PhysicalState` starts and planar position goal disks. Re
 
 ### V3-202 — Direct planners
 
-Implement output-linear and input-linear direct planners as first `Planner` backends. Classify each task as already satisfied, direct/local feasible, global-planning required, or invalid/unreachable **before** any comparative search.
+Implement output-linear and input-linear direct planners as first `Planner` backends. Classify each mechanism-task instance under ADR-026 **before** any comparative search: already satisfied, direct/local feasible, direct connector unavailable (invites nonlocal planners later), invalid/unrepresentable, or certifiably unreachable. Do not use the informal label “global planning required.”
 
 ### V3-203 — Free-space scene
 

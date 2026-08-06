@@ -4,7 +4,7 @@
 | --- | --- | --- | --- |
 | Mechanism regime | Full-cycle or potentially noninjective | Certified one-to-one operating branch | Certified monotonic branch initially; noninjective restored later |
 | Planning center | Graph experiment in \(\mathcal U\) | Graph experiment in \(\mathcal Q\) with attached \(u\) | Planner-independent planning problem |
-| Planning node identity | Complete actuator state in \(\mathcal U\) | Output state in \(\mathcal Q\) with unique actuator realization attached | Physical state \((u,q,\ldots)\); representation is planner-specific |
+| Planning node identity | Complete actuator state in \(\mathcal U\) | Output state in \(\mathcal Q\) with unique actuator realization attached | Physical state \((u,q,\text{assembly state},\ldots)\); representation is planner-specific |
 | Duplicate output preimages | Preserved as distinct states | Excluded by branch certification | Excluded on monotonic branch; preserved when noninjective maps return |
 | Input topology | May be periodic | Bounded and nonperiodic in the core study | Same initial branch contract as V2; generalizes with later state models |
 | Primary representation | Input-state graph | Output-state embedded graph | Direct, lattice, roadmap, tree, OMPL, later MoveIt |

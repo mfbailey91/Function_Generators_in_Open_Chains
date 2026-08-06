@@ -84,11 +84,13 @@ class PlanningProblem:
 class PhysicalState:
     u: NDArray[np.float64]
     q: NDArray[np.float64]
-    branch_id: str | None = None
+    assembly_state: Mapping[str, Any] = field(default_factory=dict)
     auxiliary_state: Mapping[str, Any] = field(default_factory=dict)
 ```
 
-For a certified monotonic branch, \(u=g_m^{-1}(q)\) is unique. The explicit \(u\) field remains because objectives, diagnostics, and later noninjective mechanisms require it.
+For a certified monotonic branch, \(u=g_m^{-1}(q)\) is unique. The explicit \(u\) field remains because objectives, diagnostics, and later noninjective mechanisms require it. Assembly identity is a structured mapping rather than a scalar `branch_id` (ADR-021/022). A physical state is valid only when redundant coordinates are consistent under the robot model; callers construct or certify states through `RobotModel`, not by pairing unchecked \(u\) and \(q\).
+
+Authoritative interface detail: [ADR-021](architecture/adr/ADR-021-v3-planning-problem-contract.md).
 
 ### 4.2 Robot model
 
@@ -97,22 +99,31 @@ class RobotModel(Protocol):
     @property
     def dof(self) -> int: ...
 
-    def input_to_output(self, u) -> NDArray[np.float64]: ...
-    def output_to_inputs(self, q) -> Sequence[NDArray[np.float64]]: ...
+    def state_from_input(
+        self,
+        u,
+        assembly_state: Mapping[str, Any] | None = None,
+    ) -> PhysicalState: ...
+
+    def states_from_output(self, q) -> Sequence[StateCandidate]: ...
+
+    def validate_state(self, state: PhysicalState, tolerance: float) -> bool: ...
+
     def forward_kinematics(self, state: PhysicalState) -> Pose: ...
     def jacobian_q_to_x(self, state: PhysicalState) -> NDArray[np.float64]: ...
     def state_within_limits(self, state: PhysicalState) -> bool: ...
 ```
 
+`states_from_output` returns complete physical candidates (state, residual, provenance), not actuator vectors alone.
+
 ### 4.3 Goal constraints
 
-Goals are task predicates, not necessarily one configuration:
+Goals are task predicates, not necessarily one configuration. Candidate generation is a separate service (`GoalStateGenerator`) so IK, discretization, and sampling policy are not hidden inside the predicate (ADR-021/023).
 
 ```python
 class GoalConstraint(Protocol):
     def satisfied(self, state: PhysicalState) -> bool: ...
-    def residual(self, state: PhysicalState) -> NDArray[np.float64]: ...
-    def sample_candidates(self, robot: RobotModel) -> Iterable[PhysicalState]: ...
+    def residual(self, state: PhysicalState) -> GoalResidual: ...
 ```
 
 Initial goal types:
@@ -162,11 +173,11 @@ class LocalMotionModel(Protocol):
 
 Initial connectors:
 
-- output-linear: \(q(t)=(1-t)q_a+tq_b\), with \(u(t)=g_m^{-1}(q(t))\);
+- output-linear: \(q(t)=(1-t)q_a+tq_b\), lifted through physical mechanism state to obtain \(u(t)\) (unique inverse on certified monotonic branches; branch-preserving continuation when noninjective maps return);
 - input-linear: \(u(t)=(1-t)u_a+t u_b\), with \(q(t)=g_m(u(t))\);
 - Cartesian-linear with IK continuation, later.
 
-Graph adjacency selects candidate neighbors. It does not define the continuous robot motion.
+Graph adjacency selects candidate neighbors. It does not define the continuous robot motion. Endpoint actuator Euclidean distance is exact for input-linear Euclidean length and generally only a lower bound for nonlinear output-linear lifts (ADR-024).
 
 ## 5. Mechanism-aware objectives
 
@@ -246,13 +257,15 @@ Roadmap and lattice planners attach the exact start through a temporary query st
 
 The goal tolerance is a real task parameter. It must be identical across paired mechanisms and reported with:
 
-- represented goal-state count;
+- a `goal_region_descriptor` for the physical task and tolerance;
+- `discrete_goal_state_count` when a finite set is explicitly represented;
+- `goal_samples_generated` / `goal_samples_accepted` for sampled goal representations;
 - IK families represented;
-- final Cartesian residual;
+- final Cartesian (or task) residual;
 - selected goal state;
-- direct-connector availability.
+- declared `direct_connector_policy` and feasibility under that policy.
 
-Goal tolerance must not be tuned separately for each mechanism to equalize graph-node counts.
+A finite represented goal-state count is not required for continuous goal predicates. Goal-state generation remains separate from the goal predicate (ADR-021/023). Goal tolerance must not be tuned separately for each mechanism to equalize graph-node counts.
 
 ## 8. Planner families
 
@@ -264,7 +277,7 @@ Implement first:
 2. input-linear interpolation;
 3. later Cartesian-linear interpolation.
 
-These provide feasibility checks and lower/reference bounds. In free space, an optimizing planner must not report actuator travel below a valid input-linear straight path between the same exact endpoints.
+These provide feasibility checks and lower/reference bounds. In unconstrained Euclidean \(\mathcal U\), an input-linear path between fixed exact actuator endpoints realizes \(J_U^*=\|u_g-u_s\|_2\). For a goal region, the free-space lower bound is the infimum over certified physical goal states (or a documented relaxation), not the distance to one planner-selected goal (ADR-024).
 
 ### 8.2 Native deterministic graph planners
 
@@ -495,14 +508,17 @@ Return to Monte Carlo only after task, planner, scene, local-motion, metric, and
 
 ### 12.1 Classify before benchmarking
 
-Every task is classified without using the comparative planner outcome:
+Every mechanism-task instance is classified before comparative planner outcomes are known (ADR-026):
 
-1. **already satisfied** — start lies in goal region;
-2. **direct/local feasible** — a declared direct connector is valid;
-3. **global planning required** — direct connectors fail under the scene and constraints;
-4. **invalid/unreachable** — task cannot be represented or reached.
+1. **already satisfied** — the exact start satisfies the goal predicate;
+2. **direct/local feasible** — a declared direct connector is valid under the named connector policy;
+3. **direct connector unavailable** — declared direct connectors fail; this stratum invites nonlocal planners;
+4. **invalid/unrepresentable** — start, goal, scene, state, or representation cannot be constructed;
+5. **certifiably unreachable** — only with a recorded reachability certificate.
 
-Do not pool these regimes into one undifferentiated expansion statistic.
+Planner timeout or sample exhaustion is a post-search `unsolved` / `timeout` outcome, not unreachability. Classification is per mechanism; paired studies retain direct-feasibility asymmetry strata.
+
+Do not pool these regimes into one undifferentiated expansion or runtime statistic.
 
 ### 12.2 Task-size and difficulty descriptors
 
@@ -511,12 +527,12 @@ Record pre-search descriptors:
 - Cartesian start-goal separation;
 - direct input-space distance;
 - direct output-space distance;
-- goal tolerance;
-- goal-set measure or represented count;
+- goal tolerance and goal-region descriptor;
+- finite represented goal count when applicable;
 - IK-family count;
 - boundary proximity;
 - obstacle or constraint class;
-- direct-connector status.
+- declared direct-connector policy and per-mechanism status.
 
 Planner outcome must not be the sole difficulty classifier.
 
@@ -525,15 +541,17 @@ Planner outcome must not be the sole difficulty classifier.
 Every planner returns, where meaningful:
 
 - status and failure taxonomy;
-- wall time;
+- `setup_time`, `preprocessing_time`, `query_time`, `postprocessing_time`, `total_wall_time`;
 - selected goal state;
 - objective cost;
 - actuator, output, and Cartesian path length;
 - state and motion validity checks;
 - collision checks;
-- direct-connector availability;
+- direct-connector policy and availability;
 - final task residual;
 - reproducibility metadata.
+
+For reusable structures, report both standalone and amortized query cost under a declared query distribution.
 
 ### 12.4 Planner-specific metrics
 
@@ -545,6 +563,8 @@ Examples:
 - trajectory optimization: iterations, rollouts, objective evaluations, convergence;
 - industrial generators: generation time and constraint compliance.
 
+Family events are not interchangeable as one cross-family “search effort” count.
+
 ### 12.5 Paired effect metrics
 
 Retain relative effects such as
@@ -555,7 +575,7 @@ Retain relative effects such as
 \log\frac{N_F+1}{N_G+1},
 \]
 
-but never report them alone. Also report:
+when \(N\) has the same planner-family meaning in both arms, but never report them alone. Also report:
 
 \[
 \Delta N=N_F-N_G,
@@ -567,7 +587,7 @@ but never report them alone. Also report:
 
 A ten-percent improvement on a trivial search is not equivalent in application importance to a ten-percent improvement on a large search.
 
-Report effects by task class and size/difficulty strata before any overall task-distribution mean.
+Report effects by per-mechanism task class, paired direct-feasibility stratum, and size/difficulty strata before any overall task-distribution mean.
 
 ### 12.6 Diagnostic Q-spanner
 
@@ -594,7 +614,11 @@ class PlanningResult:
     trajectory: Trajectory | None
     selected_goal_state: PhysicalState | None
 
-    wall_time_s: float
+    setup_time_s: float | None
+    preprocessing_time_s: float | None
+    query_time_s: float | None
+    postprocessing_time_s: float | None
+    total_wall_time_s: float
     objective_cost: float | None
     path_length_u: float | None
     path_length_q: float | None
@@ -604,13 +628,13 @@ class PlanningResult:
     motion_validity_checks: int | None
     collision_checks: int | None
 
-    task_class: str
-    final_goal_residual: float | None
+    task_class: str  # per-mechanism pre-search class (ADR-026)
+    final_goal_residual: GoalResidual | None
     planner_metrics: Mapping[str, JSONScalar]
     provenance: ResultProvenance
 ```
 
-The schema must support deterministic and stochastic planners without pretending that all have node expansions.
+The schema must support deterministic and stochastic planners without pretending that all have node expansions. Timing fields may be omitted only when a planner family documents that a phase does not apply.
 
 ## 14. Target source architecture
 

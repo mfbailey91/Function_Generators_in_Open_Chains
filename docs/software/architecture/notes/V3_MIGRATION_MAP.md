@@ -14,9 +14,9 @@ Use a strangler migration. Preserve frozen Version 2 modules. Add Version 3 core
 | --- | --- | --- |
 | 1 | Freeze and tag trusted V2 evidence revision | V3.0 (done: freeze doc; tag when accepted) |
 | 2 | Preserve V2 configs, runners, reports, and schemas as historical experiments | V3.0+ |
-| 3 | Add V3 core interfaces beside existing modules (`PhysicalState`, robot, scene, goals, local motion, objective, planner, result) | V3.1 |
-| 4 | Wrap certified V2 mechanism branches as V3 `RobotModel` transmission components | V3.1 |
-| 5 | Wrap existing Dijkstra and A* as V3 planner adapters before rewriting them | V3.1 |
+| 3 | Add V3 core interfaces beside existing modules (`PhysicalState` with `assembly_state`, robot, scene, `GoalConstraint` + `GoalStateGenerator`, local motion, objective, planner, result) | V3.1 |
+| 4 | Wrap certified V2 mechanism branches as V3 `RobotModel` transmission components (`state_from_input` / `states_from_output` / `validate_state`) | V3.1 |
+| 5 | Wrap existing Dijkstra and A* as V3 planner adapters before rewriting them (ADR-025 capabilities; `None` allowed for unclaimed completeness/optimality) | V3.1 |
 | 6 | Reproduce one known V2 case through V3 adapters (compatibility fixture) | V3.1 exit |
 | 7 | Build free-space Cartesian vertical slice with exact start and direct planners | V3.2 |
 | 8 | Lattice / local-motion validation (8-connected, integrated cost) | V3.3 |
@@ -31,12 +31,12 @@ Use a strangler migration. Preserve frozen Version 2 modules. Add Version 3 core
 | reusable unchanged: `search/{protocol,core,result,graph_solver}` | Consumed by lattice/graph planner adapters; no move |
 | reusable unchanged: Mechanism protocol, `OutputSpace`, `planar_2r` | Compose into `RobotModel` |
 | adapter: `EmbeddedPlanningGraph`, `v2_objectives` | Lattice planner backend + objective adapter |
-| adapter: `dijkstra` / `astar` façades | `Planner` implementations declaring ADR-025 capabilities |
+| adapter: `dijkstra` / `astar` façades | `Planner` implementations declaring ADR-025 capabilities (`None` OK for unclaimed theory flags) |
 | adapter: V2 config/result schemas | Historical loaders only; new V3 schema discriminator |
-| refactor: `OperatingBranch` | Keep V2 path; generalize only when a V3 robot needs it |
-| refactor: `query_overlay`, Cartesian attachment | Exact-start query connection (ADR-023); drop task-semantic `start_tolerance` |
+| refactor: `OperatingBranch` | Keep V2 path; expose via `assembly_state` / `states_from_output` when wrapping |
+| refactor: `query_overlay`, Cartesian attachment | Exact-start query connection (ADR-023); drop task-semantic `start_tolerance`; separate `GoalStateGenerator` |
 | legacy-only: V1 graphs/objectives/sprint runners | Reproduction only |
-| diagnostic lineage: Experiment A Q-spanner (`v2_tasks.py`) | Separate diagnostic protocol under ADR-026 |
+| diagnostic lineage: Experiment A Q-spanner (`v2_tasks.py`) | Separate diagnostic protocol under ADR-026; do not merge with Cartesian strata |
 
 Do not reorganize toward the target source tree in the V3 plan until a move adds architectural value. Prefer new packages (`core/`, `planners/`, `adapters/`) beside stable modules.
 
@@ -69,10 +69,12 @@ Run the same declared case through:
 
 They must agree on:
 
-- declared physical states at start and selected goal (`q`, `u`, branch id);
+- declared physical states at start and selected goal (`q`, `u`, structured `assembly_state`; monotonic case may use an empty or canonical mapping);
 - path cost under the declared objective definition;
 - selected goal identity;
 - search instrumentation that shares semantics (expansions, generated, reopened) within exact integer equality for deterministic identical graphs.
+
+V3 adapters must construct physical states through `RobotModel` so \(u\) and \(q\) remain consistent. Shared lattice \(q\) coordinates across a mechanism pair do not imply a shared `PhysicalState` object.
 
 Explicitly **out of scope** for the first fixture:
 

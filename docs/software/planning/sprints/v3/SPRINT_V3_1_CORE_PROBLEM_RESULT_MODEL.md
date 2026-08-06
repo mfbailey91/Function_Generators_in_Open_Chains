@@ -28,7 +28,7 @@ Implement only the Version 3 core problem/result model and compatibility adapter
 
 ### V3-100 — Core interfaces
 
-Implement modules for `PhysicalState`, `RobotModel`, `PlanningScene`, `GoalConstraint`, `ConstraintSet`, `LocalMotionModel`, `PlanningObjective`, `Planner`, `PlannerCapabilities`, and `PlanningResult` per ADRs 021–025.
+Implement modules for `PhysicalState` (with `assembly_state`), `RobotModel` (`state_from_input` / `states_from_output` / `validate_state`), `PlanningScene`, `GoalConstraint`, `GoalStateGenerator`, `GoalResidual`, `ConstraintSet`, `LocalMotion` / `LocalMotionModel`, `PlanningObjective` / `IncrementalPlanningObjective`, `Planner`, `PlannerCapabilities`, `PlannerLifecycle`, and `PlanningResult` per ADRs 021–025. Theoretical capability fields may be `None` when unclaimed.
 
 ### V3-101 — Architecture discriminator
 
@@ -36,11 +36,11 @@ Extend the architecture gate so Version 3 configs/results are explicit. Missing 
 
 ### V3-102 — Mechanism and search adapters
 
-Wrap certified operating branches and planar 2R FK as a `RobotModel`. Wrap Dijkstra and A* as `Planner` adapters that declare capabilities and map `SearchResult` into `PlanningResult`.
+Wrap certified operating branches and planar 2R FK as a `RobotModel` that certifies consistent physical states. Wrap Dijkstra and A* as `Planner` adapters that declare capabilities and map `SearchResult` into `PlanningResult` with timing decomposition fields where applicable.
 
 ### V3-103 — Compatibility fixture
 
-Implement the single shared-Q compatibility fixture specified in the migration map. Agree on states, cost, selected goal, and shared instrumentation with the frozen V2 stack.
+Implement the single shared-Q compatibility fixture specified in the migration map. Agree on states (`q`, `u`, `assembly_state`), cost, selected goal, and shared instrumentation with the frozen V2 stack. Shared lattice \(q\) does not imply a shared `PhysicalState` across the mechanism pair.
 
 ### V3-104 — Tests
 
