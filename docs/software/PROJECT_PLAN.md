@@ -1,8 +1,9 @@
 # Inequality Mechanisms — Software Project Plan
 
 **Repository:** <https://github.com/mfbailey91/Function_Generators_in_Open_Chains>  
-**Planning status:** Version 2 2R architecture and Experiment A (V2.10 Dijkstra + V2.11 A*) evidence complete; Experiment B / V2.12 active for bounded Cartesian goal-set smoke, with production inference held  
-**Version 1 status:** Preserved as the full-cycle, input-state research baseline
+**Planning status:** Version 3 planner-agnostic pivot in progress ([V3_PROJECT_PLAN.md](V3_PROJECT_PLAN.md); [Sprint V3.0](planning/sprints/v3/SPRINT_V3_0_ARCHITECTURE_CONTRACT.md)). Version 2 Experiment A (V2.10 Dijkstra + V2.11 A*) and bounded Experiment B / V2.12 smoke–calibration evidence are frozen historical lineage; V2 Cartesian production inference remains held  
+**Version 1 status:** Preserved as the full-cycle, input-state research baseline  
+**Version 3 status:** Architecture and migration planning only; no new planner, obstacle, OMPL, MoveIt, or Monte Carlo code until V3 contracts are accepted
 
 ## Objective
 

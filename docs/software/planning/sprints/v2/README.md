@@ -13,9 +13,9 @@
 9. [Sprint V2.9 — Shared-Q Paired Mechanism Study (U-distance only)](SPRINT_V2_9_SHARED_Q_PAIRED_STUDY.md) (completed diagnostic)
 10. [Sprint V2.10 — Production Monte Carlo Orchestration: Dijkstra Campaign](SPRINT_V2_10_PRODUCTION_MONTE_CARLO_ORCHESTRATION.md) (completed; [evidence report](../../../experiments/reports/V2_10_PRODUCTION_DIJKSTRA_SUMMARY.md))
 11. [Sprint V2.11 — A* Paired Campaign](SPRINT_V2_11_ASTAR_PAIRED_CAMPAIGN.md) (completed; [evidence report](../../../experiments/reports/V2_11_ASTAR_PAIRED_CAMPAIGN_SUMMARY.md))
-12. [Sprint V2.12 — Cartesian Goal-Region Planning](SPRINT_V2_12_CARTESIAN_GOAL_REGION_PLANNING.md) (**active bounded smoke**; Experiment B)
+12. [Sprint V2.12 — Cartesian Goal-Region Planning](SPRINT_V2_12_CARTESIAN_GOAL_REGION_PLANNING.md) (**active**; smoke + V2B-005 calibration evidence: [report](../../../experiments/reports/V2_12_CARTESIAN_GOAL_REGION_SUMMARY.md))
 
-V2.11 is complete on the frozen V2.10 bank. Experiment A now has Dijkstra and A* cells. ADR-019 and ADR-020 are accepted, and V2.12 is active for bounded Cartesian goal-set search correctness only. Production inference remains held behind calibration decisions and crossed statistics. V2.7 is now held pending review of trusted Experiment B task-space solver evidence.
+V2.11 is complete on the frozen V2.10 bank. Experiment A now has Dijkstra and A* cells. ADR-019 and ADR-020 are accepted. V2.12 has closed the bounded smoke and calibration-decision slice ([evidence report](../../../experiments/reports/V2_12_CARTESIAN_GOAL_REGION_SUMMARY.md)); population inference remains held behind crossed statistics. V2.7 is held pending review of trusted Experiment B task-space solver evidence.
 
 ## Deferred
 

@@ -4,5 +4,8 @@ Design notes preserve useful explorations and deferred alternatives. Promote a n
 
 - [Future search algorithms](PROJECT_NOTE_FUTURE_SEARCH_ALGORITHMS.md)
 - [Experiment A task-set effect](PROJECT_NOTE_EXPERIMENT_A_TASK_SET_EFFECT.md) (deferred; low confidence)
-- [Experiment B crossed statistics](PROJECT_NOTE_EXPERIMENT_B_CROSSED_STATISTICS.md) (V2.12 prerequisite placeholder)
+- [Experiment B crossed statistics](PROJECT_NOTE_EXPERIMENT_B_CROSSED_STATISTICS.md) (V2.12 prerequisite placeholder; production held under V3)
+- [V2 to V3 pivot](PROJECT_NOTE_V2_TO_V3_PIVOT.md) (rationale; not an evidence claim)
+- [V3 code inventory](V3_CODE_INVENTORY.md) (Sprint V3.0)
+- [V3 migration map](V3_MIGRATION_MAP.md) (Sprint V3.0)
 - [S4-12 lifted output-state](S4-12-lifted-output-state.md)

@@ -7,6 +7,7 @@
 **Primary objective:** actuator travel
 **Initial solvers:** Dijkstra baseline and A* with `input_euclidean_goal_set` under the `smoke_oracle_pair_v1` correctness policy
 **Active sprint:** [`SPRINT_V2_12_CARTESIAN_GOAL_REGION_PLANNING.md`](../../planning/sprints/v2/SPRINT_V2_12_CARTESIAN_GOAL_REGION_PLANNING.md)
+**Evidence report:** [`V2_12_CARTESIAN_GOAL_REGION_SUMMARY.md`](../reports/V2_12_CARTESIAN_GOAL_REGION_SUMMARY.md) · [HTML dashboard](../reports/V2_12_CARTESIAN_GOAL_REGION.html)
 **Accepted implementation contracts:** [ADR-019](../../architecture/adr/ADR-019-v2-cartesian-task-domain.md), [ADR-020](../../architecture/adr/ADR-020-v2-goal-set-search.md). **Production prerequisite:** [crossed-statistics note](../../architecture/notes/PROJECT_NOTE_EXPERIMENT_B_CROSSED_STATISTICS.md) must be converted into an implemented decision before population inference.
 
 ## Research question

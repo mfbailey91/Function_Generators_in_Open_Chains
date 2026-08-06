@@ -1,0 +1,982 @@
+diff --git a/configs/v2/cartesian_goal_region_smoke.yaml b/configs/v2/cartesian_goal_region_smoke.yaml
+index 6c34fa9..f60b497 100644
+--- a/configs/v2/cartesian_goal_region_smoke.yaml
++++ b/configs/v2/cartesian_goal_region_smoke.yaml
+@@ -2,6 +2,7 @@ experiment_b_schema_version: 1
+ experiment_id: experiment_b_cartesian_goal_region_smoke
+ seed: 20260805
+ task_count: 16
++solver_policy: smoke_oracle_pair_v1
+ algorithms: [dijkstra, astar]
+ record_expanded: false
+ 
+@@ -18,12 +19,13 @@ cartesian_domain:
+   L1: 1.0
+   L2: 1.0
+ 
++# Graph/mechanism construction fields only. The Experiment B loader injects
++# private V2 schema-carrier fields required by V2ExperimentConfig; no task,
++# solver, or heuristic semantics are read from this nested mapping.
+ base_experiment:
+   architecture_version: 2
+   result_schema_version: 2
+   planning_space: output
+-  seed: 20260805
+-  trials: 1
+   mechanisms:
+     comparison: fourbar_vs_equivalent_affine_gearbox
+     dim: 2
+@@ -45,15 +47,5 @@ base_experiment:
+     domain: output
+     shape: [64, 64]
+     include_endpoints: true
+-  objective:
+-    cost: actuator_travel
+-    heuristic: input_euclidean
+   edge_validation:
+     samples: 17
+-  tasks:
+-    source: fixed_output_pairs
+-    output_tolerance: 1.0e-6
+-    pairs:
+-      - start_q: [0.0, 0.0]
+-        goal_q: [0.1, 0.1]
+-  algorithms: [dijkstra, astar]
+diff --git a/docs/software/architecture/adr/ADR-019-v2-cartesian-task-domain.md b/docs/software/architecture/adr/ADR-019-v2-cartesian-task-domain.md
+index 5dde7ed..8856e19 100644
+--- a/docs/software/architecture/adr/ADR-019-v2-cartesian-task-domain.md
++++ b/docs/software/architecture/adr/ADR-019-v2-cartesian-task-domain.md
+@@ -88,9 +88,18 @@ cannot intentionally lie inside the goal disk. Discrete attachment may still
+ produce a coincident start/goal node; that query is rejected explicitly as
+ `start_node_inside_goal_region`.
+ 
+-The graph attaches the start to the valid node with minimum Cartesian residual,
+-breaking exact residual ties by ascending node id. The goal is the complete set
+-of valid graph nodes inside the goal disk.
++The smoke graph attaches the start to the valid node with minimum Cartesian
++residual inside `start_tolerance`, breaking exact residual ties by ascending
++node id. The stable attachment-policy identifier is:
++
++```text
++nearest_valid_graph_node_within_tolerance_v1
++```
++
++Analytic IK is diagnostic only in this smoke: every family records certified-box
++membership, nearest graph representative, residual, and exclusion reason. The
++smoke does not balance IK families and does not use a V2.6 exact query overlay.
++The goal is the complete set of valid graph nodes inside the goal disk.
+ 
+ ### Reachability and reporting
+ 
+@@ -128,7 +137,10 @@ requires decision JSON for:
+ - empty-goal-set rate;
+ - goal-set cardinality distribution;
+ - selected-goal residual;
+-- sensitivity of the paired effect to radius and resolution.
++- sensitivity of the paired effect to radius and resolution;
++- start-family and start-residual distributions under the nearest-node policy;
++- a decision to retain discrete start attachment or add a start-only exact
++  overlay before production.
+ 
+ A calibration change must create a new domain version or attachment-policy
+ version; it must not mutate `planar2r_left_workcell_v1` results.
+diff --git a/docs/software/architecture/adr/ADR-020-v2-goal-set-search.md b/docs/software/architecture/adr/ADR-020-v2-goal-set-search.md
+index a9c6838..169600e 100644
+--- a/docs/software/architecture/adr/ADR-020-v2-goal-set-search.md
++++ b/docs/software/architecture/adr/ADR-020-v2-goal-set-search.md
+@@ -42,8 +42,10 @@ Priority remains
+ ```
+ 
+ so equal-cost candidate goals resolve deterministically by the existing node-id
+-tie order. The selected goal is `SearchResult.path[-1]`; Experiment B records
+-that node, its \(q\), \(u\), Cartesian position, residual, and IK family.
++tie order. `SearchResult.selected_goal_node_id` records the optimally settled
++goal directly; `path[-1]` must agree but is not the result API. Experiment B
++records that node, its \(q\), \(u\), Cartesian position, residual, and IK
++family.
+ 
+ Expansion counting is unchanged. The settled goal counts as an expansion, as in
+ the single-goal implementation.
+@@ -96,10 +98,15 @@ Other cost families remain blocked until separately documented and tested.
+ 
+ ## Compatibility
+ 
+-Single-goal callers continue to pass `goal` positionally and require no result
+-schema change. Query overlays and existing Dijkstra/A* campaigns remain valid.
+-No OMPL, sampling-based, Cartesian-native, or per-IK repeated-search stack is
+-introduced.
++Single-goal callers continue to pass `goal` positionally. The additive
++`selected_goal_node_id` field is populated for successful single- and goal-set
++queries and is `None` on failure. Query overlays and existing Dijkstra/A*
++campaigns remain valid. No OMPL, sampling-based, Cartesian-native, or per-IK
++repeated-search stack is introduced.
++
++The V2.12 smoke uses nearest-node start attachment on the shared discrete graph.
++A start-only exact overlay is not part of this kickoff and remains a calibration
++work item before production if start snapping is not negligible.
+ 
+ ## Required tests
+ 
+@@ -115,7 +122,9 @@ introduced.
+ 
+ ## Consequences
+ 
+-- V2.12 may implement Dijkstra and A* goal-region smoke together.
++- V2.12 may implement Dijkstra and A* goal-region smoke together as the
++  explicit `smoke_oracle_pair_v1` correctness exception to one-solver-per-
++  production-campaign policy.
+ - A* results must name `input_euclidean_goal_set` explicitly.
+ - Production remains blocked on Cartesian calibration and crossed-statistics
+   decisions, not on goal-set search semantics.
+diff --git a/docs/software/architecture/adr/README.md b/docs/software/architecture/adr/README.md
+index 4caea0c..b7db2fe 100644
+--- a/docs/software/architecture/adr/README.md
++++ b/docs/software/architecture/adr/README.md
+@@ -17,5 +17,5 @@ ADR-001 remains accepted for Version 1 noninjective/full-cycle planning. Version
+ | [016](ADR-016-v1-v2-configuration-compatibility.md) | V1/V2 configuration compatibility | V1 + V2 |
+ | [017](ADR-017-shared-q-normalized-qu-cost.md) | Shared-Q planning with normalized Q/U cost | V2 |
+ | [018](ADR-018-astar-actuator-travel-heuristic.md) | A* heuristic for actuator-travel production campaigns | V2 |
+-| [019](ADR-019-v2-cartesian-task-domain.md) | V2 external Cartesian task domain (proposed; not accepted) | V2 |
+-| [020](ADR-020-v2-goal-set-search.md) | V2 goal-set search semantics (proposed; not accepted) | V2 |
++| [019](ADR-019-v2-cartesian-task-domain.md) | V2 external Cartesian task domain (accepted for smoke/calibration) | V2 |
++| [020](ADR-020-v2-goal-set-search.md) | V2 goal-set search semantics (accepted) | V2 |
+diff --git a/docs/software/experiments/README.md b/docs/software/experiments/README.md
+index a0740e9..915fd99 100644
+--- a/docs/software/experiments/README.md
++++ b/docs/software/experiments/README.md
+@@ -9,6 +9,6 @@ Experiment documentation is separate from architecture and sprint execution.
+ Current task-definition documents:
+ 
+ - [`EXPERIMENT_A_CENTERED_Q_PROBES.md`](protocols/EXPERIMENT_A_CENTERED_Q_PROBES.md) — completed V2.10 Dijkstra and V2.11 A* centered canonical probes.
+-- [`EXPERIMENT_B_CARTESIAN_GOAL_REGION.md`](protocols/EXPERIMENT_B_CARTESIAN_GOAL_REGION.md) — accepted future 2R position-only Cartesian planning design; Sprint V2.12 held.
++- [`EXPERIMENT_B_CARTESIAN_GOAL_REGION.md`](protocols/EXPERIMENT_B_CARTESIAN_GOAL_REGION.md) — active bounded 2R Cartesian goal-region smoke; production inference remains held.
+ 
+ Complete run packages remain under `results/` or `diagnostics/`. Campaign summaries, selected figures, and checked-in Monte Carlo artifacts may live under `docs/software/experiments/reports/` or `docs/artifacts/`; do not copy entire production trees into `docs/`.
+diff --git a/docs/software/experiments/protocols/EXPERIMENT_B_CARTESIAN_GOAL_REGION.md b/docs/software/experiments/protocols/EXPERIMENT_B_CARTESIAN_GOAL_REGION.md
+index 5389017..d9b5ea5 100644
+--- a/docs/software/experiments/protocols/EXPERIMENT_B_CARTESIAN_GOAL_REGION.md
++++ b/docs/software/experiments/protocols/EXPERIMENT_B_CARTESIAN_GOAL_REGION.md
+@@ -5,7 +5,7 @@
+ **Task variable:** Cartesian position \((x,y)\), not full pose
+ **Primary graph:** shared uniform-\(\mathcal Q\) Version 2 graph
+ **Primary objective:** actuator travel
+-**Initial solvers:** Dijkstra baseline and A* with `input_euclidean_goal_set`
++**Initial solvers:** Dijkstra baseline and A* with `input_euclidean_goal_set` under the `smoke_oracle_pair_v1` correctness policy
+ **Active sprint:** [`SPRINT_V2_12_CARTESIAN_GOAL_REGION_PLANNING.md`](../../planning/sprints/v2/SPRINT_V2_12_CARTESIAN_GOAL_REGION_PLANNING.md)
+ **Accepted implementation contracts:** [ADR-019](../../architecture/adr/ADR-019-v2-cartesian-task-domain.md), [ADR-020](../../architecture/adr/ADR-020-v2-goal-set-search.md). **Production prerequisite:** [crossed-statistics note](../../architecture/notes/PROJECT_NOTE_EXPERIMENT_B_CROSSED_STATISTICS.md) must be converted into an implemented decision before population inference.
+ 
+@@ -91,15 +91,20 @@ the task itself did not require.
+ Although tasks are sampled as Cartesian start and goal positions, the actual
+ planning query begins at one known physical state.
+ 
+-Task-bank generation must:
++For the bounded V2.12 smoke, task attachment must:
+ 
+ 1. sample \(\mathbf x_s\);
+-2. enumerate certified discrete \(\mathcal Q\)-states that reach its tolerance
+-   region;
+-3. choose one according to a frozen balancing policy;
+-4. store the resulting \(\mathbf q_s\) and graph node;
++2. enumerate valid shared-graph nodes inside `start_tolerance`;
++3. select the node with minimum Cartesian residual, breaking ties by node id;
++4. store the resulting \(\mathbf q_s\), node id, residual, IK-family label, and
++   attachment-policy id;
+ 5. use that identical start node for the four-bar and matched gearbox.
+ 
++The smoke policy is
++`nearest_valid_graph_node_within_tolerance_v1`. Analytic IK families are
++diagnostics: they record certified-box membership, nearest discrete
++representatives, and exclusions. They do not choose or balance the smoke start.
++
+ The bank must record:
+ 
+ - all analytic IK families;
+@@ -108,9 +113,10 @@ The bank must record:
+ - which were excluded and why;
+ - the selected start family.
+ 
+-That prevents “balanced IK” from being mistaken for balance over unrestricted
+-planar 2R kinematics. Selection must not depend on mechanism cost or search
+-outcomes.
++Production must either retain this discrete attachment after calibration or
++freeze a separate IK-family balancing / start-only exact-overlay policy. It must
++not describe the current smoke as balanced IK. Selection may never depend on
++mechanism cost or search outcomes.
+ 
+ ## Primary task distribution: fixed external Cartesian domain
+ 
+diff --git a/docs/software/planning/BACKLOG.md b/docs/software/planning/BACKLOG.md
+index 750b735..122ad91 100644
+--- a/docs/software/planning/BACKLOG.md
++++ b/docs/software/planning/BACKLOG.md
+@@ -7,9 +7,10 @@ The Version 2 sequence is defined in [sprints/v2/README.md](sprints/v2/README.md
+ ## Current backlog
+ 
+ - **V2 HTML run printout (evaluation tooling):** implemented beside the V2 runner (`v2_canvas.py`, `scripts/generate_v2_canvas.py`). Keep regenerable; do not treat as a substitute for V2.7.
+-- **Experiment B / Sprint V2.12 — 2R Cartesian goal-region planning:** accepted conceptual design, held. Prerequisites before activation: [ADR-019 Cartesian domain](../architecture/adr/ADR-019-v2-cartesian-task-domain.md), [ADR-020 goal-set search](../architecture/adr/ADR-020-v2-goal-set-search.md), and [crossed statistics](../architecture/notes/PROJECT_NOTE_EXPERIMENT_B_CROSSED_STATISTICS.md). Protocol: [Experiment B](../experiments/protocols/EXPERIMENT_B_CARTESIAN_GOAL_REGION.md). Sprint: [V2.12](sprints/v2/SPRINT_V2_12_CARTESIAN_GOAL_REGION_PLANNING.md).
++- **Experiment B production promotion:** V2.12 bounded smoke is active, but population inference remains held. Required work: Cartesian resolution/radius/start-attachment calibration, decision JSON, crossed statistics and stopping logic, separate one-solver production configs, and the evidence canvas. Protocol: [Experiment B](../experiments/protocols/EXPERIMENT_B_CARTESIAN_GOAL_REGION.md). Sprint: [V2.12](sprints/v2/SPRINT_V2_12_CARTESIAN_GOAL_REGION_PLANNING.md).
++- **Experiment B exact-start control:** nearest-node start attachment is accepted for smoke only. Decide after calibration whether to retain it or add a start-only V2.6 query overlay; do not claim IK-family balancing in the current implementation.
+ - **Experiment A task-set diagnostic:** deferred and low-confidence. A* already failed the first persistence check for `medium_diagonal`. Do not promote into a claim or into Experiment B's primary domain. See [project note](../architecture/notes/PROJECT_NOTE_EXPERIMENT_A_TASK_SET_EFFECT.md).
+-- **Sprint V2.7 (3R):** deferred pending review of trusted 2R Dijkstra + A* solver evidence. Unchanged by the held Experiment B stage. See [sprints/v2/SPRINT_V2_7_3R_EXTENSION.md](sprints/v2/SPRINT_V2_7_3R_EXTENSION.md).
++- **Sprint V2.7 (3R):** deferred pending review of trusted V2.12 Cartesian goal-set Dijkstra + A* evidence. See [sprints/v2/SPRINT_V2_7_3R_EXTENSION.md](sprints/v2/SPRINT_V2_7_3R_EXTENSION.md).
+ 
+ ## Intake rules
+ 
+diff --git a/docs/software/planning/sprints/v2/README.md b/docs/software/planning/sprints/v2/README.md
+index 683c54e..7119021 100644
+--- a/docs/software/planning/sprints/v2/README.md
++++ b/docs/software/planning/sprints/v2/README.md
+@@ -13,13 +13,13 @@
+ 9. [Sprint V2.9 — Shared-Q Paired Mechanism Study (U-distance only)](SPRINT_V2_9_SHARED_Q_PAIRED_STUDY.md) (completed diagnostic)
+ 10. [Sprint V2.10 — Production Monte Carlo Orchestration: Dijkstra Campaign](SPRINT_V2_10_PRODUCTION_MONTE_CARLO_ORCHESTRATION.md) (completed; [evidence report](../../../experiments/reports/V2_10_PRODUCTION_DIJKSTRA_SUMMARY.md))
+ 11. [Sprint V2.11 — A* Paired Campaign](SPRINT_V2_11_ASTAR_PAIRED_CAMPAIGN.md) (completed; [evidence report](../../../experiments/reports/V2_11_ASTAR_PAIRED_CAMPAIGN_SUMMARY.md))
+-12. [Sprint V2.12 — Cartesian Goal-Region Planning](SPRINT_V2_12_CARTESIAN_GOAL_REGION_PLANNING.md) (planned / held; Experiment B)
++12. [Sprint V2.12 — Cartesian Goal-Region Planning](SPRINT_V2_12_CARTESIAN_GOAL_REGION_PLANNING.md) (**active bounded smoke**; Experiment B)
+ 
+-V2.11 is complete on the frozen V2.10 bank. Experiment A now has Dijkstra and A* cells. V2.12 remains held behind accepted Cartesian-domain and goal-set search ADRs plus a crossed statistical design. V2.7 remains held pending review of the paired Dijkstra/A* 2R solver evidence.
++V2.11 is complete on the frozen V2.10 bank. Experiment A now has Dijkstra and A* cells. ADR-019 and ADR-020 are accepted, and V2.12 is active for bounded Cartesian goal-set search correctness only. Production inference remains held behind calibration decisions and crossed statistics. V2.7 is now held pending review of trusted Experiment B task-space solver evidence.
+ 
+ ## Deferred
+ 
+-- [Sprint V2.7 — 3R Planar Extension](SPRINT_V2_7_3R_EXTENSION.md) — **held** pending review of trusted 2R Dijkstra + A* solver evidence. Do not start until entry gates below and that review are both satisfied. Experiment B does not replace this gate.
++- [Sprint V2.7 — 3R Planar Extension](SPRINT_V2_7_3R_EXTENSION.md) — **held** pending review of trusted 2R Cartesian goal-set Dijkstra/A* evidence from V2.12. This explicitly aligns the dimension roadmap as 2R position, then 3R planar pose.
+ 
+ ## Dependency map
+ 
+@@ -36,11 +36,12 @@ V2.0 Contract + V1 baseline
+                                                   └── V2.9 U-distance-only paired study
+                                                         └── V2.10 Production Monte Carlo (Dijkstra)
+                                                               └── V2.11 paired A* campaign
+-                                                                    ├── paired solver evidence review
+-                                                                    │     └── (deferred) V2.7 3R extension
+-                                                                    └── Experiment B prerequisites
+-                                                                          (ADR-019, ADR-020, crossed stats)
+-                                                                          └── (held) V2.12 Cartesian goal regions
++                                                                    └── ADR-019 + ADR-020 accepted
++                                                                          └── V2.12 bounded Cartesian goal-set smoke
++                                                                                ├── task-space solver evidence review
++                                                                                │     └── (deferred) V2.7 3R extension
++                                                                                └── calibration + crossed statistics
++                                                                                      └── V2.12 production campaign
+ ```
+ 
+ V2.1 and early V2.2 design work may overlap after ADR acceptance, but V2.3 implementation must not begin until both contracts are stable.
+@@ -59,8 +60,9 @@ V2.1 and early V2.2 design work may overlap after ADR acceptance, but V2.3 imple
+ | V2.8 2R evidence reviewed | V2.9 U-distance-only revision |
+ | V2.9 U-distance diagnostic reviewed | V2.10 Dijkstra production Monte Carlo |
+ | V2.10 production evidence reviewed | V2.11 paired A* campaign |
+-| V2.11 paired solver evidence reviewed | 3R implementation (deferred) |
+-| ADR-019, ADR-020, and crossed Experiment B statistics accepted | V2.12 implementation (held) |
++| ADR-019 and ADR-020 accepted | V2.12 bounded smoke implementation |
++| V2.12 Cartesian goal-set Dijkstra/A* evidence reviewed | 3R implementation (deferred) |
++| Cartesian calibration decisions and crossed statistics implemented | V2.12 production inference |
+ 
+ ## Scope boundary
+ 
+diff --git a/docs/software/planning/sprints/v2/SPRINT_V2_12_CARTESIAN_GOAL_REGION_PLANNING.md b/docs/software/planning/sprints/v2/SPRINT_V2_12_CARTESIAN_GOAL_REGION_PLANNING.md
+index 5efe205..05b27ab 100644
+--- a/docs/software/planning/sprints/v2/SPRINT_V2_12_CARTESIAN_GOAL_REGION_PLANNING.md
++++ b/docs/software/planning/sprints/v2/SPRINT_V2_12_CARTESIAN_GOAL_REGION_PLANNING.md
+@@ -159,13 +159,21 @@ The first patch is complete only when it provides:
+ 3. analytic planar-2R IK for task diagnostics;
+ 4. the fixed annular-sector task sampler and deterministic graph attachment;
+ 5. pair-identity hard gates for start and goal sets;
+-6. one versioned smoke config and CLI that run both Dijkstra and A*;
+-7. immutable task, trial, failure, config, and manifest outputs;
+-8. Dijkstra/A* optimal-cost agreement as a run-time hard gate.
++6. one versioned smoke config with one authoritative solver list and no
++   public dummy task/objective fields;
++7. a CLI that runs Dijkstra and A* under the explicit
++   `smoke_oracle_pair_v1` correctness exception;
++8. immutable task, trial, failure, config, and manifest outputs;
++9. Dijkstra/A* optimal-cost agreement as a run-time hard gate;
++10. exhaustive small-graph goal-set oracles, deterministic equal-cost-goal
++    tests, repository-YAML load coverage, and one bounded runner integration
++    test.
+ 
+ The kickoff does **not** implement population-bank orchestration, crossed
+ bootstrap confidence intervals, sequential precision, calibration decisions,
+-or an evidence canvas.
++an evidence canvas, IK-family balancing, or a start-only exact query overlay.
++Nearest-node start attachment is smoke semantics and must be calibrated before
++production.
+ 
+ ## Primary outputs
+ 
+diff --git a/src/inequality_mechanisms/experiments/v2_cartesian_goal_region.py b/src/inequality_mechanisms/experiments/v2_cartesian_goal_region.py
+index 6001e29..3dbb958 100644
+--- a/src/inequality_mechanisms/experiments/v2_cartesian_goal_region.py
++++ b/src/inequality_mechanisms/experiments/v2_cartesian_goal_region.py
+@@ -52,9 +52,11 @@ class CartesianGoalRegionRunConfig:
+     experiment_id: str
+     seed: int
+     task_count: int
++    solver_policy: str
+     algorithms: tuple[str, ...]
+     record_expanded: bool
+     base_experiment: V2ExperimentConfig
++    base_experiment_source: dict[str, Any]
+     domain: CartesianAnnularSectorDomain
+ 
+ 
+@@ -82,9 +84,37 @@ def load_cartesian_goal_region_config(
+     root = _require_mapping(raw, "config root")
+     if int(root.get("experiment_b_schema_version", -1)) != 1:
+         raise ValueError("experiment_b_schema_version must equal 1")
+-    base = validate_v2_config_mapping(
++    base_source = dict(
+         _require_mapping(root.get("base_experiment"), "base_experiment")
+     )
++    forbidden_schema_carriers = {"seed", "trials", "objective", "tasks", "algorithms"}
++    present_carriers = sorted(forbidden_schema_carriers.intersection(base_source))
++    if present_carriers:
++        raise ValueError(
++            "base_experiment contains Experiment-B-irrelevant schema fields: "
++            + ", ".join(present_carriers)
++        )
++    # V2 graph builders currently accept V2ExperimentConfig. Inject private,
++    # deterministic schema-carrier values here rather than exposing duplicate
++    # task/solver/heuristic semantics in the public Experiment B YAML.
++    base_for_validation = dict(base_source)
++    base_for_validation.update(
++        {
++            "seed": int(root["seed"]),
++            "trials": 1,
++            "objective": {
++                "cost": "actuator_travel",
++                "heuristic": "input_euclidean",
++            },
++            "tasks": {
++                "source": "fixed_output_pairs",
++                "output_tolerance": 0.0,
++                "pairs": [{"start_q": [0.0, 0.0], "goal_q": [0.0, 0.0]}],
++            },
++            "algorithms": ["dijkstra"],
++        }
++    )
++    base = validate_v2_config_mapping(base_for_validation)
+     if base.mechanisms.dim != 2:
+         raise ValueError("Experiment B kickoff requires a planar 2R base experiment")
+     if base.sampling.domain != "output":
+@@ -107,11 +137,15 @@ def load_cartesian_goal_region_config(
+         L1=float(domain_raw.get("L1", 1.0)),
+         L2=float(domain_raw.get("L2", 1.0)),
+     )
+-    algorithms = tuple(str(a) for a in root.get("algorithms", ["dijkstra", "astar"]))
+-    if not algorithms or len(set(algorithms)) != len(algorithms):
+-        raise ValueError("algorithms must be non-empty and unique")
+-    if any(a not in {"dijkstra", "astar"} for a in algorithms):
+-        raise ValueError("Experiment B kickoff supports dijkstra and astar only")
++    solver_policy = str(root.get("solver_policy", ""))
++    if solver_policy != "smoke_oracle_pair_v1":
++        raise ValueError("solver_policy must equal 'smoke_oracle_pair_v1'")
++    algorithms = tuple(str(a) for a in root.get("algorithms", ()))
++    if algorithms != ("dijkstra", "astar"):
++        raise ValueError(
++            "smoke_oracle_pair_v1 requires algorithms: [dijkstra, astar] "
++            "in that order"
++        )
+     task_count = int(root.get("task_count", 0))
+     if task_count < 1:
+         raise ValueError("task_count must be positive")
+@@ -119,9 +153,11 @@ def load_cartesian_goal_region_config(
+         experiment_id=str(root.get("experiment_id", "experiment_b_cartesian_goal_region")),
+         seed=int(root["seed"]),
+         task_count=task_count,
++        solver_policy=solver_policy,
+         algorithms=algorithms,
+         record_expanded=bool(root.get("record_expanded", False)),
+         base_experiment=base,
++        base_experiment_source=base_source,
+         domain=domain,
+     )
+ 
+@@ -247,7 +283,11 @@ def run_cartesian_goal_region(
+                         }
+                     )
+                     continue
+-                selected_goal = int(result.path[-1])
++                if result.selected_goal_node_id is None:
++                    raise AssertionError(
++                        "found goal-set result did not record selected_goal_node_id"
++                    )
++                selected_goal = int(result.selected_goal_node_id)
+                 selected_x = fk.forward(graph.q_state(selected_goal))
+                 row = {
+                     "experiment_id": config.experiment_id,
+@@ -261,6 +301,7 @@ def run_cartesian_goal_region(
+                     "selected_start_q": graph.q_state(reference.start_node_id).tolist(),
+                     "selected_start_u": graph.u_state(reference.start_node_id).tolist(),
+                     "selected_start_ik_family": reference.selected_start_ik_family,
++                    "start_attachment_policy": reference.start_attachment_policy,
+                     "requested_start_x": task.requested_start_x.tolist(),
+                     "requested_goal_x": task.requested_goal_x.tolist(),
+                     "goal_radius_x": config.domain.goal_radius,
+@@ -301,10 +342,21 @@ def run_cartesian_goal_region(
+                 "experiment_id": config.experiment_id,
+                 "seed": config.seed,
+                 "task_count": config.task_count,
++                "solver_policy": config.solver_policy,
+                 "algorithms": list(config.algorithms),
+                 "record_expanded": config.record_expanded,
+                 "cartesian_domain": config.domain.to_dict(),
+-                "base_experiment": config.base_experiment.model_dump(mode="json"),
++                "base_experiment": config.base_experiment_source,
++                "v2_schema_adapter": {
++                    "private_fields": [
++                        "seed",
++                        "trials",
++                        "objective",
++                        "tasks",
++                        "algorithms",
++                    ],
++                    "purpose": "graph_builder_compatibility_only",
++                },
+             },
+             indent=2,
+             sort_keys=True,
+@@ -326,6 +378,7 @@ def run_cartesian_goal_region(
+         "n_trial_rows": len(trial_rows),
+         "n_failure_rows": len(failure_rows),
+         "mechanism_ids": list(graphs),
++        "solver_policy": config.solver_policy,
+         "algorithms": list(config.algorithms),
+         "cartesian_domain": config.domain.to_dict(),
+         "revision": capture_revision(cwd=None),
+diff --git a/src/inequality_mechanisms/experiments/v2_cartesian_tasks.py b/src/inequality_mechanisms/experiments/v2_cartesian_tasks.py
+index 5cfa077..3667f1b 100644
+--- a/src/inequality_mechanisms/experiments/v2_cartesian_tasks.py
++++ b/src/inequality_mechanisms/experiments/v2_cartesian_tasks.py
+@@ -15,6 +15,9 @@ from numpy.typing import ArrayLike, NDArray
+ from inequality_mechanisms.kinematics.planar_2r import Planar2R
+ 
+ 
++START_ATTACHMENT_POLICY_ID = "nearest_valid_graph_node_within_tolerance_v1"
++
++
+ @dataclass(frozen=True, slots=True)
+ class CartesianAnnularSectorDomain:
+     """Area-uniform annular-sector task domain in the planar base frame."""
+@@ -127,6 +130,7 @@ class ResolvedCartesianTask:
+     nearest_goal_residual: float | None
+     analytic_start_ik: tuple[dict[str, Any], ...]
+     selected_start_ik_family: str | None
++    start_attachment_policy: str
+     rejection_reason: str | None
+ 
+     @property
+@@ -144,6 +148,7 @@ class ResolvedCartesianTask:
+                 "nearest_goal_residual": self.nearest_goal_residual,
+                 "analytic_start_ik": list(self.analytic_start_ik),
+                 "selected_start_ik_family": self.selected_start_ik_family,
++                "start_attachment_policy": self.start_attachment_policy,
+                 "rejection_reason": self.rejection_reason,
+             }
+         )
+@@ -237,14 +242,48 @@ def resolve_cartesian_task(
+     """Attach one external task to a graph with deterministic tie-breaking."""
+     model = fk if fk is not None else Planar2R(domain.L1, domain.L2)
+     node_ids, positions = graph_cartesian_positions(graph, model)
++    analytic_q = model.inverse(task.requested_start_x)
+     analytic: list[dict[str, Any]] = []
+-    for q in model.inverse(task.requested_start_x):
+-        in_box = bool(graph.branch.output_space.contains(q))
++    for q in analytic_q:
++        q_arr = np.asarray(q, dtype=np.float64)
++        in_box = bool(graph.branch.output_space.contains(q_arr))
++        nearest_node_id: int | None = None
++        nearest_residual: float | None = None
++        has_discrete_representative = False
++        exclusion_reason: str | None = None
++        if not in_box:
++            exclusion_reason = "outside_certified_q_box"
++        elif node_ids.size == 0:
++            exclusion_reason = "no_valid_graph_nodes"
++        else:
++            q_distance = np.asarray(
++                [
++                    graph.branch.output_space.distance(
++                        q_arr, graph.q_state(int(node_id))
++                    )
++                    for node_id in node_ids
++                ],
++                dtype=np.float64,
++            )
++            nearest_index = int(np.argmin(q_distance))
++            nearest_node_id = int(node_ids[nearest_index])
++            nearest_residual = float(q_distance[nearest_index])
++            nearest_x = model.forward(graph.q_state(nearest_node_id))
++            has_discrete_representative = bool(
++                np.linalg.norm(nearest_x - task.requested_start_x)
++                <= domain.start_tolerance
++            )
++            if not has_discrete_representative:
++                exclusion_reason = "no_graph_node_within_start_tolerance"
+         analytic.append(
+             {
+-                "family": ik_family(q),
+-                "q": np.asarray(q, dtype=np.float64).tolist(),
++                "family": ik_family(q_arr),
++                "q": q_arr.tolist(),
+                 "inside_certified_q_box": in_box,
++                "nearest_graph_node_id": nearest_node_id,
++                "nearest_q_residual": nearest_residual,
++                "has_discrete_representative": has_discrete_representative,
++                "exclusion_reason": exclusion_reason,
+             }
+         )
+     if node_ids.size == 0:
+@@ -256,6 +295,7 @@ def resolve_cartesian_task(
+             nearest_goal_residual=None,
+             analytic_start_ik=tuple(analytic),
+             selected_start_ik_family=None,
++            start_attachment_policy=START_ATTACHMENT_POLICY_ID,
+             rejection_reason="no_valid_graph_nodes",
+         )
+ 
+@@ -274,6 +314,7 @@ def resolve_cartesian_task(
+             nearest_goal_residual=nearest_goal,
+             analytic_start_ik=tuple(analytic),
+             selected_start_ik_family=None,
++            start_attachment_policy=START_ATTACHMENT_POLICY_ID,
+             rejection_reason="start_region_has_no_graph_node",
+         )
+     ranked_start = sorted(
+@@ -290,6 +331,7 @@ def resolve_cartesian_task(
+             nearest_goal_residual=nearest_goal,
+             analytic_start_ik=tuple(analytic),
+             selected_start_ik_family=ik_family(graph.q_state(start_node_id)),
++            start_attachment_policy=START_ATTACHMENT_POLICY_ID,
+             rejection_reason="goal_region_has_no_graph_node",
+         )
+     if start_node_id in goals:
+@@ -301,6 +343,7 @@ def resolve_cartesian_task(
+             nearest_goal_residual=nearest_goal,
+             analytic_start_ik=tuple(analytic),
+             selected_start_ik_family=ik_family(graph.q_state(start_node_id)),
++            start_attachment_policy=START_ATTACHMENT_POLICY_ID,
+             rejection_reason="start_node_inside_goal_region",
+         )
+     return ResolvedCartesianTask(
+@@ -311,6 +354,7 @@ def resolve_cartesian_task(
+         nearest_goal_residual=nearest_goal,
+         analytic_start_ik=tuple(analytic),
+         selected_start_ik_family=ik_family(graph.q_state(start_node_id)),
++        start_attachment_policy=START_ATTACHMENT_POLICY_ID,
+         rejection_reason=None,
+     )
+ 
+diff --git a/src/inequality_mechanisms/search/core.py b/src/inequality_mechanisms/search/core.py
+index 434e916..f941f2d 100644
+--- a/src/inequality_mechanisms/search/core.py
++++ b/src/inequality_mechanisms/search/core.py
+@@ -173,6 +173,7 @@ def best_first_search(
+                 n_generated=n_generated,
+                 n_stale=n_stale,
+                 expanded_nodes=tuple(expanded_order) if record_expanded else (),
++                selected_goal_node_id=selected_goal,
+             )
+ 
+         for v in graph.neighbors(u):
+@@ -204,4 +205,5 @@ def best_first_search(
+         n_generated=n_generated,
+         n_stale=n_stale,
+         expanded_nodes=tuple(expanded_order) if record_expanded else (),
++        selected_goal_node_id=None,
+     )
+diff --git a/src/inequality_mechanisms/search/result.py b/src/inequality_mechanisms/search/result.py
+index b10e3bd..c444e7d 100644
+--- a/src/inequality_mechanisms/search/result.py
++++ b/src/inequality_mechanisms/search/result.py
+@@ -33,6 +33,9 @@ class SearchResult:
+     expanded_nodes :
+         Flat ids expanded in order when ``record_expanded=True`` was passed
+         to search; otherwise empty.
++    selected_goal_node_id :
++        The optimally settled goal node for single-goal or goal-set search.
++        ``None`` when no path is found.
+     """
+ 
+     found: bool
+@@ -42,6 +45,7 @@ class SearchResult:
+     n_generated: int
+     n_stale: int
+     expanded_nodes: tuple[int, ...] = ()
++    selected_goal_node_id: int | None = None
+ 
+     @property
+     def n_path_edges(self) -> int:
+diff --git a/tests/experiments_v2/test_v2_cartesian_goal_region_runner.py b/tests/experiments_v2/test_v2_cartesian_goal_region_runner.py
+new file mode 100644
+index 0000000..22b3a33
+--- /dev/null
++++ b/tests/experiments_v2/test_v2_cartesian_goal_region_runner.py
+@@ -0,0 +1,105 @@
++from __future__ import annotations
++
++import json
++from pathlib import Path
++
++import numpy as np
++import yaml
++
++from inequality_mechanisms.experiments import v2_cartesian_goal_region as runner_module
++from inequality_mechanisms.experiments.v2_cartesian_goal_region import (
++    load_cartesian_goal_region_config,
++    run_cartesian_goal_region,
++)
++from inequality_mechanisms.experiments.v2_cartesian_tasks import CartesianPositionTask
++from inequality_mechanisms.experiments.v2_runner import (
++    build_graphs,
++    build_mechanism_branches,
++)
++from inequality_mechanisms.kinematics.planar_2r import Planar2R
++
++
++_REPO_ROOT = Path(__file__).resolve().parents[2]
++_SMOKE_CONFIG = _REPO_ROOT / "configs/v2/cartesian_goal_region_smoke.yaml"
++
++
++def test_repository_smoke_yaml_loads_without_duplicate_semantics() -> None:
++    config = load_cartesian_goal_region_config(_SMOKE_CONFIG)
++    assert config.solver_policy == "smoke_oracle_pair_v1"
++    assert config.algorithms == ("dijkstra", "astar")
++    assert config.base_experiment.objective.cost == "actuator_travel"
++    assert not {"tasks", "algorithms", "objective", "trials", "seed"}.intersection(
++        config.base_experiment_source
++    )
++
++
++def test_loader_rejects_duplicate_base_solver_or_task_fields(tmp_path: Path) -> None:
++    raw = yaml.safe_load(_SMOKE_CONFIG.read_text(encoding="utf-8"))
++    raw["base_experiment"]["algorithms"] = ["dijkstra"]
++    path = tmp_path / "bad.yaml"
++    path.write_text(yaml.safe_dump(raw, sort_keys=False), encoding="utf-8")
++    try:
++        load_cartesian_goal_region_config(path)
++    except ValueError as exc:
++        assert "Experiment-B-irrelevant schema fields" in str(exc)
++    else:
++        raise AssertionError("duplicate base solver semantics were accepted")
++
++
++def test_bounded_smoke_runner_writes_paired_dijkstra_astar_evidence(
++    tmp_path: Path, monkeypatch
++) -> None:
++    config = load_cartesian_goal_region_config(_SMOKE_CONFIG)
++    branches = build_mechanism_branches(config.base_experiment)
++    graphs = build_graphs(config.base_experiment, branches)
++    reference_graph = next(iter(graphs.values()))
++    fk = Planar2R(config.domain.L1, config.domain.L2)
++
++    candidates: list[tuple[int, np.ndarray]] = []
++    for node_id in range(reference_graph.node_count):
++        if not reference_graph.node_is_valid(node_id):
++            continue
++        x = fk.forward(reference_graph.q_state(node_id))
++        if config.domain.contains(x):
++            candidates.append((node_id, x))
++    assert candidates
++    start_id, start_x = candidates[0]
++    goal_id, goal_x = max(
++        candidates,
++        key=lambda item: float(np.linalg.norm(item[1] - start_x)),
++    )
++    assert start_id != goal_id
++    assert np.linalg.norm(goal_x - start_x) > config.domain.min_start_goal_separation
++
++    task = CartesianPositionTask(
++        task_id="integration_task",
++        requested_start_x=np.asarray(start_x, dtype=np.float64),
++        requested_goal_x=np.asarray(goal_x, dtype=np.float64),
++    )
++    monkeypatch.setattr(
++        runner_module,
++        "generate_cartesian_task_bank",
++        lambda _domain, *, n_tasks, seed: (task,),
++    )
++
++    result = run_cartesian_goal_region(config, results_root=tmp_path)
++    assert result.n_tasks == 1
++    assert result.n_failure_rows == 0
++    assert result.n_trial_rows == 4
++
++    trial_rows = [
++        json.loads(line)
++        for line in (result.path / "trials.jsonl").read_text(encoding="utf-8").splitlines()
++    ]
++    assert {row["algorithm"] for row in trial_rows} == {"dijkstra", "astar"}
++    assert all(row["selected_goal_node_id"] is not None for row in trial_rows)
++    assert all(row["start_attachment_policy"] for row in trial_rows)
++
++    emitted_config = json.loads(
++        (result.path / "config.json").read_text(encoding="utf-8")
++    )
++    assert emitted_config["solver_policy"] == "smoke_oracle_pair_v1"
++    assert "tasks" not in emitted_config["base_experiment"]
++    assert emitted_config["v2_schema_adapter"]["purpose"] == (
++        "graph_builder_compatibility_only"
++    )
+diff --git a/tests/experiments_v2/test_v2_cartesian_tasks.py b/tests/experiments_v2/test_v2_cartesian_tasks.py
+index abe80f5..2d7effb 100644
+--- a/tests/experiments_v2/test_v2_cartesian_tasks.py
++++ b/tests/experiments_v2/test_v2_cartesian_tasks.py
+@@ -98,6 +98,15 @@ def test_task_resolution_and_pair_identity() -> None:
+     assert resolved_a.accepted
+     assert resolved_a.start_node_id == 0
+     assert resolved_a.goal_node_ids == (2,)
++    assert resolved_a.start_attachment_policy == (
++        "nearest_valid_graph_node_within_tolerance_v1"
++    )
++    assert resolved_a.analytic_start_ik
++    assert any(
++        candidate["has_discrete_representative"]
++        for candidate in resolved_a.analytic_start_ik
++        if candidate["inside_certified_q_box"]
++    )
+     assert_paired_cartesian_query_identity(
+         graph_a, graph_b, resolved_a, resolved_b
+     )
+diff --git a/tests/search/test_goal_set_search.py b/tests/search/test_goal_set_search.py
+index a8118c7..d6ed512 100644
+--- a/tests/search/test_goal_set_search.py
++++ b/tests/search/test_goal_set_search.py
+@@ -50,6 +50,7 @@ def test_single_goal_backward_compatibility() -> None:
+     )
+     assert result.path == (0, 1, 2)
+     assert result.cost == 2.0
++    assert result.selected_goal_node_id == 2
+ 
+ 
+ def test_explicit_goal_set_selects_cheapest_settled_goal() -> None:
+@@ -62,6 +63,7 @@ def test_explicit_goal_set_selects_cheapest_settled_goal() -> None:
+         heuristic=lambda _n: 0.0,
+     )
+     assert result.path[-1] == 2
++    assert result.selected_goal_node_id == 2
+     assert result.cost == 2.0
+ 
+ 
+@@ -105,3 +107,56 @@ def test_ambiguous_and_empty_goal_forms_fail_closed() -> None:
+             edge_cost=edge_cost,
+             heuristic=lambda _n: 0.0,
+         )
++
++
++def test_equal_cost_goal_selection_is_deterministic_by_node_id() -> None:
++    equal_graph = TinyGraph(
++        {
++            0: (1, 2),
++            1: (0,),
++            2: (0,),
++        }
++    )
++
++    def unit_cost(_a: int, _b: int) -> float:
++        return 1.0
++
++    results = [
++        best_first_search(
++            equal_graph,
++            0,
++            None,
++            goal_node_ids={2, 1},
++            edge_cost=unit_cost,
++            heuristic=lambda _n: 0.0,
++        )
++        for _ in range(5)
++    ]
++    assert {result.selected_goal_node_id for result in results} == {1}
++    assert {result.path for result in results} == {(0, 1)}
++
++
++def test_goal_set_dijkstra_matches_exhaustive_single_goal_oracle() -> None:
++    candidate_goals = (2, 4)
++    goal_set_result = best_first_search(
++        graph(),
++        0,
++        None,
++        goal_node_ids=candidate_goals,
++        edge_cost=edge_cost,
++        heuristic=lambda _n: 0.0,
++    )
++    single_goal_results = [
++        best_first_search(
++            graph(),
++            0,
++            goal,
++            edge_cost=edge_cost,
++            heuristic=lambda _n: 0.0,
++        )
++        for goal in candidate_goals
++    ]
++    oracle = min(single_goal_results, key=lambda result: (result.cost, result.path[-1]))
++    assert goal_set_result.cost == oracle.cost
++    assert goal_set_result.selected_goal_node_id == oracle.selected_goal_node_id
++    assert goal_set_result.path == oracle.path
+diff --git a/tests/search/test_v2_goal_set_objective.py b/tests/search/test_v2_goal_set_objective.py
+index 9373cae..ad58982 100644
+--- a/tests/search/test_v2_goal_set_objective.py
++++ b/tests/search/test_v2_goal_set_objective.py
+@@ -45,7 +45,9 @@ def test_goal_set_heuristic_is_zero_on_goals_and_consistent() -> None:
+     h = input_euclidean_goal_set_heuristic_v2(graph, goals)
+     assert h(1) == 0.0
+     assert h(4) == 0.0
++    exact_distance = {0: 1.0, 1: 0.0, 2: 1.0, 3: 1.0, 4: 0.0}
+     for a in range(graph.node_count):
++        assert h(a) <= exact_distance[a] + 1e-12
+         for b in graph.neighbors(a):
+             cost = float(np.linalg.norm(graph.u_state(b) - graph.u_state(a)))
+             assert h(a) <= cost + h(b) + 1e-12
+@@ -77,5 +79,6 @@ def test_goal_set_astar_matches_dijkstra_and_expands_no_more() -> None:
+         heuristic=astar_obj.heuristic,
+     )
+     assert astar.cost == dijkstra.cost
++    assert astar.selected_goal_node_id == dijkstra.selected_goal_node_id == 3
+     assert astar.path[-1] == dijkstra.path[-1] == 3
+     assert astar.n_expanded <= dijkstra.n_expanded
+diff --git a/docs/software/PROJECT_PLAN.md b/docs/software/PROJECT_PLAN.md
+index 0b871db..776649f 100644
+--- a/docs/software/PROJECT_PLAN.md
++++ b/docs/software/PROJECT_PLAN.md
+@@ -1,7 +1,7 @@
+ # Inequality Mechanisms — Software Project Plan
+ 
+ **Repository:** <https://github.com/mfbailey91/Function_Generators_in_Open_Chains>
+-**Planning status:** Version 2 2R architecture and Experiment A (V2.10 Dijkstra + V2.11 A*) evidence complete; Experiment B / V2.12 planned and held
++**Planning status:** Version 2 2R architecture and Experiment A (V2.10 Dijkstra + V2.11 A*) evidence complete; Experiment B / V2.12 active for bounded Cartesian goal-set smoke, with production inference held
+ **Version 1 status:** Preserved as the full-cycle, input-state research baseline
+ ## Objective
+ 
+@@ -16,7 +16,7 @@ Experiment A is a centered, normalized-\(\mathcal Q\), equal-weight canonical-qu
+ It is not a random task population, uniform \(\mathcal Q\) sampling, or Cartesian task sampling. Authoritative protocol: [`EXPERIMENT_A_CENTERED_Q_PROBES.md`](experiments/protocols/EXPERIMENT_A_CENTERED_Q_PROBES.md).
+ ### Experiment B — 2R Cartesian position goal-region planning
+ 
+-**Status:** accepted conceptual design; Sprint V2.12 held behind ADR-019, ADR-020, and a crossed statistical design.
++**Status:** ADR-019 and ADR-020 accepted; Sprint V2.12 active for the bounded `smoke_oracle_pair_v1` correctness implementation. Population inference remains held behind Cartesian calibration decisions and a crossed statistical design.
+ 
+ \[
+ \text{known physical start state}
+@@ -25,6 +25,10 @@ It is not a random task population, uniform \(\mathcal Q\) sampling, or Cartesia
+ \]
+ Any certified output configuration satisfying \(\lVert f(\mathbf q)-\mathbf x_g\rVert_2\le\epsilon_X\) is an accepted goal. The primary task distribution is a fixed external Cartesian domain shared across the mechanism population. Pair-local reachable-workspace sampling is a control, not the main experiment.
+ 
++The smoke uses nearest-valid-node start attachment within the configured Cartesian tolerance and records analytic IK families diagnostically; it does not yet claim IK-family balancing or exact start attachment. Dijkstra and A* run together only as a bounded optimal-cost oracle pair. Any production campaign returns to one solver per immutable run.
++
++The bounded smoke must directly record the optimally settled goal node, load one authoritative solver policy from configuration, and pass exhaustive small-graph goal-set, equal-cost tie, YAML-load, and runner-integration tests before its evidence is reviewed.
++
+ Authoritative design: [`EXPERIMENT_B_CARTESIAN_GOAL_REGION.md`](experiments/protocols/EXPERIMENT_B_CARTESIAN_GOAL_REGION.md).
+ ### Higher-dimensional task roadmap
+ 
+@@ -32,7 +36,7 @@ Authoritative design: [`EXPERIMENT_B_CARTESIAN_GOAL_REGION.md`](experiments/prot
+ 2. **3R planar:** full planar pose \((x,y,\theta)\in SE(2)\);
+ 3. **6R spatial:** full spatial pose \((x,y,z,R)\in SE(3)\).
+ 
+-The current V2.7 gate remains a 2R solver-evidence review. Experiment B does not automatically supersede that gate.
++The V2.7 gate is explicitly aligned to reviewed V2.12 Cartesian goal-set Dijkstra/A* evidence: establish the 2R position-task semantics before extending the task to 3R planar pose.
+ ## Architecture
+ 
+ ## Milestones and sprint sequence
+@@ -47,14 +51,14 @@ Remove endpoint-snapping confounds with query overlays; add actuator and initial
+ After V2.6, each Version 2 run package must support a Sprint-6-style HTML printout (`results/<run_id>/index.html`) summarizing manifest metadata, null-control status, trials, failures, branch certificates, diagnostics, and figures. Regenerate with `scripts/generate_v2_canvas.py`. Use this printout (and the controlled 2R study artifacts) to evaluate 2R evidence before any higher-dimension work.
+ ### V2-M7 — 3R extension (deferred)
+ 
+-**Status: deferred / held.** Extend the proven abstractions to 3R planar planning only after trusted 2R evaluation. First with full pose \((x,y,\phi)\), then with position-only redundant goals.
++**Status: deferred / held.** Extend the proven abstractions to 3R planar planning only after trusted 2R Cartesian goal-set evaluation. First with full pose \((x,y,\phi)\), then with position-only redundant goals.
+ 
+ **Sprint:** [`SPRINT_V2_7_3R_EXTENSION.md`](planning/sprints/v2/SPRINT_V2_7_3R_EXTENSION.md) (not in the active execution sequence)
+-The V2.7 entry gate is unchanged: review of trusted 2R Dijkstra and A* solver evidence. Experiment B / V2.12 is a separate held task-definition stage and does not replace this gate unless a later explicit decision says so.
+-### Held next task stage — Experiment B / V2.12
++The V2.7 entry gate is review of trusted V2.12 2R Cartesian goal-set Dijkstra and A* evidence. This is an explicit roadmap decision: 2R position tasks precede 3R planar-pose tasks.
++### V2-M8 — Experiment B / V2.12 Cartesian goal regions
+ 
+-**Status: planned / held.** 2R Cartesian position goal-region planning after accepted Cartesian-domain and goal-set search ADRs plus a crossed statistical design.
++**Status: active bounded smoke; production held.** ADR-019 and ADR-020 authorize the goal-set search primitive, fixed smoke domain, nearest-node start attachment, and paired Dijkstra/A* correctness run. Production calibration, crossed uncertainty, sequential stopping, and evidence reporting remain incomplete.
+ 
+-**Sprint:** [`SPRINT_V2_12_CARTESIAN_GOAL_REGION_PLANNING.md`](planning/sprints/v2/SPRINT_V2_12_CARTESIAN_GOAL_REGION_PLANNING.md) (held; do not activate from this plan text alone)
++**Sprint:** [`SPRINT_V2_12_CARTESIAN_GOAL_REGION_PLANNING.md`](planning/sprints/v2/SPRINT_V2_12_CARTESIAN_GOAL_REGION_PLANNING.md) (active bounded smoke)
+ ## Migration strategy
+ 1. **Do not delete or reinterpret Version 1.** Tag or record its last trusted revision.
+diff --git a/docs/software/architecture/notes/PROJECT_NOTE_FUTURE_SEARCH_ALGORITHMS.md b/docs/software/architecture/notes/PROJECT_NOTE_FUTURE_SEARCH_ALGORITHMS.md
+index b5a9e3c..d627883 100644
+--- a/docs/software/architecture/notes/PROJECT_NOTE_FUTURE_SEARCH_ALGORITHMS.md
++++ b/docs/software/architecture/notes/PROJECT_NOTE_FUTURE_SEARCH_ALGORITHMS.md
+@@ -2,7 +2,7 @@
+ 
+ **Status:** Active sequencing note (V2.10 Dijkstra and V2.11 A* campaigns completed)
+ **Applies to:** Version 2 and later experiment architecture
+-**Current implementation priority:** Review paired Dijkstra/A* 2R evidence before bidirectional exact search
++**Current implementation priority:** V2.12 bounded Cartesian goal-set Dijkstra/A* correctness smoke; production remains one solver per campaign
+ **Decision date:** 2026-08-04
+ **First implementation sprint:** [Sprint V2.10 — Production Monte Carlo Orchestration: Dijkstra Campaign](../../planning/sprints/v2/SPRINT_V2_10_PRODUCTION_MONTE_CARLO_ORCHESTRATION.md)
+ **Second implementation sprint:** [Sprint V2.11 — A* Paired Campaign](../../planning/sprints/v2/SPRINT_V2_11_ASTAR_PAIRED_CAMPAIGN.md)
+@@ -26,11 +26,23 @@ search:
+ ```
+ 
+ A solver comparison is created by running a later campaign against the same immutable sample bank, not by multiplying algorithms inside one Monte Carlo run.
++
++### Bounded correctness-smoke exception
++
++V2.12 defines one explicit non-production exception:
++
++```yaml
++solver_policy: smoke_oracle_pair_v1
++algorithms: [dijkstra, astar]
++```
++
++The bounded smoke runs both exact solvers on each accepted Cartesian goal-set query solely to hard-gate optimal-cost agreement and goal-set semantics. It performs no population inference. Production Experiment B campaigns must split Dijkstra and A* into separate immutable runs and join them analytically through the frozen task and mechanism identifiers.
++
+ ### Campaign order
+ 
+-## Architecture preparation without implementation
++## Current exact-search protocol
+ 
+-The Dijkstra sprint may make narrow, non-disruptive preparations:
++The generic exact-search boundary now supports one active goal representation:
+ 
+ ```python
+ class GraphSolver(Protocol):
+@@ -41,19 +53,24 @@ class GraphSolver(Protocol):
+         self,
+         graph: SearchGraph,
+         start: int,
+-        goal: int,
++        goal: int | None,
+         objective: EdgeObjective,
++        *,
++        goal_node_ids: Collection[int] | None = None,
++        goal_test: GoalTest | None = None,
+     ) -> SearchResult: ...
+ ```
+ 
+-However, the sprint must not:
++Single-goal callers remain backward compatible. Successful results expose `selected_goal_node_id` directly; callers must not recover goal-set identity only from `path[-1]`.
++
++The bounded implementation must not:
+ - add OMPL or another planning dependency;
+ - implement PRM or RRT;
+-- implement A* changes unrelated to Dijkstra compatibility;
+-- create a multi-solver production loop;
+-- broaden the production result schema beyond fields that remain meaningful for Dijkstra.
++- create a multi-solver **production** loop;
++- treat nearest-node start attachment as balanced IK or an exact overlay;
++- promote the smoke into population inference without calibration and crossed statistics.
+ 
+-The architecture should permit later solvers without making the current sprint responsible for them.
++The architecture continues to permit later solvers without making V2.12 responsible for them.
+ ## Result-package rule
+ 
+ ## Non-goals
+@@ -65,5 +82,11 @@ The architecture should permit later solvers without making the current sprint r
+ - No simultaneous solver execution inside one production worker.
+ ## Goal-set search for Experiment B
+ 
+-Single-goal Experiment A A* is complete. Goal-set A* for Experiment B is a later solver cell and remains blocked until [ADR-020](../adr/ADR-020-v2-goal-set-search.md) accepts multi-goal termination and an admissible heuristic to a goal set. ADR-018's single-goal `input_euclidean` heuristic does not automatically transfer.
++Single-goal Experiment A A* is complete. [ADR-020](../adr/ADR-020-v2-goal-set-search.md) is accepted for V2.12 and authorizes explicit goal-node sets or a goal predicate, deterministic cheapest-settled-goal termination, and direct selected-goal reporting. Under actuator-travel cost, the smoke uses the admissible `input_euclidean_goal_set` heuristic
++
++\[
++h(v)=\min_{g\in V_G}\lVert \mathbf u_v-\mathbf u_g\rVert_2.
++\]
++
++Other objectives and production inference remain blocked until separately calibrated and reviewed.
+ ## Promotion criteria for the next solver
