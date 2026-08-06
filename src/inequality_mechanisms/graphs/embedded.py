@@ -37,7 +37,7 @@ from inequality_mechanisms.graphs.sampling import (
     TransitionParameterization,
     compute_axis_spacing_statistics,
 )
-from inequality_mechanisms.graphs.topology import TensorGridTopology
+from inequality_mechanisms.graphs.topology import LatticeConnectivity, TensorGridTopology
 from inequality_mechanisms.graphs.transitions import EdgeTraceV2, build_edge_trace_v2
 from inequality_mechanisms.mechanisms.operating_branch import (
     BranchInverseError,
@@ -98,7 +98,11 @@ class UniformOutputLattice:
 
     @classmethod
     def from_output_space(
-        cls, output_space: OutputSpace, shape: tuple[int, ...]
+        cls,
+        output_space: OutputSpace,
+        shape: tuple[int, ...],
+        *,
+        connectivity: LatticeConnectivity | str = LatticeConnectivity.AXIS_ALIGNED,
     ) -> UniformOutputLattice:
         """Build the shared uniform-``Q`` lattice exactly once.
 
@@ -110,6 +114,9 @@ class UniformOutputLattice:
         shape :
             Number of samples along each output axis, length
             ``output_space.dim``, each entry ``>= 2``.
+        connectivity :
+            Lattice adjacency stencil (default axis-aligned / four-connected
+            in 2-D for Version 2 parity; ``chebyshev_1`` for eight-connected).
 
         Returns
         -------
@@ -128,7 +135,10 @@ class UniformOutputLattice:
             np.linspace(float(lo[i]), float(hi[i]), int(shape[i]), endpoint=True)
             for i in range(dim)
         ]
-        topology = TensorGridTopology(tuple(int(n) for n in shape))
+        topology = TensorGridTopology(
+            tuple(int(n) for n in shape),
+            connectivity=connectivity,
+        )
         q_nodes = _row_major_grid(axis_samples, topology)
         sampling = SamplingSpecification(
             domain=SamplingDomain.OUTPUT,

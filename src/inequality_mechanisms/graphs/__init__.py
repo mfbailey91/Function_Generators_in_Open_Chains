@@ -30,7 +30,11 @@ from inequality_mechanisms.graphs.sampling import (
     TransitionParameterization,
     compute_axis_spacing_statistics,
 )
-from inequality_mechanisms.graphs.topology import GraphTopology, TensorGridTopology
+from inequality_mechanisms.graphs.topology import (
+    GraphTopology,
+    LatticeConnectivity,
+    TensorGridTopology,
+)
 from inequality_mechanisms.graphs.transitions import EdgeTraceV2, build_edge_trace_v2
 from inequality_mechanisms.graphs.query_overlay import QueryOverlayGraph, QueryNode
 from inequality_mechanisms.graphs.validation import (
@@ -49,6 +53,7 @@ __all__ = [
     "GraphTopology",
     "GridNode",
     "KNOWN_COST_TYPES",
+    "LatticeConnectivity",
     "MonotonicOutputGraph",
     "PeriodicGrid2D",
     "SamplingDomain",

@@ -3,8 +3,9 @@
 Version 2 search must be able to reason about adjacency without reaching
 into mechanism-specific coordinates. ``TensorGridTopology`` provides a
 minimal, dimension-generic lattice: deterministic row-major node IDs and
-axis-aligned ``2*D``-connectivity with optional per-axis wrapping. It owns
-no physical coordinates, ranges, or samples (Sprint V2.1, V2-105).
+configurable connectivity with optional per-axis wrapping. It owns no
+physical coordinates, ranges, or samples (Sprint V2.1, V2-105; Sprint V3.3
+connectivity modes).
 
 ``PeriodicGrid2D`` (``grid.py``) remains the Version 1 two-dimensional grid
 with coordinates and is not replaced by this module.
@@ -13,7 +14,21 @@ with coordinates and is not replaced by this module.
 from __future__ import annotations
 
 from collections.abc import Iterable, Iterator
+from enum import StrEnum
+from itertools import product
 from typing import Protocol, runtime_checkable
+
+
+class LatticeConnectivity(StrEnum):
+    """Planner-configuration lattice adjacency stencil (ADR-024).
+
+    Connectivity is not part of the robot model. The default
+    ``AXIS_ALIGNED`` preserves Version 2 four-connected (in 2-D) behavior.
+    ``CHEBYSHEV_1`` is the Version 3 eight-connected planar-2R baseline.
+    """
+
+    AXIS_ALIGNED = "axis_aligned"
+    CHEBYSHEV_1 = "chebyshev_1"
 
 
 @runtime_checkable
@@ -48,7 +63,7 @@ class GraphTopology(Protocol):
 
 
 class TensorGridTopology:
-    """Axis-aligned ``2*D``-connected lattice over an arbitrary-rank tensor grid.
+    """Tensor-grid lattice with configurable connectivity.
 
     Parameters
     ----------
@@ -60,6 +75,10 @@ class TensorGridTopology:
         Per-axis wrapping flags. When ``True`` on axis ``k``, the first and
         last samples along that axis are neighbors. Defaults to no wrapping
         on any axis. Must have the same length as ``shape``.
+    connectivity :
+        Adjacency stencil. ``AXIS_ALIGNED`` is ``2*D``-connected (four-
+        connected in 2-D). ``CHEBYSHEV_1`` includes all nonzero offsets in
+        ``{-1,0,1}^D`` (eight-connected in 2-D).
 
     Notes
     -----
@@ -70,12 +89,9 @@ class TensorGridTopology:
     convention used by ``PeriodicGrid2D.node_id`` (``i0 * n1 + i1``) for
     ``D = 2``.
 
-    Neighbor iteration is deterministic: for axis ``0 .. D-1``, the
-    negative-direction neighbor (``-1``) is emitted before the
-    positive-direction neighbor (``+1``), and a direction is omitted when it
-    would fall outside the grid on a non-wrapped axis. On a size-2 wrapped
-    axis, ``-1`` and ``+1`` refer to the same neighbor; it is emitted only
-    once (following the negative-direction slot).
+    Neighbor iteration is deterministic. Axis-aligned mode emits, for each
+    axis ``0 .. D-1``, the negative-direction neighbor before the positive.
+    Chebyshev mode emits offsets in lexicographic order on the offset tuple.
 
     This topology owns no physical coordinates, sampling ranges, or units.
     """
@@ -85,6 +101,7 @@ class TensorGridTopology:
         shape: tuple[int, ...],
         *,
         wrap: tuple[bool, ...] | None = None,
+        connectivity: LatticeConnectivity | str = LatticeConnectivity.AXIS_ALIGNED,
     ) -> None:
         if len(shape) < 1:
             raise ValueError("shape must have at least one axis")
@@ -98,10 +115,12 @@ class TensorGridTopology:
             raise ValueError(
                 f"wrap must have length {len(dims)} to match shape, got {len(wrap)}"
             )
+        conn = LatticeConnectivity(connectivity)
 
         self._shape = dims
         self._wrap = tuple(bool(w) for w in wrap)
         self._ndim = len(dims)
+        self._connectivity = conn
 
         strides = [1] * self._ndim
         for axis in range(self._ndim - 2, -1, -1):
@@ -127,6 +146,11 @@ class TensorGridTopology:
     def wrap(self) -> tuple[bool, ...]:
         """Per-axis wrapping flags."""
         return self._wrap
+
+    @property
+    def connectivity(self) -> LatticeConnectivity:
+        """Configured adjacency stencil."""
+        return self._connectivity
 
     @property
     def node_count(self) -> int:
@@ -161,14 +185,15 @@ class TensorGridTopology:
         return tuple(index)
 
     def neighbors(self, node_id: int) -> list[int]:
-        """Deterministically ordered neighbor node IDs.
+        """Deterministically ordered neighbor node IDs."""
+        if self._connectivity is LatticeConnectivity.AXIS_ALIGNED:
+            return self._neighbors_axis_aligned(node_id)
+        if self._connectivity is LatticeConnectivity.CHEBYSHEV_1:
+            return self._neighbors_chebyshev_1(node_id)
+        raise ValueError(f"unsupported connectivity {self._connectivity!r}")
 
-        For each axis ``0 .. D-1``, the negative-direction neighbor is
-        considered before the positive-direction neighbor. A direction is
-        omitted when it falls outside the grid on a non-wrapped axis. On a
-        size-2 wrapped axis, the two directions coincide and are emitted
-        once.
-        """
+    def _neighbors_axis_aligned(self, node_id: int) -> list[int]:
+        """Axis-aligned ``2*D`` neighbors (four-connected in 2-D)."""
         index = self.index_from_id(node_id)
         result: list[int] = []
         for axis in range(self._ndim):
@@ -186,6 +211,33 @@ class TensorGridTopology:
             for j in neighbor_offsets:
                 neighbor_index = index[:axis] + (j,) + index[axis + 1 :]
                 result.append(self.node_id(neighbor_index))
+        return result
+
+    def _neighbors_chebyshev_1(self, node_id: int) -> list[int]:
+        """Chebyshev radius-1 neighbors (eight-connected in 2-D)."""
+        index = self.index_from_id(node_id)
+        result: list[int] = []
+        seen: set[int] = set()
+        for offset in product((-1, 0, 1), repeat=self._ndim):
+            if all(d == 0 for d in offset):
+                continue
+            neighbor_index: list[int] = []
+            valid = True
+            for axis, delta in enumerate(offset):
+                j = index[axis] + delta
+                n = self._shape[axis]
+                if self._wrap[axis]:
+                    j %= n
+                elif j < 0 or j >= n:
+                    valid = False
+                    break
+                neighbor_index.append(j)
+            if not valid:
+                continue
+            nb_id = self.node_id(tuple(neighbor_index))
+            if nb_id not in seen:
+                seen.add(nb_id)
+                result.append(nb_id)
         return result
 
     def iter_edges(self) -> Iterator[tuple[int, int]]:
