@@ -1,6 +1,6 @@
 # ADR-023 — Version 3 exact start and goal-region contract
 
-**Status:** Proposed  
+**Status:** Accepted  
 **Applies to:** Version 3  
 **Related:** ADR-019, ADR-020, ADR-021, ADR-022; Sprint V3.0 V3-004  
 **Amends for Version 3:** task-semantic use of `start_tolerance` from ADR-019 / Experiment B  

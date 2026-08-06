@@ -1,6 +1,6 @@
 # ADR-025 — Version 3 planner capability and adapter contract
 
-**Status:** Proposed  
+**Status:** Accepted  
 **Applies to:** Version 3  
 **Related:** ADR-005, ADR-021, ADR-024; Sprint V3.0 V3-006  
 **Supersedes:** nothing

@@ -1,8 +1,8 @@
 # Sprint V3.0 — Architecture Contract and V2 Evidence Freeze
 
-**Status:** deliverables drafted / pending review acceptance  
-**Code authorization:** none until V3.1 is explicitly activated  
-**Primary deliverable:** proposed V3 contracts and migration map  
+**Status:** completed (contracts accepted; ADRs 021–026 Accepted)  
+**Code authorization:** none (docs-only sprint)  
+**Primary deliverable:** accepted V3 contracts and migration map  
 **Reference:** [`V3_PROJECT_PLAN.md`](../../../V3_PROJECT_PLAN.md)
 
 ## Sprint intent

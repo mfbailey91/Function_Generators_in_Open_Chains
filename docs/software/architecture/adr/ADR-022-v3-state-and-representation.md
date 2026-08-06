@@ -1,6 +1,6 @@
 # ADR-022 — Version 3 state and representation contract
 
-**Status:** Proposed  
+**Status:** Accepted  
 **Applies to:** Version 3  
 **Related:** ADR-001, ADR-014, ADR-015, ADR-021; Sprint V3.0 V3-003  
 **Supersedes:** nothing

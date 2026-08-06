@@ -1,6 +1,6 @@
 # ADR-026 — Version 3 benchmark classification and metrics contract
 
-**Status:** Proposed  
+**Status:** Accepted  
 **Applies to:** Version 3  
 **Related:** ADR-017, ADR-021, ADR-023, ADR-025; Sprint V3.0 V3-007  
 **Supersedes:** nothing for frozen Version 2 reports
