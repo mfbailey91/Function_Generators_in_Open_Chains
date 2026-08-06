@@ -1,4 +1,4 @@
-"""Resumable Dijkstra production Monte Carlo runner (V2-905–V2-911)."""
+"""Resumable single-solver production Monte Carlo runner (V2.10–V2.11)."""
 
 from __future__ import annotations
 
@@ -46,6 +46,9 @@ from inequality_mechanisms.experiments.v2_production_merge import merge_producti
 from inequality_mechanisms.experiments.v2_production_preflight import (
     assert_preflight_allowed,
     memory_preflight,
+)
+from inequality_mechanisms.experiments.v2_solver_comparison import (
+    compare_exact_solver_runs,
 )
 from inequality_mechanisms.experiments.v2_production_sample_bank import (
     V2SampleBank,
@@ -159,8 +162,15 @@ def _validate_resume(
     if not manifest_path.is_file():
         raise FileNotFoundError(f"cannot resume without manifest: {manifest_path}")
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-    if manifest.get("solver_id") != "dijkstra":
+    if manifest.get("solver_id") != config.search.algorithm:
         raise ValueError("resume solver_id mismatch")
+    expected_heuristic = (
+        None
+        if config.search.algorithm == "dijkstra"
+        else config.search.resolved_heuristic
+    )
+    if manifest.get("heuristic_id") != expected_heuristic:
+        raise ValueError("resume heuristic_id mismatch")
     if int(manifest.get("production_schema_version", -1)) != PRODUCTION_SCHEMA_VERSION:
         raise ValueError("resume production schema mismatch")
     if manifest.get("sample_bank_digest") != bank.digest:
@@ -444,9 +454,13 @@ def run_v2_production(
                 "package_kind": "production_monte_carlo",
                 "stage": stage_name,
                 "status": "running",
-                "solver_id": "dijkstra",
+                "solver_id": config.search.algorithm,
                 "solver_schema_version": 1,
-                "heuristic_id": None,
+                "heuristic_id": (
+                    None
+                    if config.search.algorithm == "dijkstra"
+                    else config.search.resolved_heuristic
+                ),
                 "production_schema_version": PRODUCTION_SCHEMA_VERSION,
                 "sample_bank_digest": sample_bank.digest,
                 "sample_bank_version": sample_bank.schema_version,
@@ -454,6 +468,8 @@ def run_v2_production(
                 "code_revision": revision.get("git_commit"),
                 "grid_anisotropy_limitation": GRID_ANISOTROPY_LIMITATION,
                 "objective_id": "actuator_travel",
+                "reference_run": config.study.reference_run,
+                "confirmation_subset_source": config.study.confirmation_subset,
             },
         )
 
@@ -461,6 +477,34 @@ def run_v2_production(
         raise RuntimeError("sample bank missing after run setup")
     if export_sample_bank is not None:
         save_v2_sample_bank(sample_bank, export_sample_bank)
+    reference_ids: list[str] | None = None
+    if config.study.reference_run:
+        reference_dir = Path(config.study.reference_run)
+        reference_manifest_path = reference_dir / "manifest.json"
+        if not reference_manifest_path.is_file():
+            raise FileNotFoundError(
+                f"reference run manifest not found: {reference_manifest_path}"
+            )
+        reference_manifest = json.loads(
+            reference_manifest_path.read_text(encoding="utf-8")
+        )
+        if reference_manifest.get("solver_id") != "dijkstra":
+            raise ValueError("A* reference run must be a Dijkstra campaign")
+        if reference_manifest.get("sample_bank_digest") != sample_bank.digest:
+            raise ValueError("reference run sample-bank digest mismatch")
+        reference_completed, _reference_failed = _shard_status_ids(reference_dir)
+        reference_ids = [
+            m.mechanism_id
+            for m in sample_bank.mechanisms
+            if m.mechanism_id in reference_completed
+        ]
+        if not reference_ids:
+            raise ValueError("reference run has no completed mechanism shards")
+        manifest_path = run_dir / "manifest.json"
+        manifest_payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+        manifest_payload["reference_mechanism_count"] = len(reference_ids)
+        manifest_payload["reference_mechanism_ids"] = reference_ids
+        _atomic_write_json(manifest_path, manifest_payload)
     if stage_name == "build_sample_bank":
         manifest = json.loads((run_dir / "manifest.json").read_text(encoding="utf-8"))
         manifest["status"] = "completed"
@@ -489,6 +533,16 @@ def run_v2_production(
         if subset_path.is_file():
             subset_payload = json.loads(subset_path.read_text(encoding="utf-8"))
             confirmation_ids = [str(x) for x in subset_payload.get("mechanism_ids", [])]
+        elif config.study.confirmation_subset:
+            source_subset = Path(config.study.confirmation_subset)
+            subset_payload = json.loads(source_subset.read_text(encoding="utf-8"))
+            confirmation_ids = [str(x) for x in subset_payload.get("mechanism_ids", [])]
+            if not confirmation_ids:
+                raise ValueError("configured confirmation subset contains no IDs")
+            copied_payload = dict(subset_payload)
+            copied_payload["reused_from"] = str(source_subset)
+            copied_payload["solver_campaign"] = config.search.algorithm
+            _atomic_write_json(subset_path, copied_payload)
         else:
             selected = select_confirmation_subset(
                 sample_bank, n_mechanisms=n_mech, seed=config.seed
@@ -506,6 +560,10 @@ def run_v2_production(
             )
         working_bank = subset_sample_bank(
             sample_bank, mechanism_ids=confirmation_ids, n_tasks=n_tasks
+        )
+    elif reference_ids is not None:
+        working_bank = subset_sample_bank(
+            sample_bank, mechanism_ids=reference_ids, n_tasks=n_tasks
         )
     else:
         working_bank = subset_sample_bank(
@@ -661,7 +719,11 @@ def run_v2_production(
                                 pool.terminate()
                                 break
                             _consume_result(_result_from_worker_payload(payload))
-            if stage_name == "production" and not _INTERRUPT:
+            if (
+                stage_name == "production"
+                and not _INTERRUPT
+                and reference_ids is None
+            ):
                 interim = merge_production_run(run_dir, config)
                 precision = interim["analysis"]["precision"]
                 if precision.get("stop"):
@@ -711,6 +773,23 @@ def run_v2_production(
             config,
             expected_mechanism_ids=[m.mechanism_id for m in working_bank.mechanisms],
         )
+    if status == "completed" and config.study.reference_run:
+        if summary is None:
+            summary = merge_production_run(run_dir, config)
+        solver_comparison = compare_exact_solver_runs(
+            config.study.reference_run,
+            run_dir,
+        )
+        _atomic_write_json(
+            run_dir / "reports" / "solver_comparison.json",
+            solver_comparison,
+        )
+        summary["solver_comparison"] = {
+            key: value
+            for key, value in solver_comparison.items()
+            if key != "paired_trials"
+        }
+        _atomic_write_json(run_dir / "merged" / "summary.json", summary)
     if status == "completed" and config.visualization.generate_canvas_after_run:
         if summary is None:
             summary = merge_production_run(run_dir, config)

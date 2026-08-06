@@ -59,6 +59,39 @@ class Planar2R:
         y = self.L1 * np.sin(q1) + self.L2 * np.sin(q1 + q2)
         return np.asarray([x, y], dtype=np.float64)
 
+    def inverse(
+        self, position: ArrayLike, *, tolerance: float = 1e-10
+    ) -> tuple[NDArray[np.floating], ...]:
+        """Return analytic IK configurations for a reachable Cartesian point.
+
+        Solutions are ordered with positive ``q2`` first, then negative
+        ``q2``. Tangent/singular solutions are deduplicated. An unreachable
+        point returns an empty tuple. Joint limits are intentionally not
+        applied here; Experiment B records that filtering separately.
+        """
+        x_arr = np.asarray(position, dtype=np.float64)
+        if x_arr.shape != (2,) or not np.all(np.isfinite(x_arr)):
+            raise ValueError("position must be a finite vector with shape (2,)")
+        if not np.isfinite(tolerance) or tolerance < 0.0:
+            raise ValueError("tolerance must be finite and nonnegative")
+        x, y = float(x_arr[0]), float(x_arr[1])
+        cos_q2 = (x * x + y * y - self.L1**2 - self.L2**2) / (
+            2.0 * self.L1 * self.L2
+        )
+        if cos_q2 < -1.0 - tolerance or cos_q2 > 1.0 + tolerance:
+            return ()
+        cos_q2 = float(np.clip(cos_q2, -1.0, 1.0))
+        q2_abs = float(np.arccos(cos_q2))
+        q2_values = (q2_abs,) if abs(q2_abs) <= tolerance else (q2_abs, -q2_abs)
+        out: list[NDArray[np.floating]] = []
+        for q2 in q2_values:
+            q1 = float(
+                np.arctan2(y, x)
+                - np.arctan2(self.L2 * np.sin(q2), self.L1 + self.L2 * np.cos(q2))
+            )
+            out.append(np.asarray([q1, q2], dtype=np.float64))
+        return tuple(out)
+
     def elbow(self, q: ArrayLike) -> NDArray[np.floating]:
         """Return the intermediate joint position ``(x, y)``."""
         q_arr = _as_q2(q)

@@ -386,6 +386,27 @@ def input_euclidean_heuristic_v2(graph: _V2GraphLike, goal: int) -> Heuristic:
     return h
 
 
+def input_euclidean_goal_set_heuristic_v2(
+    graph: _V2GraphLike, goal_node_ids: tuple[int, ...] | list[int] | set[int]
+) -> Heuristic:
+    """Distance to the nearest explicit goal in actuator coordinates.
+
+    For actuator-travel edge cost, each edge weight is Euclidean actuator
+    displacement. The Euclidean distance to a set is therefore an admissible
+    and consistent lower bound by the triangle inequality.
+    """
+    goals = tuple(sorted({int(node_id) for node_id in goal_node_ids}))
+    if not goals:
+        raise ValueError("goal_node_ids must contain at least one node")
+    goal_u = np.vstack([np.asarray(graph.u_state(node_id), dtype=np.float64) for node_id in goals])
+
+    def h(node_id: int) -> float:
+        u = np.asarray(graph.u_state(node_id), dtype=np.float64)
+        return float(np.min(np.linalg.norm(goal_u - u, axis=1)))
+
+    return h
+
+
 def uniform_step_heuristic_v2(graph: _V2GraphLike, goal: int) -> Heuristic:
     """Admissible lattice Manhattan lower bound on hop count (unit edge cost).
 
@@ -589,4 +610,46 @@ def resolve_v2_objective(
         alpha=None if alpha is None else float(alpha),
         s_q=None if s_q is None else float(s_q),
         s_u=None if s_u is None else float(s_u),
+    )
+
+
+def resolve_v2_goal_set_objective(
+    graph: _V2GraphLike,
+    goal_node_ids: tuple[int, ...] | list[int] | set[int],
+    cost_name: str = "actuator_travel",
+    heuristic_name: str | None = None,
+    *,
+    edge_n_samples: int = 17,
+) -> V2PlanningObjective:
+    """Resolve the narrow Experiment-B actuator-travel goal-set objective.
+
+    ``input_euclidean_goal_set`` is admissible/consistent for
+    ``actuator_travel`` and ``input_euclidean``. ``zero`` is the Dijkstra
+    baseline. Other cost families remain blocked until separately proved.
+    """
+    goals = tuple(sorted({int(node_id) for node_id in goal_node_ids}))
+    if not goals:
+        raise ValueError("goal_node_ids must contain at least one node")
+    cost = str(cost_name)
+    if cost not in {"actuator_travel", "input_euclidean"}:
+        raise ValueError(
+            "goal-set objective currently supports only actuator_travel or "
+            "input_euclidean"
+        )
+    h_name = "input_euclidean_goal_set" if heuristic_name is None else str(heuristic_name)
+    if h_name not in {"input_euclidean_goal_set", "zero"}:
+        raise ValueError(
+            "goal-set actuator objective requires input_euclidean_goal_set or zero"
+        )
+    edge_cost = build_v2_edge_cost(graph, cost, edge_n_samples=edge_n_samples)
+    heuristic = (
+        zero_heuristic_v2
+        if h_name == "zero"
+        else input_euclidean_goal_set_heuristic_v2(graph, goals)
+    )
+    return V2PlanningObjective(
+        edge_cost=edge_cost,
+        heuristic=heuristic,
+        cost_name=cost,
+        heuristic_name=h_name,
     )

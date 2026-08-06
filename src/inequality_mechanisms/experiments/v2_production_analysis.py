@@ -210,6 +210,10 @@ def analyze_production_trials(
     min_accepted_tasks: int = 1,
 ) -> dict[str, Any]:
     """Aggregate trial rows into mechanism summaries and precision reports."""
+    algorithms = {str(row.get("algorithm")) for row in trials if row.get("algorithm")}
+    if len(algorithms) > 1:
+        raise ValueError(f"production analysis requires one solver, got {algorithms}")
+    algorithm = next(iter(algorithms), "dijkstra")
     analysis_rows: list[dict[str, Any]] = []
     for row in trials:
         if not row.get("found"):
@@ -219,7 +223,7 @@ def analyze_production_trials(
                 "mechanism_id": row.get("mechanism_pair_id"),
                 "task_id": row.get("task_id"),
                 "mechanism": row.get("mechanism"),
-                "algorithm": row.get("algorithm", "dijkstra"),
+                "algorithm": row.get("algorithm", algorithm),
                 "cost_type": row.get("cost_type", "actuator_travel"),
                 "found": True,
                 "n_expanded": row.get("n_expanded"),
@@ -232,21 +236,21 @@ def analyze_production_trials(
     summaries, exclusions = mechanism_level_effects(
         analysis_rows,
         metric="log_expansion_ratio",
-        algorithm="dijkstra",
+        algorithm=algorithm,
         cost_type="actuator_travel",
         min_accepted_tasks=min_accepted_tasks,
     )
     cost_summaries, _ = mechanism_level_effects(
         analysis_rows,
         metric="optimal_cost_diff",
-        algorithm="dijkstra",
+        algorithm=algorithm,
         cost_type="actuator_travel",
         min_accepted_tasks=min_accepted_tasks,
     )
     path_u_summaries, _ = mechanism_level_effects(
         analysis_rows,
         metric="path_length_u_diff",
-        algorithm="dijkstra",
+        algorithm=algorithm,
         cost_type="actuator_travel",
         min_accepted_tasks=min_accepted_tasks,
     )
@@ -299,6 +303,7 @@ def analyze_production_trials(
     )
     return {
         "primary_metric": "log_expansion_ratio",
+        "algorithm": algorithm,
         "mechanism_summaries": summaries,
         "cost_summaries": cost_summaries,
         "path_length_u_summaries": path_u_summaries,

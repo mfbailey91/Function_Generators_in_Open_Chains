@@ -7,7 +7,10 @@ The Version 2 sequence is defined in [sprints/v2/README.md](sprints/v2/README.md
 ## Current backlog
 
 - **V2 HTML run printout (evaluation tooling):** implemented beside the V2 runner (`v2_canvas.py`, `scripts/generate_v2_canvas.py`). Keep regenerable; do not treat as a substitute for V2.7.
-- **Sprint V2.7 (3R):** deferred pending 2R evaluation review. See [sprints/v2/SPRINT_V2_7_3R_EXTENSION.md](sprints/v2/SPRINT_V2_7_3R_EXTENSION.md).
+- **Experiment B production promotion:** V2.12 smoke, V2B-005 calibration tooling, and regenerable HTML printouts (`scripts/generate_v2_cartesian_canvas.py`) are in place, but population inference remains held. Remaining work: review frozen calibration decisions, crossed statistics and stopping logic, and separate one-solver production configs / orchestration. Protocol: [Experiment B](../experiments/protocols/EXPERIMENT_B_CARTESIAN_GOAL_REGION.md). Sprint: [V2.12](sprints/v2/SPRINT_V2_12_CARTESIAN_GOAL_REGION_PLANNING.md).
+- **Experiment B exact-start control:** nearest-node start attachment is retained by the V2B-005 start-attachment decision (`retain_nearest_node_v1`) pending review; a start-only V2.6 query overlay remains deferred. Do not claim IK-family balancing in the current implementation.
+- **Experiment A task-set diagnostic:** deferred and low-confidence. A* already failed the first persistence check for `medium_diagonal`. Do not promote into a claim or into Experiment B's primary domain. See [project note](../architecture/notes/PROJECT_NOTE_EXPERIMENT_A_TASK_SET_EFFECT.md).
+- **Sprint V2.7 (3R):** deferred pending review of trusted V2.12 Cartesian goal-set Dijkstra + A* evidence. See [sprints/v2/SPRINT_V2_7_3R_EXTENSION.md](sprints/v2/SPRINT_V2_7_3R_EXTENSION.md).
 
 ## Intake rules
 

@@ -2,7 +2,8 @@
 
 Production configs are distinct from diagnostic :class:`V2ExperimentConfig`
 and shared-Q study configs. They require a scalar ``search.algorithm`` and
-reject solver lists. V2.10 science configs accept only ``dijkstra``.
+reject solver lists. V2.10 freezes Dijkstra; V2.11 adds a separately configured
+A* campaign while preserving the one-solver-per-campaign rule.
 """
 
 from __future__ import annotations
@@ -35,6 +36,7 @@ ProductionStageName = Literal[
 ]
 MatchingRuleName = Literal["span"]
 CostName = Literal["actuator_travel"]
+HeuristicName = Literal["zero", "input_euclidean"]
 
 
 class V2ProductionConfigError(ValueError):
@@ -46,7 +48,21 @@ class V2ProductionSearchConfig(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    algorithm: Literal["dijkstra"]
+    algorithm: Literal["dijkstra", "astar"]
+    heuristic: HeuristicName | None = None
+
+    @model_validator(mode="after")
+    def _solver_heuristic_contract(self) -> V2ProductionSearchConfig:
+        if self.algorithm == "dijkstra":
+            if self.heuristic not in {None, "zero"}:
+                raise ValueError("Dijkstra production requires heuristic: zero or null")
+        elif self.heuristic != "input_euclidean":
+            raise ValueError("A* production requires heuristic: input_euclidean")
+        return self
+
+    @property
+    def resolved_heuristic(self) -> HeuristicName:
+        return "zero" if self.algorithm == "dijkstra" else "input_euclidean"
 
 
 class V2ProductionExecutionConfig(BaseModel):
@@ -74,7 +90,8 @@ class V2ProductionExecutionConfig(BaseModel):
     def _serial_tasks(cls, value: bool) -> bool:
         if value:
             raise ValueError(
-                "execution.tasks_parallel_within_mechanism must be false in V2.10"
+                "execution.tasks_parallel_within_mechanism must be false "
+                "in production campaigns"
             )
         return value
 
@@ -185,10 +202,15 @@ class V2ProductionStudyMeta(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    name: Literal["production_monte_carlo_dijkstra"] = "production_monte_carlo_dijkstra"
+    name: Literal[
+        "production_monte_carlo_dijkstra",
+        "production_monte_carlo_astar",
+    ] = "production_monte_carlo_dijkstra"
     stage: ProductionStageName = "smoke"
     sample_bank: str | None = None
     calibration_decisions: str | None = None
+    reference_run: str | None = None
+    confirmation_subset: str | None = None
     objective_cost: CostName = "actuator_travel"
 
 
@@ -232,6 +254,28 @@ class V2ProductionConfig(BaseModel):
             raise ValueError(
                 "production Monte Carlo currently requires 2R sampling.shape"
             )
+        expected_name = f"production_monte_carlo_{self.search.algorithm}"
+        if self.study.name != expected_name:
+            raise ValueError(
+                f"study.name must be {expected_name!r} for "
+                f"search.algorithm={self.search.algorithm!r}"
+            )
+        if self.search.algorithm == "astar":
+            if self.study.stage in {"variance_pilot", "production"}:
+                if not self.study.reference_run:
+                    raise ValueError(
+                        "A* pilot/production requires study.reference_run so the "
+                        "Dijkstra mechanism IDs are replayed exactly"
+                    )
+            if self.study.stage == "high_resolution_confirmation":
+                if not self.study.reference_run:
+                    raise ValueError(
+                        "A* confirmation requires the V2.10 confirmation reference run"
+                    )
+                if not self.study.confirmation_subset:
+                    raise ValueError(
+                        "A* confirmation requires study.confirmation_subset from V2.10"
+                    )
         return self
 
 
@@ -241,13 +285,12 @@ def _reject_solver_lists(raw: dict[str, Any]) -> None:
         return
     if "algorithms" in search:
         raise V2ProductionConfigError(
-            "search.algorithms lists are forbidden; "
-            "use scalar search.algorithm: dijkstra"
+            "search.algorithms lists are forbidden; use one scalar search.algorithm"
         )
     algorithm = search.get("algorithm")
-    if algorithm is not None and algorithm != "dijkstra":
+    if algorithm is not None and algorithm not in {"dijkstra", "astar"}:
         raise V2ProductionConfigError(
-            "V2.10 production configs require search.algorithm: dijkstra, "
+            "production configs require search.algorithm in {'dijkstra', 'astar'}, "
             f"got {algorithm!r}"
         )
 
@@ -302,7 +345,10 @@ def is_v2_production_mapping(raw: dict[str, Any]) -> bool:
     study = raw.get("study")
     if not isinstance(study, dict):
         return False
-    return study.get("name") == "production_monte_carlo_dijkstra"
+    return study.get("name") in {
+        "production_monte_carlo_dijkstra",
+        "production_monte_carlo_astar",
+    }
 
 
 def stage_mechanism_count(config: V2ProductionConfig, stage: str | None = None) -> int:
