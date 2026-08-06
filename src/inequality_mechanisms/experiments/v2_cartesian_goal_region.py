@@ -32,6 +32,7 @@ from inequality_mechanisms.experiments.v2_cartesian_calibration import (
     run_cartesian_calibration_sweep,
     write_cartesian_calibration_decisions,
 )
+from inequality_mechanisms.experiments.v2_cartesian_canvas import write_cartesian_canvas
 from inequality_mechanisms.experiments.v2_cartesian_tasks import (
     CartesianAnnularSectorDomain,
     assert_paired_cartesian_query_identity,
@@ -504,6 +505,7 @@ def _run_search_package(
     (run_dir / "manifest.json").write_text(
         json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8"
     )
+    write_cartesian_canvas(run_dir)
     return CartesianGoalRegionRunResult(
         run_id=rid,
         path=run_dir,
@@ -610,6 +612,7 @@ def _run_calibration_package(
     (run_dir / "manifest.json").write_text(
         json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8"
     )
+    write_cartesian_canvas(run_dir)
     return CartesianGoalRegionRunResult(
         run_id=rid,
         path=run_dir,
