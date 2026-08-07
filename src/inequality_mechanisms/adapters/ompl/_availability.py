@@ -36,6 +36,13 @@ def ompl_version_string() -> str | None:
 
         if hasattr(ou, "OMPL_VERSION"):
             return str(ou.OMPL_VERSION)
+        # Nanobind pip wheels may only expose package metadata.
+        from importlib.metadata import PackageNotFoundError, version
+
+        try:
+            return str(version("ompl"))
+        except PackageNotFoundError:
+            pass
     except Exception:
         return "unknown"
     return "unknown"

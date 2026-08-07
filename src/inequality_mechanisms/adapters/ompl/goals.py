@@ -39,8 +39,13 @@ def select_and_build_goal(
     goal_generator: GoalStateGenerator | None,
     max_candidates: int,
     rng: Generator | None,
-) -> tuple[Any, list[PhysicalState], dict[str, Any]]:
-    """Realize a Version 3 goal predicate as finite OMPL ``GoalStates``."""
+) -> tuple[Any, list[PhysicalState], dict[str, Any], list[Any]]:
+    """Realize a Version 3 goal predicate as finite OMPL ``GoalStates``.
+
+    The fourth return value holds allocated OMPL states that must remain alive
+    for the lifetime of the returned ``GoalStates`` object (Nanobind does not
+    allow attaching Python attributes to the C++ wrapper).
+    """
     ob, _og = require_ompl()
     raw: list[StateCandidate]
     if isinstance(problem.goal, ExactOutputGoal):
@@ -68,8 +73,10 @@ def select_and_build_goal(
     }
 
     goal = ob.GoalStates(si)
+    owned_states: list[Any] = []
     for cand in candidates:
-        st = ob.State(space)
-        write_u_to_ompl_state(space, st(), cand.u)
+        st = space.allocState()
+        write_u_to_ompl_state(space, st, cand.u)
         goal.addState(st)
-    return goal, candidates, metadata
+        owned_states.append(st)
+    return goal, candidates, metadata, owned_states

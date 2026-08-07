@@ -1,9 +1,10 @@
 # Sprint V3.5 — OMPL Adapter
 
-**Status:** active — corrective adapter-contract closeout and native-planner parity
-**Code authorization:** V3-500–V3-505 only
+**Status:** completed — OMPL adapter, corrective contract, and review snapshot
+**Code authorization:** none (handoff pending Sprint V3.6 activation)
 **Depends on:** [Sprint V3.4](SPRINT_V3_4_NATIVE_ROADMAP_TREE.md) (completed); accepted ADRs 021–026
 **Reference:** [V3_PROJECT_PLAN.md](../../../V3_PROJECT_PLAN.md) §16 V3-M5
+**Evidence:** [`results/v3_review/v3_5_closeout/`](../../../../../results/v3_review/v3_5_closeout/)
 
 ## Sprint intent
 
@@ -67,6 +68,10 @@ Before V3.5 closes:
 - OMPL state- and motion-validity callbacks are counted and returned in common Version 3 metrics.
 - parity smoke rows include selected goals, timings, and provenance in addition to status, task class, and objective cost.
 - exact-start round-trip mismatch is an adapter failure, never repaired by inserting a new first waypoint.
+- OMPL exact-solution detection fails closed if the binding cannot expose
+  `hasExactSolution()`.
+- the three-argument `MotionValidator.checkMotion` overload reports the exact
+  start at fraction zero as the only certified prefix when a whole segment fails.
 
 ## Exit criteria
 
@@ -81,6 +86,27 @@ Before V3.5 closes:
 9. Goal discretization, objective equivalence, seed scope, and delegated validity-call counts are recorded in result metrics/provenance.
 10. No MoveIt, obstacle, higher-DOF, population-evidence, or Monte Carlo work is activated opportunistically.
 11. Hand off to V3.6 only after the corrective review amendments are green under an OMPL-enabled environment.
+
+## Reviewable V3 result snapshot
+
+V3.5 closeout also publishes a small tracked review package containing the
+bounded results already used by V3.2–V3.5:
+
+- V3.2 direct-planner smoke;
+- V3.3 lattice/edge-cost smoke;
+- V3.4 native PRM/RRTConnect smoke;
+- V3.5 OMPL/native parity smoke.
+
+Generate it only after the OMPL-enabled V3.5 tests are green:
+
+```bash
+PYTHONPATH=src python scripts/export_v3_review_results.py
+git add results/v3_review/v3_5_closeout
+```
+
+The generated package is review evidence, not production inference. It records
+the generating Git revision, OMPL version, frozen smoke seed, row-level JSON,
+and a GitHub-readable summary. Commit it with the V3.5 closeout changes.
 
 ## Deferred work
 

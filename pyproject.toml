@@ -27,8 +27,9 @@ dev = [
     "mypy",
     "networkx",
 ]
-# Marker-only: OMPL Python bindings are not reliably pip-installable.
-# Install via conda-forge (or system packages), then run tests marked ``ompl``.
+# Marker-only: install Python bindings separately when a wheel/build exists
+# (e.g. ``pip install ompl`` on supported CPython/macOS/Linux, or build from source).
+# Conda-forge ``ompl`` alone may provide only the C++ library.
 ompl = []
 
 [tool.setuptools.package-dir]

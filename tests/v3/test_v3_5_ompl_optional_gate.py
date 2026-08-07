@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import numpy as np
 import pytest
 
 from inequality_mechanisms.adapters.ompl import (
@@ -71,3 +72,65 @@ def test_solution_flags_do_not_promote_approximate_paths() -> None:
     assert any_solution
     assert not exact_solution
     assert difference == pytest.approx(0.25)
+
+
+def test_solution_flags_fail_closed_without_exact_api() -> None:
+    from inequality_mechanisms.adapters.ompl.planner_base import _solution_flags
+
+    class ProblemDefinitionWithoutExactAPI:
+        def hasSolution(self) -> bool:  # noqa: N802
+            return True
+
+        def getSolutionDifference(self) -> float:  # noqa: N802
+            return 0.1
+
+    any_solution, exact_solution, difference = _solution_flags(
+        ProblemDefinitionWithoutExactAPI()
+    )
+    assert any_solution
+    assert not exact_solution
+    assert difference == pytest.approx(0.1)
+
+
+def test_exact_start_mismatch_fails_instead_of_repairing() -> None:
+    from inequality_mechanisms.adapters.ompl.planner_base import (
+        _canonicalize_exact_start,
+    )
+    from inequality_mechanisms.core.state import PhysicalState
+
+    exact = PhysicalState(u=np.array([0.0, 0.0]), q=np.array([0.0, 0.0]))
+    wrong = PhysicalState(u=np.array([0.1, 0.0]), q=np.array([0.1, 0.0]))
+    with pytest.raises(RuntimeError, match="exact-start round trip"):
+        _canonicalize_exact_start((wrong,), exact, planner_id="test_ompl")
+
+
+def test_exact_start_numerical_equivalent_is_canonicalized() -> None:
+    from inequality_mechanisms.adapters.ompl.planner_base import (
+        _canonicalize_exact_start,
+    )
+    from inequality_mechanisms.core.state import PhysicalState
+
+    exact = PhysicalState(u=np.array([0.0, 0.0]), q=np.array([0.0, 0.0]))
+    near = PhysicalState(u=np.array([1e-12, 0.0]), q=np.array([0.0, 0.0]))
+    states, residual = _canonicalize_exact_start(
+        (near,), exact, planner_id="test_ompl"
+    )
+    assert states[0] is exact
+    assert residual == pytest.approx(1e-12)
+
+
+def test_last_valid_failure_marks_exact_start_and_zero_fraction() -> None:
+    from inequality_mechanisms.adapters.ompl.validity import (
+        _set_last_valid_at_start,
+    )
+
+    class FakeSpace:
+        def copyState(self, destination, source) -> None:  # noqa: N802
+            destination[:] = source
+
+    start = [1.0, 2.0]
+    destination = [0.0, 0.0]
+    last_valid = [destination, 1.0]
+    assert _set_last_valid_at_start(FakeSpace(), last_valid, start)
+    assert destination == start
+    assert last_valid[1] == pytest.approx(0.0)
