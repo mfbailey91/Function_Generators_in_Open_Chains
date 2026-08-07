@@ -97,6 +97,10 @@ def test_direct_connector_classification_metrics_present(planner_name: str) -> N
         result.provenance.extras.get("ompl_seed_scope")
         == "process_global_best_effort"
     )
+    assert (
+        result.provenance.extras.get("seed_protocol")
+        == "v3_5_ompl_process_global_best_effort"
+    )
 
 
 @pytest.mark.parametrize("planner_name", ["ompl_prm", "ompl_rrt_connect"])

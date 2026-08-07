@@ -1,0 +1,622 @@
+diff --git a/.gitignore b/.gitignore
+index 76f463f..6e6fffd 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -38,6 +38,10 @@ Thumbs.db
+ # Local results (generated)
+ results/*
+ !results/.gitkeep
++# Small Version 3 review snapshots are intentionally committed so planner
++# semantics and closeout evidence can be inspected directly on GitHub.
++!results/v3_review/
++!results/v3_review/**
+
+ # Regenerable diagnostic canvas outputs
+ diagnostics/*
+diff --git a/src/inequality_mechanisms/adapters/ompl/planner_base.py b/src/inequality_mechanisms/adapters/ompl/planner_base.py
+index 6583224..8fd2fcb 100644
+--- a/src/inequality_mechanisms/adapters/ompl/planner_base.py
++++ b/src/inequality_mechanisms/adapters/ompl/planner_base.py
+@@ -62,7 +62,8 @@ def _solution_flags(pdef: Any) -> tuple[bool, bool, float | None]:
+     """Return ``(has_any, has_exact, difference)`` without conflating approximate paths."""
+     has_any = bool(pdef.hasSolution())
++    # Fail closed when a binding cannot prove exactness.
+     has_exact = (
+-        bool(pdef.hasExactSolution()) if hasattr(pdef, "hasExactSolution") else has_any
++        bool(pdef.hasExactSolution()) if hasattr(pdef, "hasExactSolution") else False
+     )
+     difference: float | None = None
+     if has_any and hasattr(pdef, "getSolutionDifference"):
+@@ -96,6 +96,23 @@ def extract_path_states(
+     return tuple(states)
+
+
++def _canonicalize_exact_start(
++    states: tuple[PhysicalState, ...],
++    exact_start: PhysicalState,
++    *,
++    planner_id: str,
++) -> tuple[tuple[PhysicalState, ...], float]:
++    """Verify the OMPL first waypoint and replace only numerically equivalent state."""
++    if not states:
++        return states, 0.0
++    residual = float(np.linalg.norm(states[0].u - exact_start.u))
++    if residual > ROUND_TRIP_TOL:
++        raise RuntimeError(
++            f"{planner_id} violated exact-start round trip: residual={residual}"
++        )
++    return (exact_start,) + tuple(states[1:]), residual
++
++
+ def solve_with_ompl_planner(
+     problem: PlanningProblem,
+     *,
+@@ -149,6 +167,7 @@ def solve_with_ompl_planner(
+     run = SeededRun(seed=seed, repetition_index=repetition_index)
+     rng = make_generator(run.seed, repetition_index=run.repetition_index)
+     extras = seed_provenance_extras(run, planner_id=planner_id)
++    extras["seed_protocol"] = "v3_5_ompl_process_global_best_effort"
+     extras["ompl_version"] = ompl_version_string()
+     extras["nn_distance"] = "euclidean_u"
+     extras["ompl_seed_requested"] = int(run.seed)
+@@ -171,6 +190,7 @@ def solve_with_ompl_planner(
+         "ompl_seed_scope": "process_global_best_effort",
+         "reproducibility_contract": "not_claimed_in_process",
+         "seed": int(seed),
++        "seed_protocol": "v3_5_ompl_process_global_best_effort",
+         "repetition_index": int(repetition_index),
+         "solve_time_budget_s": float(solve_time_s),
+         "direct_connector_policy": str(
+@@ -364,14 +384,12 @@ def solve_with_ompl_planner(
+             motion_checks=direct_checks + counters.motion_checks,
+         )
+
+-    # Exact start is an adapter invariant; never repair a mismatched first edge.
+-    start_residual_u = float(np.linalg.norm(states[0].u - problem.start.u))
++    # Exact start is an adapter invariant; only canonicalize a numerically
++    # equivalent first state. A real mismatch is an adapter failure.
++    states, start_residual_u = _canonicalize_exact_start(
++        states, problem.start, planner_id=planner_id
++    )
+     ompl_metrics["exact_start_residual_u"] = start_residual_u
+-    if start_residual_u > ROUND_TRIP_TOL:
+-        raise RuntimeError(
+-            f"{planner_id} violated exact-start round trip: residual={start_residual_u}"
+-        )
+-    states = (problem.start,) + tuple(states[1:])
+
+     selected = states[-1]
+     selected_goal_satisfied = bool(problem.goal.satisfied(selected))
+diff --git a/src/inequality_mechanisms/adapters/ompl/validity.py b/src/inequality_mechanisms/adapters/ompl/validity.py
+index afb9699..7135cc4 100644
+--- a/src/inequality_mechanisms/adapters/ompl/validity.py
++++ b/src/inequality_mechanisms/adapters/ompl/validity.py
+@@ -48,6 +48,41 @@ def make_state_validity_checker(
+     return _Checker()
+
+
++def _set_last_valid_at_start(space: Any, last: Any, start_state: Any) -> bool:
++    """Populate OMPL's ``lastValid`` pair conservatively at fraction zero.
++
++    The V3 motion checker currently returns only whole-segment validity, so on
++    failure the only certified prefix is the exact start. OMPL Python binding
++    builds expose the C++ ``pair<State*, double>`` either as a pair-like object
++    or a mutable two-element sequence; support both forms without inventing an
++    interior valid fraction.
++    """
++    # Pair-like binding with ``first`` / ``second`` attributes.
++    if hasattr(last, "first") and hasattr(last, "second"):
++        try:
++            destination = last.first
++            if destination is not None and hasattr(space, "copyState"):
++                space.copyState(destination, start_state)
++            else:
++                last.first = start_state
++            last.second = 0.0
++            return True
++        except Exception:
++            pass
++
++    # Mutable sequence binding: [State*, fraction].
++    try:
++        destination = last[0]
++        if destination is not None and hasattr(space, "copyState"):
++            space.copyState(destination, start_state)
++        else:
++            last[0] = start_state
++        last[1] = 0.0
++        return True
++    except Exception:
++        return False
++
++
+ def make_motion_validator(
+     si: Any,
+     problem: PlanningProblem,
+@@ -86,15 +123,10 @@ def make_motion_validator(
+             s1, s2 = args[0], args[1]
+             ok = _segment_ok(s1, s2)
+             if not ok and len(args) >= 3:
+-                last = args[2]
+-                try:
+-                    # last may be a mutable float holder or (state, fraction).
+-                    if hasattr(last, "__setitem__"):
+-                        last[0] = 0.0
+-                    elif isinstance(last, list):
+-                        last[0] = 0.0
+-                except Exception:
+-                    pass
++                if not _set_last_valid_at_start(space, args[2], s1):
++                    raise RuntimeError(
++                        "unsupported OMPL lastValid Python binding representation"
++                    )
+             return ok
+
+     return _MotionValidator()
+diff --git a/tests/v3/test_v3_5_ompl_optional_gate.py b/tests/v3/test_v3_5_ompl_optional_gate.py
+index 62577ad..5c8bb41 100644
+--- a/tests/v3/test_v3_5_ompl_optional_gate.py
++++ b/tests/v3/test_v3_5_ompl_optional_gate.py
+@@ -2,6 +2,7 @@
+
+ from __future__ import annotations
+
++import numpy as np
+ import pytest
+
+ from inequality_mechanisms.adapters.ompl import (
+@@ -63,3 +64,65 @@ def test_solution_flags_do_not_promote_approximate_paths() -> None:
+     assert any_solution
+     assert not exact_solution
+     assert difference == pytest.approx(0.25)
++
++
++def test_solution_flags_fail_closed_without_exact_api() -> None:
++    from inequality_mechanisms.adapters.ompl.planner_base import _solution_flags
++
++    class ProblemDefinitionWithoutExactAPI:
++        def hasSolution(self) -> bool:  # noqa: N802
++            return True
++
++        def getSolutionDifference(self) -> float:  # noqa: N802
++            return 0.1
++
++    any_solution, exact_solution, difference = _solution_flags(
++        ProblemDefinitionWithoutExactAPI()
++    )
++    assert any_solution
++    assert not exact_solution
++    assert difference == pytest.approx(0.1)
++
++
++def test_exact_start_mismatch_fails_instead_of_repairing() -> None:
++    from inequality_mechanisms.adapters.ompl.planner_base import (
++        _canonicalize_exact_start,
++    )
++    from inequality_mechanisms.core.state import PhysicalState
++
++    exact = PhysicalState(u=np.array([0.0, 0.0]), q=np.array([0.0, 0.0]))
++    wrong = PhysicalState(u=np.array([0.1, 0.0]), q=np.array([0.1, 0.0]))
++    with pytest.raises(RuntimeError, match="exact-start round trip"):
++        _canonicalize_exact_start((wrong,), exact, planner_id="test_ompl")
++
++
++def test_exact_start_numerical_equivalent_is_canonicalized() -> None:
++    from inequality_mechanisms.adapters.ompl.planner_base import (
++        _canonicalize_exact_start,
++    )
++    from inequality_mechanisms.core.state import PhysicalState
++
++    exact = PhysicalState(u=np.array([0.0, 0.0]), q=np.array([0.0, 0.0]))
++    near = PhysicalState(u=np.array([1e-12, 0.0]), q=np.array([0.0, 0.0]))
++    states, residual = _canonicalize_exact_start(
++        (near,), exact, planner_id="test_ompl"
++    )
++    assert states[0] is exact
++    assert residual == pytest.approx(1e-12)
++
++
++def test_last_valid_failure_marks_exact_start_and_zero_fraction() -> None:
++    from inequality_mechanisms.adapters.ompl.validity import (
++        _set_last_valid_at_start,
++    )
++
++    class FakeSpace:
++        def copyState(self, destination, source) -> None:  # noqa: N802
++            destination[:] = source
++
++    start = [1.0, 2.0]
++    destination = [0.0, 0.0]
++    last_valid = [destination, 1.0]
++    assert _set_last_valid_at_start(FakeSpace(), last_valid, start)
++    assert destination == start
++    assert last_valid[1] == pytest.approx(0.0)
+diff --git a/tests/v3/test_v3_5_ompl_adapter.py b/tests/v3/test_v3_5_ompl_adapter.py
+index 6ed7881..4a7a91d 100644
+--- a/tests/v3/test_v3_5_ompl_adapter.py
++++ b/tests/v3/test_v3_5_ompl_adapter.py
+@@ -89,6 +89,10 @@ def test_direct_connector_classification_metrics_present(planner_name: str) -> None:
+         result.provenance.extras.get("ompl_seed_scope")
+         == "process_global_best_effort"
+     )
++    assert (
++        result.provenance.extras.get("seed_protocol")
++        == "v3_5_ompl_process_global_best_effort"
++    )
+
+
+ @pytest.mark.parametrize("planner_name", ["ompl_prm", "ompl_rrt_connect"])
+diff --git a/scripts/export_v3_review_results.py b/scripts/export_v3_review_results.py
+new file mode 100755
+index 0000000..f43b534
+--- /dev/null
++++ b/scripts/export_v3_review_results.py
+@@ -0,0 +1,296 @@
++#!/usr/bin/env python3
++"""Export bounded Version 3 smoke/parity results for GitHub review.
++
++This is a review snapshot, not a production evidence campaign. It intentionally
++collects the bounded smoke packs from V3.2 through V3.5 into one tracked
++directory so implementation behavior is inspectable without re-running locally.
++"""
++
++from __future__ import annotations
++
++import argparse
++import json
++import subprocess
++from datetime import datetime, timezone
++from pathlib import Path
++from typing import Any
++
++import numpy as np
++
++from inequality_mechanisms.adapters.ompl import (
++    is_ompl_available,
++    ompl_version_string,
++)
++from inequality_mechanisms.benchmarks.smoke_direct_2r import run_smoke_pack
++from inequality_mechanisms.benchmarks.smoke_lattice_2r import run_lattice_smoke_pack
++from inequality_mechanisms.benchmarks.smoke_ompl_2r import (
++    run_ompl_parity_smoke_pack,
++)
++from inequality_mechanisms.benchmarks.smoke_sampling_2r import (
++    SMOKE_SEED,
++    run_sampling_smoke_pack,
++)
++
++DEFAULT_OUTPUT = Path("results/v3_review/v3_5_closeout")
++
++
++def _git_revision() -> str | None:
++    try:
++        proc = subprocess.run(
++            ["git", "rev-parse", "HEAD"],
++            check=True,
++            capture_output=True,
++            text=True,
++        )
++    except (OSError, subprocess.CalledProcessError):
++        return None
++    value = proc.stdout.strip()
++    return value or None
++
++
++def _json_default(value: Any) -> Any:
++    if isinstance(value, np.ndarray):
++        return value.tolist()
++    if isinstance(value, np.generic):
++        return value.item()
++    if isinstance(value, Path):
++        return str(value)
++    raise TypeError(f"not JSON serializable: {type(value).__name__}")
++
++
++def _write_json(path: Path, value: Any) -> None:
++    path.write_text(
++        json.dumps(
++            value,
++            indent=2,
++            sort_keys=True,
++            default=_json_default,
++            allow_nan=False,
++        )
++        + "\n",
++        encoding="utf-8",
++    )
++
++
++def _status_counts(rows: list[dict[str, Any]], key: str) -> dict[str, int]:
++    counts: dict[str, int] = {}
++    for row in rows:
++        status = str(row.get(key))
++        counts[status] = counts.get(status, 0) + 1
++    return counts
++
++
++def _validate_snapshot(
++    direct_rows: list[dict[str, Any]],
++    lattice_rows: list[dict[str, Any]],
++    sampling_rows: list[dict[str, Any]],
++    ompl_rows: list[dict[str, Any]],
++) -> dict[str, Any]:
++    failures: list[str] = []
++    if any(row.get("architecture_version") != 3 for row in direct_rows):
++        failures.append("direct smoke contains non-V3 result")
++    if any(row.get("architecture_version") != 3 for row in lattice_rows):
++        failures.append("lattice smoke contains non-V3 result")
++    if any(row.get("architecture_version") != 3 for row in sampling_rows):
++        failures.append("sampling smoke contains non-V3 result")
++    if any(not row.get("same_task_class", False) for row in ompl_rows):
++        failures.append("OMPL/native parity contains task-class mismatch")
++    if any(
++        not row.get("both_success_when_native_success", False)
++        for row in ompl_rows
++    ):
++        failures.append("OMPL failed a smoke task solved by its native counterpart")
++    return {
++        "passed": not failures,
++        "failures": failures,
++    }
++
++
++def _markdown_table(rows: list[list[str]], headers: list[str]) -> str:
++    widths = [
++        max(len(headers[i]), *(len(row[i]) for row in rows))
++        for i in range(len(headers))
++    ]
++    head = "| " + " | ".join(headers[i].ljust(widths[i]) for i in range(len(headers))) + " |"
++    rule = "| " + " | ".join("-" * widths[i] for i in range(len(headers))) + " |"
++    body = [
++        "| " + " | ".join(row[i].ljust(widths[i]) for i in range(len(headers))) + " |"
++        for row in rows
++    ]
++    return "\n".join([head, rule, *body])
++
++
++def _build_readme(
++    *,
++    manifest: dict[str, Any],
++    ompl_rows: list[dict[str, Any]],
++) -> str:
++    suites = manifest["suites"]
++    suite_rows = [
++        [
++            name,
++            str(info["rows"]),
++            json.dumps(info["status_counts"], sort_keys=True),
++        ]
++        for name, info in suites.items()
++    ]
++    parity_rows = [
++        [
++            str(row["task_id"]),
++            str(row["mechanism"]),
++            str(row["ompl_planner"]),
++            str(row["native_planner"]),
++            str(row["ompl_status"]),
++            str(row["native_status"]),
++            "yes" if row["same_task_class"] else "NO",
++        ]
++        for row in ompl_rows
++    ]
++    return "\n".join(
++        [
++            "# Version 3 review snapshot — V3.5 closeout",
++            "",
++            "This directory is a **bounded smoke/parity review artifact**, not a "
++            "production population study or Monte Carlo result.",
++            "",
++            f"- Code revision: `{manifest['code_revision']}`",
++            f"- Generated UTC: `{manifest['generated_at_utc']}`",
++            f"- OMPL version: `{manifest['ompl_version']}`",
++            f"- Frozen smoke seed: `{manifest['seed']}`",
++            f"- OMPL solve budget per query: `{manifest['solve_time_s']}` s",
++            f"- Snapshot validation: `{'PASS' if manifest['validation']['passed'] else 'FAIL'}`",
++            "",
++            "## Included suites",
++            "",
++            _markdown_table(suite_rows, ["suite", "rows", "status counts"]),
++            "",
++            "## OMPL/native parity",
++            "",
++            _markdown_table(
++                parity_rows,
++                [
++                    "task",
++                    "mechanism",
++                    "OMPL",
++                    "native",
++                    "OMPL status",
++                    "native status",
++                    "same class",
++                ],
++            ),
++            "",
++            "Full row-level data are stored beside this README:",
++            "",
++            "- `v3_2_direct_smoke.json`",
++            "- `v3_3_lattice_smoke.json`",
++            "- `v3_4_sampling_smoke.json`",
++            "- `v3_5_ompl_native_parity.json`",
++            "- `manifest.json`",
++            "",
++            "Regenerate with:",
++            "",
++            "```bash",
++            "PYTHONPATH=src python scripts/export_v3_review_results.py",
++            "```",
++            "",
++        ]
++    )
++
++
++def export_snapshot(
++    output: Path,
++    *,
++    seed: int,
++    solve_time_s: float,
++) -> dict[str, Any]:
++    if not is_ompl_available():
++        raise RuntimeError(
++            "V3.5 review export requires OMPL bindings; refusing to publish a "
++            "partial closeout snapshot"
++        )
++    output.mkdir(parents=True, exist_ok=True)
++
++    direct_rows = run_smoke_pack()
++    lattice_rows = run_lattice_smoke_pack()
++    sampling_rows = run_sampling_smoke_pack(seed=seed)
++    ompl_rows = run_ompl_parity_smoke_pack(
++        seed=seed,
++        solve_time_s=solve_time_s,
++    )
++    validation = _validate_snapshot(
++        direct_rows,
++        lattice_rows,
++        sampling_rows,
++        ompl_rows,
++    )
++
++    _write_json(output / "v3_2_direct_smoke.json", direct_rows)
++    _write_json(output / "v3_3_lattice_smoke.json", lattice_rows)
++    _write_json(output / "v3_4_sampling_smoke.json", sampling_rows)
++    _write_json(output / "v3_5_ompl_native_parity.json", ompl_rows)
++
++    manifest = {
++        "snapshot_schema_version": 1,
++        "snapshot_id": "v3_5_closeout",
++        "architecture_version": 3,
++        "code_revision": _git_revision(),
++        "generated_at_utc": datetime.now(timezone.utc).isoformat(),
++        "ompl_version": ompl_version_string(),
++        "seed": int(seed),
++        "solve_time_s": float(solve_time_s),
++        "suites": {
++            "v3_2_direct_smoke": {
++                "rows": len(direct_rows),
++                "status_counts": _status_counts(direct_rows, "status"),
++            },
++            "v3_3_lattice_smoke": {
++                "rows": len(lattice_rows),
++                "status_counts": _status_counts(lattice_rows, "status"),
++            },
++            "v3_4_sampling_smoke": {
++                "rows": len(sampling_rows),
++                "status_counts": _status_counts(sampling_rows, "status"),
++            },
++            "v3_5_ompl_native_parity": {
++                "rows": len(ompl_rows),
++                "status_counts": _status_counts(ompl_rows, "ompl_status"),
++            },
++        },
++        "validation": validation,
++        "scope_note": (
++            "Bounded deterministic/stochastic smoke and parity evidence only; "
++            "not population inference."
++        ),
++    }
++    _write_json(output / "manifest.json", manifest)
++    (output / "README.md").write_text(
++        _build_readme(manifest=manifest, ompl_rows=ompl_rows),
++        encoding="utf-8",
++    )
++    if not validation["passed"]:
++        raise RuntimeError(
++            "V3 review snapshot failed closeout validation: "
++            + "; ".join(validation["failures"])
++        )
++    return manifest
++
++
++def main() -> None:
++    parser = argparse.ArgumentParser()
++    parser.add_argument("--out", type=Path, default=DEFAULT_OUTPUT)
++    parser.add_argument("--seed", type=int, default=SMOKE_SEED)
++    parser.add_argument("--solve-time-s", type=float, default=5.0)
++    args = parser.parse_args()
++    manifest = export_snapshot(
++        args.out,
++        seed=args.seed,
++        solve_time_s=args.solve_time_s,
++    )
++    print(
++        f"wrote {args.out} at revision {manifest['code_revision']} "
++        f"(OMPL {manifest['ompl_version']})"
++    )
++
++
++if __name__ == "__main__":
++    main()
+diff --git a/results/v3_review/README.md b/results/v3_review/README.md
+new file mode 100644
+index 0000000..a531255
+--- /dev/null
++++ b/results/v3_review/README.md
+@@ -0,0 +1,24 @@
++# Version 3 review results
++
++This directory is the explicit exception to the repository-wide `results/*`
++ignore rule. It contains **small, reviewable Version 3 smoke/parity snapshots**
++that are intentionally committed to GitHub with the code revision that
++generated them.
++
++These snapshots are not production evidence, task-population inference, or
++Monte Carlo campaigns. They exist so reviewers can inspect the behavioral
++consequences of the Version 3 architecture without rerunning every local smoke
++pack.
++
++## V3.5 closeout snapshot
++
++Generate the complete V3.2–V3.5 review package in an OMPL-enabled environment:
++
++```bash
++PYTHONPATH=src python scripts/export_v3_review_results.py
++```
++
++The command writes `results/v3_review/v3_5_closeout/`. Commit that generated
++directory together with the V3.5 closeout changes. The exporter refuses to
++produce a partial closeout snapshot when OMPL is unavailable and fails if the
++native/OMPL parity invariants do not pass.
+diff --git a/docs/software/planning/sprints/v3/SPRINT_V3_5_OMPL_ADAPTER.md b/docs/software/planning/sprints/v3/SPRINT_V3_5_OMPL_ADAPTER.md
+index 130b46f..4876a75 100644
+--- a/docs/software/planning/sprints/v3/SPRINT_V3_5_OMPL_ADAPTER.md
++++ b/docs/software/planning/sprints/v3/SPRINT_V3_5_OMPL_ADAPTER.md
+@@ -71,5 +71,9 @@ Before V3.5 closes:
+ - parity smoke rows include selected goals, timings, and provenance in addition to status, task class, and objective cost.
+ - exact-start round-trip mismatch is an adapter failure, never repaired by inserting a new first waypoint.
++- OMPL exact-solution detection fails closed if the binding cannot expose
++  `hasExactSolution()`.
++- the three-argument `MotionValidator.checkMotion` overload reports the exact
++  start at fraction zero as the only certified prefix when a whole segment fails.
+
+ ## Exit criteria
+
+@@ -86,6 +90,27 @@ Before V3.5 closes:
+ 10. No MoveIt, obstacle, higher-DOF, population-evidence, or Monte Carlo work is activated opportunistically.
+ 11. Hand off to V3.6 only after the corrective review amendments are green under an OMPL-enabled environment.
+
++## Reviewable V3 result snapshot
++
++V3.5 closeout also publishes a small tracked review package containing the
++bounded results already used by V3.2–V3.5:
++
++- V3.2 direct-planner smoke;
++- V3.3 lattice/edge-cost smoke;
++- V3.4 native PRM/RRTConnect smoke;
++- V3.5 OMPL/native parity smoke.
++
++Generate it only after the OMPL-enabled V3.5 tests are green:
++
++```bash
++PYTHONPATH=src python scripts/export_v3_review_results.py
++git add results/v3_review/v3_5_closeout
++```
++
++The generated package is review evidence, not production inference. It records
++the generating Git revision, OMPL version, frozen smoke seed, row-level JSON,
++and a GitHub-readable summary. Commit it with the V3.5 closeout changes.
++
+ ## Deferred work
+
+ Native planner breadth intentionally omitted from V3.3/V3.4 remains in `V3-DEFER-001`. V3.5 may use OMPL equivalents for parity, but it does not silently close those native implementation items.
