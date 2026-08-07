@@ -59,11 +59,15 @@ def physical_state_from_ompl(
 
 
 def allocate_ompl_state(space: Any, u: NDArray[np.float64]) -> Any:
-    """Allocate a scoped OMPL state and fill it from ``u``."""
-    ob, _og = require_ompl()
-    scoped = ob.State(space)
-    write_u_to_ompl_state(space, scoped(), u)
-    return scoped
+    """Allocate an OMPL state (nanobind ``space.allocState``) and fill from ``u``.
+
+    Older Boost.Python bindings exposed ``ob.State(space)`` scoped wrappers; the
+    current Nanobind wheels allocate via the state space and return a mutable
+    ``RealVectorStateType`` used directly (no ``state()`` dereference).
+    """
+    state = space.allocState()
+    write_u_to_ompl_state(space, state, u)
+    return state
 
 
 def round_trip_residuals(
@@ -74,9 +78,9 @@ def round_trip_residuals(
 ) -> tuple[float, float]:
     """Encode ``state.u`` to OMPL and back; return ``(||du||, ||q-g(u)||)``."""
     space = build_actuator_state_space(robot)
-    scoped = allocate_ompl_state(space, state.u)
+    ompl_state = allocate_ompl_state(space, state.u)
     restored = physical_state_from_ompl(
-        robot, space, scoped(), assembly_state=assembly_state
+        robot, space, ompl_state, assembly_state=assembly_state
     )
     du = float(np.linalg.norm(restored.u - state.u))
     # Consistency residual of restored physical state.

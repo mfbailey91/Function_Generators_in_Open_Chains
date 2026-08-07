@@ -4,9 +4,15 @@ OMPL is an optional external backend. Importing this package does not require
 OMPL to be installed; planner classes raise a clear ``ImportError`` or tests
 skip via :func:`is_ompl_available` when bindings are missing.
 
-Install OMPL Python bindings separately (commonly ``conda install -c conda-forge ompl``).
-There is no reliable pip wheel for all platforms; see optional extra ``ompl`` in
-``pyproject.toml`` (documentation marker only).
+Install OMPL Python bindings separately. Preferred paths:
+
+- ``pip install ompl`` when a wheel exists for your platform/Python (e.g. CPython
+  3.11 on macOS arm64), or
+- ``conda install -c conda-forge ompl`` for the C++ library plus a matching
+  ``pip install ompl`` wheel into that environment.
+
+There is no reliable single pip wheel for every platform; see optional extra
+``ompl`` in ``pyproject.toml`` (documentation marker only).
 """
 
 from __future__ import annotations

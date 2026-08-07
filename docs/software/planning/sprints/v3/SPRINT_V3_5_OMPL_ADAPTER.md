@@ -1,9 +1,10 @@
 # Sprint V3.5 — OMPL Adapter
 
-**Status:** active — corrective adapter-contract closeout and native-planner parity
-**Code authorization:** V3-500–V3-505 only
+**Status:** completed — OMPL adapter, corrective contract, and review snapshot
+**Code authorization:** none (handoff pending Sprint V3.6 activation)
 **Depends on:** [Sprint V3.4](SPRINT_V3_4_NATIVE_ROADMAP_TREE.md) (completed); accepted ADRs 021–026
 **Reference:** [V3_PROJECT_PLAN.md](../../../V3_PROJECT_PLAN.md) §16 V3-M5
+**Evidence:** [`results/v3_review/v3_5_closeout/`](../../../../../results/v3_review/v3_5_closeout/)
 
 ## Sprint intent
 

@@ -304,7 +304,7 @@ def solve_with_ompl_planner(
     si.setup()
 
     try:
-        goal_ompl, candidates, goal_metadata = select_and_build_goal(
+        goal_ompl, candidates, goal_metadata, owned_goal_states = select_and_build_goal(
             si,
             space,
             problem,
@@ -325,6 +325,8 @@ def solve_with_ompl_planner(
             state_checks=1,
         )
 
+    # Keep Nanobind-allocated goal states alive through the solve.
+    _owned_ompl_states: list[Any] = list(owned_goal_states)
     ompl_metrics.update(goal_metadata)
     presearch_state_checks = 1 + int(goal_metadata["goal_samples_generated"])
 
@@ -351,11 +353,12 @@ def solve_with_ompl_planner(
         connector_succeeded=direct_succeeded,
     )
 
-    start_scoped = ob.State(space)
-    write_u_to_ompl_state(space, start_scoped(), problem.start.u)
+    start_state = space.allocState()
+    write_u_to_ompl_state(space, start_state, problem.start.u)
+    _owned_ompl_states.append(start_state)
 
     pdef = ob.ProblemDefinition(si)
-    pdef.addStartState(start_scoped)
+    pdef.addStartState(start_state)
     pdef.setGoal(goal_ompl)
     ompl_objective, objective_metadata = build_ompl_objective(si, problem)
     pdef.setOptimizationObjective(ompl_objective)
