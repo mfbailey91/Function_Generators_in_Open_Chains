@@ -1,11 +1,11 @@
 # Active sprint
 
-**Current focus:** [Sprint V3.3 — Lattice and Local-Motion Validation](sprints/v3/SPRINT_V3_3_LATTICE_LOCAL_MOTION.md).
+**Current focus:** [Sprint V3.5 — OMPL Adapter](sprints/v3/SPRINT_V3_5_OMPL_ADAPTER.md).
 
-**Code authorization:** V3-300–V3-305 only (eight-connected topology, exact-start overlay, integrated lattice edge cost, Dijkstra/A* ablations). No PRM/RRT/OMPL, obstacles, Monte Carlo, weighted A*, or any-angle search.
+**Code authorization:** V3-500–V3-505 only (optional OMPL dependency gate, Version 3 state/objective/goal/validity adapter, planner-data extraction, native-parity smoke). No MoveIt, obstacles, production evidence, higher-DOF, or Monte Carlo.
 
-**Completed:** V2.0–V2.12 smoke/calibration (production held); V3.0 contracts; V3.1 core interfaces; V3.2 direct 2R Cartesian vertical slice.
+**Completed:** V2.0–V2.12 smoke/calibration (production held); V3.0–V3.4 (contracts, core, direct 2R, lattice/local-motion, basic PRM/RRTConnect).
 
 **Frozen evidence:** [V2 evidence freeze](../experiments/reports/V2_EVIDENCE_FREEZE.md).
 
-**Held:** Version 2 Cartesian production inference, Version 2.7 3R, new Monte Carlo campaigns, obstacles, OMPL, MoveIt, higher-DOF, and Sprint V3.4+ until V3.3 exits.
+**Held:** Version 2 Cartesian production inference, Version 2.7 3R, new Monte Carlo campaigns, obstacles, MoveIt, higher-DOF, Sprint V3.6+, and deferred native planner breadth (`V3-DEFER-001`) until separately activated.

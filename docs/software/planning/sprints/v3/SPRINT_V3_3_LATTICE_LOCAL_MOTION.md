@@ -1,7 +1,7 @@
 # Sprint V3.3 — Lattice and Local-Motion Validation
 
-**Status:** active — eight-connected lattice, exact-start overlay, integrated edge cost  
-**Code authorization:** V3-300–V3-305 only  
+**Status:** completed — eight-connected lattice, exact-start overlay, integrated edge cost  
+**Code authorization:** none (handoff to V3.4)  
 **Depends on:** [Sprint V3.2](SPRINT_V3_2_DIRECT_2R_VERTICAL_SLICE.md) (completed); ADRs 021–026  
 **Reference:** [V3_PROJECT_PLAN.md](../../../V3_PROJECT_PLAN.md) §16 V3-M3 (narrowed)
 

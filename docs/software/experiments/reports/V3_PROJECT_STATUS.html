@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Inequality Mechanisms — Project Status through V3.5</title>
+  <style>
+    :root {
+      --ink: #122033; --muted: #5b6b7c; --line: #d7dee6;
+      --paper: #f7f8fa; --card: #ffffff; --accent: #1f4e79;
+      --ok: #1b6b3a; --active: #8a5a00; --held: #6b4c7a; --todo: #5b6b7c;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "IBM Plex Sans", "Segoe UI", sans-serif;
+      color: var(--ink); background: var(--paper); line-height: 1.45;
+    }
+    header { background: var(--accent); color: #fff; padding: 1.6rem 2rem 1.4rem; }
+    header h1 { margin: 0 0 0.35rem; font-size: 1.55rem; font-weight: 650; }
+    header p { margin: 0; max-width: 72rem; color: #dbe7f3; }
+    main { max-width: 72rem; margin: 0 auto; padding: 1.25rem 1.25rem 3rem; }
+    .chips { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.9rem; }
+    .chip {
+      background: rgba(255,255,255,0.14); border: 1px solid rgba(255,255,255,0.22);
+      padding: 0.18rem 0.55rem; border-radius: 999px; font-size: 0.82rem;
+    }
+    .stats {
+      display: grid; grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 0.75rem; margin: 1rem 0 1.25rem;
+    }
+    .stat {
+      background: var(--card); border: 1px solid var(--line);
+      border-radius: 10px; padding: 0.85rem 0.95rem;
+    }
+    .stat .v { font-size: 1.4rem; font-weight: 700; color: var(--accent); }
+    .stat .l { color: var(--muted); font-size: 0.86rem; margin-top: 0.15rem; }
+    section {
+      background: var(--card); border: 1px solid var(--line);
+      border-radius: 12px; padding: 1rem 1.1rem 1.15rem;
+      margin-bottom: 1rem; break-inside: avoid;
+    }
+    h2 { margin: 0 0 0.35rem; font-size: 1.12rem; }
+    p.note { color: var(--muted); font-size: 0.88rem; margin: 0 0 0.75rem; }
+    .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+    th, td {
+      border-bottom: 1px solid var(--line); text-align: left;
+      padding: 0.4rem 0.45rem; vertical-align: top;
+    }
+    th { color: var(--muted); font-weight: 600; }
+    code { background: #eef2f6; padding: 0.05rem 0.3rem; border-radius: 4px; font-size: 0.86em; }
+    .badge {
+      display: inline-block; font-size: 0.75rem; font-weight: 650;
+      padding: 0.12rem 0.45rem; border-radius: 999px; border: 1px solid transparent;
+      white-space: nowrap;
+    }
+    .badge.done { color: var(--ok); background: #e8f6ee; border-color: #b7e0c5; }
+    .badge.active { color: var(--active); background: #fff4d9; border-color: #f0d48a; }
+    .badge.held { color: var(--held); background: #f3eaf7; border-color: #d8c2e6; }
+    .badge.next { color: var(--todo); background: #eef2f6; border-color: #d7dee6; }
+    ul.tight { margin: 0.35rem 0 0; padding-left: 1.15rem; }
+    ul.tight li { margin: 0.2rem 0; }
+    footer { color: var(--muted); font-size: 0.84rem; padding: 0.25rem 0.2rem; }
+    .flow {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.78rem; line-height: 1.55; background: #f0f3f7;
+      border: 1px solid var(--line); border-radius: 8px; padding: 0.75rem 0.9rem;
+      overflow-x: auto; white-space: pre;
+    }
+    @media (max-width: 900px) {
+      .stats, .grid2 { grid-template-columns: 1fr; }
+      header, main { padding-left: 1rem; padding-right: 1rem; }
+    }
+    @media print {
+      body { background: #fff; }
+      header {
+        background: #fff; color: #122033;
+        border-bottom: 2px solid #1f4e79; padding: 0 0 0.8rem;
+      }
+      header p, header .chip { color: #334; border-color: #ccd; background: #f4f7fa; }
+      section, .stat { break-inside: avoid; }
+      main { max-width: none; padding: 0.6rem 0 0; }
+      a { color: inherit; text-decoration: none; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Inequality Mechanisms — Project Status through V3.5</h1>
+    <p>
+      Planner-agnostic, mechanism-aware motion planning for open-chain function generators.
+      Version 2 evidence is frozen. Version 3 re-centers the software on a planner-independent
+      <code style="background:rgba(255,255,255,0.15);color:#fff;">PlanningProblem</code>
+      and has delivered direct, lattice, native sampling, and optional OMPL backends on planar 2R.
+    </p>
+    <div class="chips">
+      <span class="chip">branch · v3_rearchitecture @ ac3aabf</span>
+      <span class="chip">active · Sprint V3.5 OMPL Adapter</span>
+      <span class="chip">V2 production · frozen / held</span>
+      <span class="chip">as of · 2026-08-07</span>
+      <span class="chip">print-ready · use browser Print</span>
+    </div>
+  </header>
+
+  <main>
+    <div class="stats">
+      <div class="stat">
+        <div class="v">V3.0–V3.5</div>
+        <div class="l">Sprints authorized and implemented<br/>V3.5 active (adapter landed)</div>
+      </div>
+      <div class="stat">
+        <div class="v">ADR 021–026</div>
+        <div class="l">Accepted Version 3 contracts<br/>problem, state, start/goal, motion, adapters, metrics</div>
+      </div>
+      <div class="stat">
+        <div class="v">6 families</div>
+        <div class="l">Direct · lattice graph · PRM · RRTConnect<br/>OMPL PRM · OMPL RRTConnect</div>
+      </div>
+      <div class="stat">
+        <div class="v">V3-M6 next</div>
+        <div class="l">Free-space planner evidence bank<br/>obstacles / MoveIt / Monte Carlo held</div>
+      </div>
+    </div>
+
+    <section>
+      <h2>One-sentence verdict</h2>
+      <p class="note" style="margin-bottom:0.4rem;">What the project has established so far.</p>
+      <p style="margin:0;">
+        Certified monotonic transmissions change planning through the map
+        \(\mathcal U \xrightarrow{g_m} \mathcal Q \xrightarrow{f} \mathcal X\);
+        Version 2 measured that effect under a fixed lattice formulation, and Version 3 now
+        asks the same scientific question across interchangeable planners without letting any
+        backend redefine physical state, goals, validity, or objective semantics.
+      </p>
+    </section>
+
+    <div class="grid2">
+      <section>
+        <h2>Architecture versions</h2>
+        <p class="note">From <code>docs/software/VERSION_MATRIX.md</code>.</p>
+        <table>
+          <thead>
+            <tr><th>Version</th><th>Center</th><th>Status</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>V1</td>
+              <td>Full-cycle / noninjective graphs in \(\mathcal U\)</td>
+              <td><span class="badge done">preserved baseline</span></td>
+            </tr>
+            <tr>
+              <td>V2</td>
+              <td>Certified branch graphs in \(\mathcal Q\) + attached \(u\)</td>
+              <td><span class="badge held">frozen evidence</span></td>
+            </tr>
+            <tr>
+              <td>V3</td>
+              <td>Planner-independent <code>PlanningProblem</code></td>
+              <td><span class="badge active">active integration</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section>
+        <h2>Physical chain (unchanged)</h2>
+        <p class="note">Mechanism embedding remains the scientific object of study.</p>
+        <div class="flow">U  --g_m-->  Q  --f-->  X
+actuator     output     task space
+coords       joints     (Cartesian / pose)</div>
+        <ul class="tight">
+          <li>Initial V3 scope: certified monotonic operating branches (unique \(u\) for \(q\)).</li>
+          <li>Physical identity is \((u,q,\text{assembly_state})\), not planner node IDs.</li>
+          <li>Duplicate output preimages must not be collapsed into plain \(Q\) nodes.</li>
+        </ul>
+      </section>
+    </div>
+
+    <section>
+      <h2>Version 3 sprint timeline</h2>
+      <p class="note">Authorized work only; later milestones need their own sprint contracts before coding.</p>
+      <table>
+        <thead>
+          <tr><th>Sprint</th><th>Milestone</th><th>Delivered</th><th>Status</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>V3.0</td><td>V3-M0</td>
+            <td>Architecture contracts, V2 evidence freeze, ADRs 021–026</td>
+            <td><span class="badge done">completed</span></td>
+          </tr>
+          <tr>
+            <td>V3.1</td><td>V3-M1</td>
+            <td>Core problem/result interfaces + V2 adapters</td>
+            <td><span class="badge done">completed</span></td>
+          </tr>
+          <tr>
+            <td>V3.2</td><td>V3-M2</td>
+            <td>Direct 2R Cartesian slice: disk goals, input/output-linear, ADR-026</td>
+            <td><span class="badge done">completed</span></td>
+          </tr>
+          <tr>
+            <td>V3.3</td><td>V3-M3</td>
+            <td>8-connected lattice, exact-start overlay, integrated actuator edge cost</td>
+            <td><span class="badge done">completed</span></td>
+          </tr>
+          <tr>
+            <td>V3.4</td><td>V3-M4</td>
+            <td>Native basic PRM + RRTConnect, seed protocol, free-space smoke</td>
+            <td><span class="badge done">completed</span></td>
+          </tr>
+          <tr>
+            <td>V3.5</td><td>V3-M5</td>
+            <td>Optional OMPL adapter (PRM + RRTConnect), U-space bridges, parity smoke</td>
+            <td><span class="badge active">active / implemented</span></td>
+          </tr>
+          <tr>
+            <td>V3.6+</td><td>V3-M6…</td>
+            <td>Free-space evidence bank → obstacles → higher DOF → MoveIt → populations</td>
+            <td><span class="badge next">not activated</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>Dependency map</h2>
+      <div class="flow">V2 evidence freeze
+  └── V3.0 contracts
+        └── V3.1 core interfaces
+              └── V3.2 direct 2R
+                    └── V3.3 lattice / local motion
+                          ├── V3.4 native PRM / RRTConnect
+                          │     └── V3.5 OMPL adapter  ← here
+                          │           └── V3.6 free-space evidence
+                          │                 └── V3.7 obstacles …
+                          └── V3-DEFER-001 (native breadth held)</div>
+    </section>
+
+    <div class="grid2">
+      <section>
+        <h2>Planner stack delivered</h2>
+        <p class="note">All consume the same Version 3 <code>PlanningProblem</code>.</p>
+        <table>
+          <thead><tr><th>Planner</th><th>Lifecycle</th><th>Notes</th></tr></thead>
+          <tbody>
+            <tr><td><code>OutputLinear</code> / <code>InputLinear</code></td><td>single query</td><td>Direct connector; ADR-026 classification</td></tr>
+            <tr><td><code>GraphSearchPlanner</code></td><td>single query</td><td>Lattice + exact-start overlay</td></tr>
+            <tr><td><code>PRMPlanner</code></td><td>build-per-task</td><td>Native roadmap; not Lazy-PRM / PRM*</td></tr>
+            <tr><td><code>RRTConnectPlanner</code></td><td>single query</td><td>Native tree; not RRT*</td></tr>
+            <tr><td><code>OmplPRMPlanner</code></td><td>single query</td><td>Optional bindings; metrics under <code>ompl</code></td></tr>
+            <tr><td><code>OmplRRTConnectPlanner</code></td><td>single query</td><td>NN distance declared <code>euclidean_u</code></td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section>
+        <h2>Locked V3 design rules</h2>
+        <ul class="tight">
+          <li>Exact start remains exact; goal is a predicate / region.</li>
+          <li>Local motion is continuous; lattice adjacency only proposes candidates.</li>
+          <li>Actuator-travel objective is authoritative for reported path cost.</li>
+          <li>OMPL is an algorithm backend (ADR-025), never the source of physical identity.</li>
+          <li>Task class from direct-connector attempt is independent of planner outcome (ADR-026).</li>
+          <li>No silent reinterpretation of frozen V1/V2 evidence.</li>
+          <li>Core package must not hard-depend on OMPL (optional gate).</li>
+        </ul>
+      </section>
+    </div>
+
+    <section>
+      <h2>Frozen Version 2 evidence (do not reopen)</h2>
+      <p class="note">Checked-in dashboards under <code>docs/software/experiments/reports/</code>.</p>
+      <table>
+        <thead><tr><th>Campaign</th><th>What it established</th><th>HTML</th></tr></thead>
+        <tbody>
+          <tr>
+            <td>V2.10 Dijkstra production</td>
+            <td>Experiment A Monte Carlo cell (held for further production scaling)</td>
+            <td><code>V2_10_PRODUCTION_DIJKSTRA.html</code></td>
+          </tr>
+          <tr>
+            <td>V2.11 A* paired campaign</td>
+            <td>Paired four-bar vs gearbox A* against Dijkstra reference</td>
+            <td><code>V2_11_ASTAR_PAIRED_CAMPAIGN.html</code></td>
+          </tr>
+          <tr>
+            <td>V2.12 Cartesian smoke/calibration</td>
+            <td>Experiment B goal-region attachment; population inference held</td>
+            <td><code>V2_12_CARTESIAN_GOAL_REGION.html</code></td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <div class="grid2">
+      <section>
+        <h2>Explicitly held</h2>
+        <ul class="tight">
+          <li>V2 Cartesian production inference / new Monte Carlo campaigns</li>
+          <li>V2.7 3R extension</li>
+          <li>Obstacle scenes and collision campaigns</li>
+          <li>MoveIt / ROS / URDF application pipelines</li>
+          <li>Higher-DOF robots (3R–6R roadmap)</li>
+          <li>Native breadth backlog <code>V3-DEFER-001</code> (Lazy-PRM, PRM*, RRT*, …)</li>
+          <li>OMPL PRM* / RRT* / BIT* / KPIECE</li>
+        </ul>
+      </section>
+
+      <section>
+        <h2>Next authorized frontier</h2>
+        <p class="note">Requires a new sprint contract after V3.5 closeout.</p>
+        <ul class="tight">
+          <li><strong>V3.6 / V3-M6</strong> — frozen free-space planner evidence bank across delivered families</li>
+          <li>Common + family metrics; task-size strata; no population inference yet</li>
+          <li>Then V3.7 obstacle framework only after free-space gates pass</li>
+        </ul>
+        <p class="note" style="margin-top:0.75rem;margin-bottom:0;">
+          Active authorization today remains <strong>V3-500–V3-505</strong> only
+          (<code>ACTIVE_SPRINT.md</code>.
+        </p>
+      </section>
+    </div>
+
+    <section>
+      <h2>Recent Version 3 commits on <code>v3_rearchitecture</code></h2>
+      <table>
+        <thead><tr><th>Commit</th><th>Summary</th></tr></thead>
+        <tbody>
+          <tr><td><code>ac3aabf</code></td><td>Implement Sprint V3.5 optional OMPL adapter for PRM and RRTConnect</td></tr>
+          <tr><td><code>678cfdd</code></td><td>Close Sprint V3.4 and activate V3.5 OMPL adapter</td></tr>
+          <tr><td><code>bec9004</code></td><td>Implement Sprint V3.4 native PRM and RRT-Connect planners</td></tr>
+          <tr><td><code>a97302f</code></td><td>Implement Sprint V3.3 lattice and local-motion validation</td></tr>
+          <tr><td><code>2c8a112</code></td><td>Implement Sprint V3.2 direct 2R Cartesian vertical slice</td></tr>
+          <tr><td><code>8dd31c4</code></td><td>Implement Sprint V3.1 core planning interfaces and V2 adapters</td></tr>
+          <tr><td><code>e0f89c0</code></td><td>Document Version 3 planner-agnostic architecture and Sprint V3.0 contracts</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>How to verify locally</h2>
+      <div class="flow">PYTHONPATH="src:." .venv/bin/pytest tests/v3 -q --tb=short
+PYTHONPATH="src:." .venv/bin/pytest -q
+# With OMPL (conda-forge): pytest tests/v3 -q -m ompl --tb=short</div>
+      <p class="note" style="margin-top:0.75rem;margin-bottom:0;">
+        Without OMPL bindings, adapter tests skip cleanly; core + V1–V3.4 suites stay green.
+      </p>
+    </section>
+
+    <footer>
+      Generated as a project-status printout (not a Monte Carlo evidence package).
+      Sources: <code>ACTIVE_SPRINT.md</code>, <code>VERSION_MATRIX.md</code>,
+      <code>V3_PROJECT_PLAN.md</code>, <code>docs/software/planning/sprints/v3/</code>,
+      branch <code>v3_rearchitecture</code>. Use the browser Print dialog for PDF.
+    </footer>
+  </main>
+</body>
+</html>

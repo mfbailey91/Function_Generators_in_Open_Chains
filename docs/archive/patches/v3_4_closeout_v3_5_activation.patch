@@ -1,0 +1,468 @@
+diff --git a/src/inequality_mechanisms/planners/sampling_space.py b/src/inequality_mechanisms/planners/sampling_space.py
+index 46d19d6..1111111 100644
+--- a/src/inequality_mechanisms/planners/sampling_space.py
++++ b/src/inequality_mechanisms/planners/sampling_space.py
+@@ -58,6 +58,29 @@ def try_connect(
+     return bool(problem.scene.motion_is_valid(motion))
+ 
+ 
++def direct_connector_available(
++    problem: PlanningProblem,
++    goal_states: list[PhysicalState],
++) -> tuple[bool, int]:
++    """Evaluate the declared direct connector before nonlocal planning.
++
++    ADR-026 task classification is independent of the planner selected for the
++    query.  Sampling planners therefore test ``problem.local_motion`` directly
++    against the represented goal candidates before building a roadmap or tree.
++    The returned count is the number of continuous motions submitted to the
++    scene validity checker.
++    """
++    motion_checks = 0
++    for goal_state in goal_states:
++        motion = problem.local_motion.connect(problem.start, goal_state)
++        if motion is None:
++            continue
++        motion_checks += 1
++        if problem.scene.motion_is_valid(motion) and problem.goal.satisfied(goal_state):
++            return True, motion_checks
++    return False, motion_checks
++
++
+ def select_goal_states(
+     problem: PlanningProblem,
+     *,
+diff --git a/src/inequality_mechanisms/planners/roadmap/prm.py b/src/inequality_mechanisms/planners/roadmap/prm.py
+index 662b1b9..1111111 100644
+--- a/src/inequality_mechanisms/planners/roadmap/prm.py
++++ b/src/inequality_mechanisms/planners/roadmap/prm.py
+@@ -10,7 +10,6 @@ import numpy as np
+ 
+ from inequality_mechanisms.benchmarks.classification import (
+     TASK_ALREADY_SATISFIED,
+-    TASK_DIRECT_CONNECTOR_UNAVAILABLE,
+     TASK_INVALID_UNREPRESENTABLE,
+     classify_direct_attempt,
+ )
+@@ -32,6 +31,7 @@ from inequality_mechanisms.planners.sampling_rng import (
+     seed_provenance_extras,
+ )
+ from inequality_mechanisms.planners.sampling_space import (
++    direct_connector_available,
+     path_cost_u,
+     path_length_q,
+     resolve_connector,
+@@ -66,7 +66,7 @@ class PRMPlanner:
+         return PlannerCapabilities(
+             deterministic=False,
+             reproducible_with_seed=True,
+-            multi_query=True,
++            multi_query=False,
+             optimizing=True,
+             probabilistically_complete=None,
+             asymptotically_optimal=None,
+@@ -145,5 +145,13 @@ class PRMPlanner:
+                 "expansions": 0,
+                 "seed": int(self.seed),
+                 "repetition_index": int(self.repetition_index),
++                "direct_connector_policy": str(
++                    getattr(
++                        problem.local_motion,
++                        "model_id",
++                        type(problem.local_motion).__name__,
++                    )
++                ),
++                "direct_connector_available": None,
+             }
+         }
+@@ -205,8 +211,15 @@ class PRMPlanner:
+                 state_checks=1,
+             )
+ 
+-        # Pre-search stratum inviting nonlocal planners (ADR-026).
+-        task_class = TASK_DIRECT_CONNECTOR_UNAVAILABLE
++        direct_succeeded, direct_checks = direct_connector_available(problem, goals)
++        base_metrics["roadmap"]["direct_connector_available"] = direct_succeeded
++        task_class = classify_direct_attempt(
++            start_valid=True,
++            goal_usable=True,
++            already_satisfied=False,
++            candidates_representable=True,
++            connector_succeeded=direct_succeeded,
++        )
+         connector = resolve_connector(problem)
+         assembly = dict(problem.start.assembly_state)
+ 
+@@ -220,6 +234,6 @@ class PRMPlanner:
+         attempted = 0
+         accepted = 0
+-        motion_checks = 0
++        motion_checks = direct_checks
+         for i, si in enumerate(vertices):
+             dists = [
+                 (j, float(np.linalg.norm(si.u - vertices[j].u)))
+diff --git a/src/inequality_mechanisms/planners/tree/rrt_connect.py b/src/inequality_mechanisms/planners/tree/rrt_connect.py
+index db4734b..1111111 100644
+--- a/src/inequality_mechanisms/planners/tree/rrt_connect.py
++++ b/src/inequality_mechanisms/planners/tree/rrt_connect.py
+@@ -9,7 +9,6 @@ import numpy as np
+ 
+ from inequality_mechanisms.benchmarks.classification import (
+     TASK_ALREADY_SATISFIED,
+-    TASK_DIRECT_CONNECTOR_UNAVAILABLE,
+     TASK_INVALID_UNREPRESENTABLE,
+     classify_direct_attempt,
+ )
+@@ -31,6 +30,7 @@ from inequality_mechanisms.planners.sampling_rng import (
+ )
+ from inequality_mechanisms.planners.sampling_space import (
+     actuator_bounds,
++    direct_connector_available,
+     path_cost_u,
+     path_length_q,
+     resolve_connector,
+@@ -137,5 +137,13 @@ class RRTConnectPlanner:
+                 "rewires": 0,
+                 "seed": int(self.seed),
+                 "repetition_index": int(self.repetition_index),
++                "direct_connector_policy": str(
++                    getattr(
++                        problem.local_motion,
++                        "model_id",
++                        type(problem.local_motion).__name__,
++                    )
++                ),
++                "direct_connector_available": None,
+             }
+         }
+@@ -195,7 +201,15 @@ class RRTConnectPlanner:
+                 state_checks=1,
+             )
+ 
+-        task_class = TASK_DIRECT_CONNECTOR_UNAVAILABLE
++        direct_succeeded, direct_checks = direct_connector_available(problem, goals)
++        base_metrics["tree"]["direct_connector_available"] = direct_succeeded
++        task_class = classify_direct_attempt(
++            start_valid=True,
++            goal_usable=True,
++            already_satisfied=False,
++            candidates_representable=True,
++            connector_succeeded=direct_succeeded,
++        )
+         connector = resolve_connector(problem)
+         assembly = dict(problem.start.assembly_state)
+         lo, hi = actuator_bounds(problem.robot)
+@@ -210,7 +224,7 @@ class RRTConnectPlanner:
+ 
+         nn_ops = 0
+         extensions = 0
+-        motion_checks = 0
++        motion_checks = direct_checks
+         state_checks = 1
+ 
+         def nearest(tree: list[_TreeNode], target: PhysicalState) -> int:
+diff --git a/src/inequality_mechanisms/benchmarks/smoke_sampling_2r.py b/src/inequality_mechanisms/benchmarks/smoke_sampling_2r.py
+index 3cfc986..1111111 100644
+--- a/src/inequality_mechanisms/benchmarks/smoke_sampling_2r.py
++++ b/src/inequality_mechanisms/benchmarks/smoke_sampling_2r.py
+@@ -7,7 +7,7 @@ class SamplingSmokeTask:
+     start_u_frac: tuple[float, float]
+     goal_center: NDArray[np.float64]
+     goal_radius: float
+-    kind: Literal["already_satisfied", "nonlocal_feasible"]
++    kind: Literal["already_satisfied", "planning_feasible"]
+ 
+ 
+ def build_paired_arms(*, L1: float = 1.0, L2: float = 1.0) -> dict[MechanismName, SamplingSmokeArm]:
+@@ -37,12 +37,12 @@ def smoke_task_catalog(
+         )
+         tasks.append(
+             SamplingSmokeTask(
+-                task_id=f"{mech}_nonlocal_feasible",
++                task_id=f"{mech}_planning_feasible",
+                 mechanism=mech,
+                 start_u_frac=(0.25, 0.28),
+                 goal_center=tip_goal.copy(),
+                 goal_radius=0.06,
+-                kind="nonlocal_feasible",
++                kind="planning_feasible",
+             )
+         )
+     return tuple(tasks)
+diff --git a/tests/v3/test_v3_4_sampling_planners.py b/tests/v3/test_v3_4_sampling_planners.py
+index 3c206c8..1111111 100644
+--- a/tests/v3/test_v3_4_sampling_planners.py
++++ b/tests/v3/test_v3_4_sampling_planners.py
+@@ -10,5 +10,5 @@ from inequality_mechanisms.adapters import OperatingBranchRobotModel
+ from inequality_mechanisms.benchmarks import (
+     TASK_ALREADY_SATISFIED,
+-    TASK_DIRECT_CONNECTOR_UNAVAILABLE,
++    TASK_DIRECT_LOCAL_FEASIBLE,
+     TASK_INVALID_UNREPRESENTABLE,
+ )
+@@ -105,7 +105,8 @@ def test_exact_start_preserved_and_namespaced_metrics() -> None:
+     assert "roadmap" in prm.planner_metrics
+     assert prm.preprocessing_time_s is not None
+     assert prm.query_time_s is not None
+-    assert prm.task_class == TASK_DIRECT_CONNECTOR_UNAVAILABLE
++    assert prm.task_class == TASK_DIRECT_LOCAL_FEASIBLE
++    assert prm.planner_metrics["roadmap"]["direct_connector_available"] is True
+     assert prm.provenance.architecture_version == 3
+     assert prm.provenance.extras["seed"] == 3
+ 
+@@ -116,6 +117,7 @@ def test_exact_start_preserved_and_namespaced_metrics() -> None:
+     assert rrt.trajectory.states[0].u == pytest.approx(problem.start.u)
+     assert "tree" in rrt.planner_metrics
+     assert rrt.planner_metrics["tree"]["rewires"] == 0
++    assert rrt.task_class == TASK_DIRECT_LOCAL_FEASIBLE
+ 
+ 
+ def test_motion_rejection_via_tiny_max_edge() -> None:
+@@ -127,6 +129,9 @@ def test_motion_rejection_via_tiny_max_edge() -> None:
+     ).solve(problem)
+     assert result.status is PlanningStatus.UNSOLVED
+     assert result.planner_metrics["roadmap"]["accepted_edges"] == 0
++    # Task class describes the problem, not whether this nonlocal planner solved it.
++    assert result.task_class == TASK_DIRECT_LOCAL_FEASIBLE
++    assert result.planner_metrics["roadmap"]["direct_connector_available"] is True
+ 
+ 
+ def test_make_generator_mixes_repetition() -> None:
+@@ -134,6 +139,12 @@ def test_make_generator_mixes_repetition() -> None:
+     assert g0.integers(0, 1_000_000) != g1.integers(0, 1_000_000)
+ 
+ 
++def test_prm_build_per_task_does_not_claim_multi_query_reuse() -> None:
++    planner = PRMPlanner(seed=7)
++    assert planner.lifecycle.name == "BUILD_PER_TASK"
++    assert planner.capabilities.multi_query is False
++
++
+ def test_sampling_smoke_pack() -> None:
+     arms = build_paired_arms()
+     tasks = {t.task_id: t for t in smoke_task_catalog(arms)}
+@@ -146,16 +146,16 @@ def test_sampling_smoke_pack() -> None:
+             assert result.status is PlanningStatus.SUCCESS
+             assert result.task_class == TASK_ALREADY_SATISFIED
+ 
+-        feasible = tasks[f"{mech}_nonlocal_feasible"]
++        feasible = tasks[f"{mech}_planning_feasible"]
+         for planner_name in ("prm", "rrt_connect"):
+             result = run_smoke_task(
+                 arms[mech],
+                 feasible,
+                 planner_name=planner_name,  # type: ignore[arg-type]
+                 seed=SMOKE_SEED,
+             )
+             assert result.status is PlanningStatus.SUCCESS, (
+                 f"{mech} {planner_name} failed: {result.planner_metrics}"
+             )
+-            assert result.task_class is not None
++            assert result.task_class == TASK_DIRECT_LOCAL_FEASIBLE
+             assert result.provenance.architecture_version == 3
+diff --git a/docs/software/VERSION_MATRIX.md b/docs/software/VERSION_MATRIX.md
+index 32044c8..1111111 100644
+--- a/docs/software/VERSION_MATRIX.md
++++ b/docs/software/VERSION_MATRIX.md
+@@ -11,7 +11,7 @@
+ | Local motion | Graph adjacency / edge traces | Four-connected lattice edges | Continuous local-motion models; adjacency is candidate generation |
+ | Start / goal | Graph nodes / V1 queries | Lattice attachment; Cartesian goal regions (B) | Exact start; goal as task predicate; attachment residual is diagnostic |
+ | Sampling modes | Uniform actuator lattice | Uniform-\(\mathcal U\) mapped to \(\mathcal Q\), plus uniform-\(\mathcal Q\) control | External task banks; planner sampling is backend-specific |
+-| Config/result schema | Version 1 | Separate Version 2 schema | Separate Version 3 problem/result schema (proposed) |
+-| Status | Preserved research baseline | Frozen historical experiment lineage | Active core implementation (Sprint V3.4) |
++| Config/result schema | Version 1 | Separate Version 2 schema | Separate Version 3 problem/result schema |
++| Status | Preserved research baseline | Frozen historical experiment lineage | Active planner integration (Sprint V3.5) |
+ 
+-ADR-001 remains authoritative for Version 1. Version 2 may use output-state identity only after the operating branch satisfies the accepted certification contract. Version 3 contracts are proposed under ADRs 021–026 and do not reinterpret frozen Version 2 evidence.
++ADR-001 remains authoritative for Version 1. Version 2 may use output-state identity only after the operating branch satisfies the accepted certification contract. Version 3 contracts are accepted under ADRs 021–026 and do not reinterpret frozen Version 2 evidence.
+diff --git a/docs/software/planning/BACKLOG.md b/docs/software/planning/BACKLOG.md
+index 20c9be6..1111111 100644
+--- a/docs/software/planning/BACKLOG.md
++++ b/docs/software/planning/BACKLOG.md
+@@ -6,9 +6,9 @@ The Version 3 sequence is defined in [sprints/v3/README.md](sprints/v3/README.md
+ 
+ ## Current backlog
+ 
+-- **Version 3 contracts (active):** Sprint V3.0 architecture deliverables under [sprints/v3/](sprints/v3/). No production campaign, obstacle, OMPL, MoveIt, or higher-DOF implementation until contracts are accepted.
++- **V3-DEFER-001 — Deferred native planner breadth:** the narrowed V3.3/V3.4 vertical slices delivered eight-connected Dijkstra/A*, basic PRM, and RRTConnect. Weighted/bidirectional/any-angle lattice search, richer-than-eight connectivity, Lazy PRM, PRM*, plain RRT, RRT*, and informed/batch native planners remain accepted roadmap work but are intentionally deferred. Revisit after the V3.5 OMPL adapter and V3.6 free-space parity evidence identify which native implementations add scientific value rather than duplicate external-library coverage. See [V3 project plan](../V3_PROJECT_PLAN.md) §16 and [Sprint V3.4](sprints/v3/SPRINT_V3_4_NATIVE_ROADMAP_TREE.md).
+ - **V2 HTML run printout (evaluation tooling):** implemented beside the V2 runner (`v2_canvas.py`, `scripts/generate_v2_canvas.py`). Keep regenerable; do not treat as a substitute for V2.7.
+ - **Experiment B production promotion:** V2.12 smoke, V2B-005 calibration tooling, and regenerable HTML printouts are recorded, but population inference remains **held** under the V3 pivot. Do not activate production orchestration opportunistically. Protocol: [Experiment B](../experiments/protocols/EXPERIMENT_B_CARTESIAN_GOAL_REGION.md). Sprint: [V2.12](sprints/v2/SPRINT_V2_12_CARTESIAN_GOAL_REGION_PLANNING.md).
+-- **Experiment B exact-start control:** nearest-node start attachment is retained by the V2B-005 start-attachment decision (`retain_nearest_node_v1`) as a V2 formulation artifact; V3 removes `start_tolerance` as task semantics (ADR-023 proposed).
++- **Experiment B exact-start control:** nearest-node start attachment is retained by the V2B-005 start-attachment decision (`retain_nearest_node_v1`) as a V2 formulation artifact; V3 removes `start_tolerance` as task semantics (ADR-023 accepted).
+ - **Experiment A task-set diagnostic:** deferred and low-confidence. Preserve as a separate Q-spanner diagnostic identity under V3; do not merge with Cartesian application estimands. See [project note](../architecture/notes/PROJECT_NOTE_EXPERIMENT_A_TASK_SET_EFFECT.md).
+ - **Sprint V2.7 (3R):** held until Version 3 contracts and the higher-DOF roadmap (V3.8+) are activated. See [sprints/v2/SPRINT_V2_7_3R_EXTENSION.md](sprints/v2/SPRINT_V2_7_3R_EXTENSION.md).
+diff --git a/docs/software/V3_PROJECT_PLAN.md b/docs/software/V3_PROJECT_PLAN.md
+index 29b1fcf..1111111 100644
+--- a/docs/software/V3_PROJECT_PLAN.md
++++ b/docs/software/V3_PROJECT_PLAN.md
+@@ -650,9 +650,10 @@ No V2 result is silently recomputed or reinterpreted under V3.
+ 
+ ### V3-M4 — Native roadmap and tree planners
+ 
+-- PRM, Lazy PRM, PRM*;
+-- RRT, RRTConnect, RRT*;
+-- common stochastic seed and repetition protocol.
++- delivered in Sprint V3.4: basic PRM, RRTConnect, and the common stochastic seed/repetition protocol;
++- PRM is currently build-per-task and therefore does not claim reusable multi-query execution;
++- deferred under `V3-DEFER-001`: Lazy PRM, PRM*, plain RRT, RRT*, weighted/bidirectional/any-angle lattice breadth, richer connectivity, and informed/batch native planners;
++- revisit deferred native breadth after OMPL parity and free-space evidence determine which implementations add independent scientific value.
+ 
+ ### V3-M5 — OMPL adapter
+ 
+diff --git a/docs/software/planning/sprints/v3/SPRINT_V3_4_NATIVE_ROADMAP_TREE.md b/docs/software/planning/sprints/v3/SPRINT_V3_4_NATIVE_ROADMAP_TREE.md
+index 7e545b5..86a82f9 100644
+--- a/docs/software/planning/sprints/v3/SPRINT_V3_4_NATIVE_ROADMAP_TREE.md
++++ b/docs/software/planning/sprints/v3/SPRINT_V3_4_NATIVE_ROADMAP_TREE.md
+@@ -1,7 +1,7 @@
+ # Sprint V3.4 — Native Roadmap and Tree Planners
+ 
+-**Status:** active — basic PRM and RRTConnect with frozen-seed reproducibility  
+-**Code authorization:** V3-400–V3-405 only  
++**Status:** completed — basic PRM and RRTConnect with frozen-seed reproducibility  
++**Code authorization:** none (handoff to V3.5)  
+ **Depends on:** [Sprint V3.3](SPRINT_V3_3_LATTICE_LOCAL_MOTION.md) (completed); ADRs 021–026  
+ **Reference:** [V3_PROJECT_PLAN.md](../../../V3_PROJECT_PLAN.md) §16 V3-M4 (narrowed)
+ 
+@@ -38,7 +38,7 @@ Shared NumPy RNG helper; record seed and repetition index in result provenance/m
+ 
+ ### V3-402 — Native PRM
+ 
+-Basic PRM: sample in certified actuator box, connect with validated local motion, attach exact start and goal candidates, Dijkstra on the roadmap. Report preprocess vs query timing and `planner_metrics["roadmap"]`.
++Basic PRM: sample in certified actuator box, connect with validated local motion, attach exact start and goal candidates, Dijkstra on the roadmap. Report preprocess vs query timing and `planner_metrics["roadmap"]`. The V3.4 implementation rebuilds per task and therefore does not claim reusable multi-query execution.
+ 
+ ### V3-403 — Native RRTConnect
+ 
+@@ -61,4 +61,5 @@ Seed reproducibility, invalid/already-satisfied paths, motion rejection, exact-s
+ 5. Family metrics are namespaced under `roadmap` / `tree`.
+ 6. Free-space only; existing V3 suites remain green.
+ 7. No OMPL / obstacles / Monte Carlo / Lazy·PRM* / RRT* activated opportunistically.
+-8. Hand off to V3.5 for the OMPL adapter.
++8. ADR-026 classification is computed from the declared direct connector before PRM/RRTConnect outcome; selecting a nonlocal planner does not force the task into `direct connector unavailable`.
++9. Hand off to V3.5 for the OMPL adapter; deferred native planner breadth is tracked as `V3-DEFER-001` in the software backlog.
+diff --git a/docs/software/planning/sprints/v3/README.md b/docs/software/planning/sprints/v3/README.md
+index 4c6549b..a187175 100644
+--- a/docs/software/planning/sprints/v3/README.md
++++ b/docs/software/planning/sprints/v3/README.md
+@@ -8,8 +8,8 @@ Version 3 builds a planner-agnostic mechanism-aware motion-planning framework. V
+ 2. [Sprint V3.1 — Core Planning Problem and Result Model](SPRINT_V3_1_CORE_PROBLEM_RESULT_MODEL.md) (completed)
+ 3. [Sprint V3.2 — Direct 2R Cartesian Vertical Slice](SPRINT_V3_2_DIRECT_2R_VERTICAL_SLICE.md) (completed)
+ 4. [Sprint V3.3 — Lattice and Local-Motion Validation](SPRINT_V3_3_LATTICE_LOCAL_MOTION.md) (completed)
+-5. [Sprint V3.4 — Native Roadmap and Tree Planners](SPRINT_V3_4_NATIVE_ROADMAP_TREE.md) (**active**)
+-6. Sprint V3.5 — OMPL Adapter
++5. [Sprint V3.4 — Native Roadmap and Tree Planners](SPRINT_V3_4_NATIVE_ROADMAP_TREE.md) (completed)
++6. [Sprint V3.5 — OMPL Adapter](SPRINT_V3_5_OMPL_ADAPTER.md) (**active**)
+ 7. Sprint V3.6 — Free-Space Planner Evidence
+ 8. Sprint V3.7 — Scene and Obstacle Framework
+ 9. Sprint V3.8 — 3R Planar Pose
+@@ -17,7 +17,7 @@ Version 3 builds a planner-agnostic mechanism-aware motion-planning framework. V
+ 11. Sprint V3.10 — 6R and MoveIt Application Adapter
+ 12. Sprint V3.11 — Production Mechanism Populations
+ 
+-V3.4 is authorized for execution while ACTIVE_SPRINT points here. Later items are roadmap milestones and must receive their own sprint contracts before implementation.
++V3.5 is authorized for execution while ACTIVE_SPRINT points here. Later items are roadmap milestones and must receive their own sprint contracts before implementation. Native planner breadth omitted from the narrowed V3.3/V3.4 slices is tracked under `V3-DEFER-001` rather than silently treated as completed.
+ 
+ ## Dependency map
+ 
+@@ -28,7 +28,7 @@ V2 evidence freeze
+               └── V3.2 direct 2R vertical slice
+                     └── V3.3 lattice/local-motion validation
+                           ├── V3.4 native roadmap/tree planners
+-                          │     └── V3.5 OMPL adapter
++                          │     └── V3.5 OMPL adapter (active)
+                           │           └── V3.6 free-space evidence
+                           │                 └── V3.7 obstacle scenes
+                           │                       └── higher-DOF roadmap
+diff --git a/docs/software/planning/ACTIVE_SPRINT.md b/docs/software/planning/ACTIVE_SPRINT.md
+index 605cf6d..1111111 100644
+--- a/docs/software/planning/ACTIVE_SPRINT.md
++++ b/docs/software/planning/ACTIVE_SPRINT.md
+@@ -1,11 +1,11 @@
+ # Active sprint
+ 
+-**Current focus:** [Sprint V3.4 — Native Roadmap and Tree Planners](sprints/v3/SPRINT_V3_4_NATIVE_ROADMAP_TREE.md).
++**Current focus:** [Sprint V3.5 — OMPL Adapter](sprints/v3/SPRINT_V3_5_OMPL_ADAPTER.md).
+ 
+-**Code authorization:** V3-400–V3-405 only (seed protocol, basic PRM, RRTConnect, free-space smoke). No Lazy/PRM*/RRT*, OMPL, obstacles, or Monte Carlo.
++**Code authorization:** V3-500–V3-505 only (optional OMPL dependency gate, Version 3 state/objective/goal/validity adapter, planner-data extraction, native-parity smoke). No MoveIt, obstacles, production evidence, higher-DOF, or Monte Carlo.
+ 
+-**Completed:** V2.0–V2.12 smoke/calibration (production held); V3.0–V3.3 (contracts, core, direct 2R, lattice/local-motion).
++**Completed:** V2.0–V2.12 smoke/calibration (production held); V3.0–V3.4 (contracts, core, direct 2R, lattice/local-motion, basic PRM/RRTConnect).
+ 
+ **Frozen evidence:** [V2 evidence freeze](../experiments/reports/V2_EVIDENCE_FREEZE.md).
+ 
+-**Held:** Version 2 Cartesian production inference, Version 2.7 3R, new Monte Carlo campaigns, obstacles, OMPL, MoveIt, higher-DOF, and Sprint V3.5+ until V3.4 exits.
++**Held:** Version 2 Cartesian production inference, Version 2.7 3R, new Monte Carlo campaigns, obstacles, MoveIt, higher-DOF, Sprint V3.6+, and deferred native planner breadth (`V3-DEFER-001`) until separately activated.
+diff --git a/docs/software/planning/sprints/v3/SPRINT_V3_5_OMPL_ADAPTER.md b/docs/software/planning/sprints/v3/SPRINT_V3_5_OMPL_ADAPTER.md
+new file mode 100644
+index 0000000..0000000
+--- /dev/null
++++ b/docs/software/planning/sprints/v3/SPRINT_V3_5_OMPL_ADAPTER.md
+@@ -0,0 +1,68 @@
++# Sprint V3.5 — OMPL Adapter
++
++**Status:** active — direct OMPL integration and native-planner parity  
++**Code authorization:** V3-500–V3-505 only  
++**Depends on:** [Sprint V3.4](SPRINT_V3_4_NATIVE_ROADMAP_TREE.md) (completed); accepted ADRs 021–026  
++**Reference:** [V3_PROJECT_PLAN.md](../../../V3_PROJECT_PLAN.md) §16 V3-M5
++
++## Sprint intent
++
++Add OMPL as the first external planner backend while keeping Version 3 authoritative for physical state, \(U\rightarrow Q\rightarrow X\), goals, local motion, validity, objective semantics, result records, and benchmark classification. Validate the adapter against the existing free-space planar 2R native planners without introducing ROS, MoveIt, obstacles, higher-DOF robots, or population evidence.
++
++## Entry conditions
++
++1. V3.4 basic PRM/RRTConnect, seed protocol, exact-start handling, and ADR-026 pre-search classification are accepted and green.
++2. ACTIVE_SPRINT explicitly activates V3.5.
++3. ADR-025 remains the adapter boundary: OMPL is an algorithm backend, not the source of truth for mechanism state or metric semantics.
++
++## Non-goals
++
++- MoveIt, ROS, URDF/SRDF application integration;
++- obstacle scenes or collision-scene campaigns;
++- production Monte Carlo or free-space population inference;
++- implementing every OMPL planner;
++- reviving deferred native planner breadth from `V3-DEFER-001`;
++- higher-DOF robots;
++- changing frozen V1/V2 evidence or result semantics.
++
++## Work packages
++
++### V3-500 — Sprint contract and activation
++
++Close V3.4, activate this contract, and authorize V3-500–V3-505 only.
++
++### V3-501 — Optional dependency and environment gate
++
++Introduce OMPL as an optional dependency. Tests that require OMPL must fail clearly when explicitly requested and skip cleanly in environments where the optional backend is not installed. Record the OMPL version and adapter configuration in result provenance.
++
++### V3-502 — State-space and physical-state adapter
++
++Map OMPL state coordinates to Version 3 `PhysicalState` through the existing `RobotModel`; do not let OMPL joint vectors replace \((u,q,\text{assembly_state})\) as physical identity. Initial scope is the certified monotonic planar 2R branch.
++
++### V3-503 — Goal, validity, motion, and objective adapter
++
++Map Version 3 goal predicates / goal sampling, state validity, continuous motion validation, and `ActuatorTravelObjective` into OMPL interfaces. Exact start remains exact. Any OMPL distance used for nearest-neighbor operations must be declared separately from the mechanism-aware optimization objective.
++
++### V3-504 — Planner-data extraction and parity smoke
++
++Run a bounded free-space smoke using a small OMPL planner subset chosen to overlap the native families (initially PRM-family and RRTConnect-family where available). Return `PlanningResult`, preserve ADR-026 task classes computed independently of planner outcome, and namespace OMPL-specific metrics / planner data without equating them to native graph expansions or tree extensions.
++
++### V3-505 — Tests and compatibility gates
++
++Test exact-start preservation, state round-trip, goal residuals, objective/path-cost agreement, validity delegation, seed/provenance behavior where supported, and bounded parity against native PRM/RRTConnect. Preserve V1/V2 golden suites and V3.1–V3.4 regressions.
++
++## Exit criteria
++
++1. At least one roadmap-family and one tree-family OMPL planner consume the same Version 3 `PlanningProblem` without planner-specific problem fields.
++2. Version 3 `PhysicalState` remains authoritative at the adapter boundary; round-trip residuals are within documented tolerance.
++3. Exact starts and Cartesian goal predicates retain ADR-023 semantics.
++4. Mechanism-aware actuator-travel objective and continuous validity checks are delegated explicitly rather than replaced by ordinary joint distance.
++5. OMPL-specific planner data are namespaced and are not compared as if identical to native family event counts.
++6. A bounded parity smoke against native PRM/RRTConnect records status, selected goal, objective cost, task class, timings, and provenance.
++7. Optional dependency behavior is documented and testable; absence of OMPL does not break the core package or frozen V1/V2 suites.
++8. No MoveIt, obstacle, higher-DOF, population-evidence, or Monte Carlo work is activated opportunistically.
++9. Hand off to V3.6 for the frozen free-space planner evidence bank.
++
++## Deferred work
++
++Native planner breadth intentionally omitted from V3.3/V3.4 remains in `V3-DEFER-001`. V3.5 may use OMPL equivalents for parity, but it does not silently close those native implementation items.
