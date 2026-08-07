@@ -96,8 +96,24 @@ def run_ompl_parity_smoke_pack(
                     "native_task_class": native_result.task_class,
                     "ompl_objective_cost": ompl_result.objective_cost,
                     "native_objective_cost": native_result.objective_cost,
+                    "ompl_selected_goal_u": (
+                        None
+                        if ompl_result.selected_goal_state is None
+                        else ompl_result.selected_goal_state.u.tolist()
+                    ),
+                    "native_selected_goal_u": (
+                        None
+                        if native_result.selected_goal_state is None
+                        else native_result.selected_goal_state.u.tolist()
+                    ),
+                    "ompl_query_time_s": ompl_result.query_time_s,
+                    "native_query_time_s": native_result.query_time_s,
+                    "ompl_total_wall_time_s": ompl_result.total_wall_time_s,
+                    "native_total_wall_time_s": native_result.total_wall_time_s,
                     "ompl_provenance_planner_id": ompl_result.provenance.planner_id,
                     "native_provenance_planner_id": native_result.provenance.planner_id,
+                    "ompl_provenance_extras": dict(ompl_result.provenance.extras),
+                    "native_provenance_extras": dict(native_result.provenance.extras),
                     "same_task_class": ompl_result.task_class == native_result.task_class,
                     "both_success_when_native_success": (
                         native_result.status != PlanningStatus.SUCCESS

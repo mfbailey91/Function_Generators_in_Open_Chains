@@ -38,10 +38,10 @@ class OmplRRTConnectPlanner:
 
     @property
     def capabilities(self) -> PlannerCapabilities:
-        """Declare stochastic, seed-reproducible OMPL RRTConnect capabilities."""
+        """Declare stochastic OMPL RRTConnect capabilities for V3.5."""
         return PlannerCapabilities(
             deterministic=False,
-            reproducible_with_seed=True,
+            reproducible_with_seed=False,
             multi_query=False,
             optimizing=False,
             probabilistically_complete=None,

@@ -1,0 +1,586 @@
+diff --git a/src/inequality_mechanisms/adapters/ompl/planner_base.py b/src/inequality_mechanisms/adapters/ompl/planner_base.py
+--- a/src/inequality_mechanisms/adapters/ompl/planner_base.py
++++ b/src/inequality_mechanisms/adapters/ompl/planner_base.py
+@@ -10,11 +10,14 @@
+ from inequality_mechanisms.adapters.ompl.goals import select_and_build_goal
+ from inequality_mechanisms.adapters.ompl.metrics import planner_data_metrics
++from inequality_mechanisms.adapters.ompl.objective import build_ompl_objective
+ from inequality_mechanisms.adapters.ompl.state_space import (
++    ROUND_TRIP_TOL,
+     build_actuator_state_space,
+     physical_state_from_ompl,
+     write_u_to_ompl_state,
+ )
+ from inequality_mechanisms.adapters.ompl.validity import (
++    OmplValidityCounters,
+     make_motion_validator,
+     make_state_validity_checker,
+ )
+@@ -28,3 +31,4 @@
+ from inequality_mechanisms.core.goals import GoalStateGenerator
++from inequality_mechanisms.core.local_motion import InputLinearMotion
+ from inequality_mechanisms.core.objectives import ActuatorTravelObjective
+ from inequality_mechanisms.core.problem import PlanningProblem
+@@ -42,7 +46,5 @@
+ from inequality_mechanisms.planners.sampling_space import (
+     actuator_bounds,
+     direct_connector_available,
+-    path_cost_u,
+     path_length_q,
+-    resolve_connector,
+ )
+@@ -55,5 +58,5 @@
+ def _apply_ompl_seed(seed: int) -> bool:
+-    """Best-effort OMPL RNG seed; return True when an API was set."""
++    """Best-effort process-global OMPL RNG seed request."""
+     try:
+         import ompl.util as ou  # type: ignore[attr-defined]
+ 
+@@ -60,3 +63,16 @@
+     return False
+ 
+ 
++def _solution_flags(pdef: Any) -> tuple[bool, bool, float | None]:
++    """Return ``(has_any, has_exact, difference)`` without conflating approximate paths."""
++    has_any = bool(pdef.hasSolution())
++    has_exact = bool(pdef.hasExactSolution()) if hasattr(pdef, "hasExactSolution") else has_any
++    difference: float | None = None
++    if has_any and hasattr(pdef, "getSolutionDifference"):
++        try:
++            difference = float(pdef.getSolutionDifference())
++        except Exception:
++            difference = None
++    return has_any, has_exact, difference
++
++
+@@ -105,4 +122,9 @@
+             f"{planner_id} requires ActuatorTravelObjective; "
+             f"got {type(problem.objective).__name__}"
+         )
++    if not isinstance(problem.local_motion, InputLinearMotion):
++        raise ValueError(
++            f"{planner_id} supports InputLinearMotion only in V3.5; "
++            f"got {type(problem.local_motion).__name__}"
++        )
+     # Reject robots without certified branch bounds (no silent joint fallback).
+@@ -124,2 +147,2 @@
+-    ob, og = require_ompl()
++    ob, _og = require_ompl()
+     t0 = time.perf_counter()
+@@ -130,5 +153,8 @@
+     extras["ompl_version"] = ompl_version_string()
+     extras["nn_distance"] = "euclidean_u"
++    extras["ompl_seed_requested"] = int(run.seed)
++    extras["ompl_seed_scope"] = "process_global_best_effort"
++    extras["reproducibility_contract"] = "not_claimed_in_process"
+     if extras_base:
+         extras.update(extras_base)
+ 
+@@ -151,4 +178,7 @@
+         "ompl_seed_applied": seed_applied,
++        "ompl_seed_requested": int(seed),
++        "ompl_seed_scope": "process_global_best_effort",
++        "reproducibility_contract": "not_claimed_in_process",
+         "seed": int(seed),
+         "repetition_index": int(repetition_index),
+         "solve_time_budget_s": float(solve_time_s),
+@@ -225,17 +258,23 @@
+     assembly = dict(problem.start.assembly_state)
+     space = build_actuator_state_space(problem.robot)
+     si = ob.SpaceInformation(space)
++    counters = OmplValidityCounters()
+     validity = make_state_validity_checker(
+-        si, problem, space, assembly_state=assembly
++        si, problem, space, assembly_state=assembly, counters=counters
+     )
+     si.setStateValidityChecker(validity)
+-    connector = resolve_connector(problem)
++    connector = problem.local_motion
+     si.setMotionValidator(
+         make_motion_validator(
+-            si, problem, space, connector, assembly_state=assembly
++            si,
++            problem,
++            space,
++            connector,
++            assembly_state=assembly,
++            counters=counters,
+         )
+     )
+     si.setup()
+ 
+     try:
+-        goal_ompl, candidates = select_and_build_goal(
++        goal_ompl, candidates, goal_metadata = select_and_build_goal(
+@@ -264,3 +306,6 @@
++    ompl_metrics.update(goal_metadata)
++    presearch_state_checks = 1 + int(goal_metadata["goal_samples_generated"])
++
+     if not candidates:
+         return _finish(
+             status=PlanningStatus.INVALID,
+@@ -267,7 +312,7 @@
+             length_u=None,
+             length_q=None,
+             residual=problem.goal.residual(problem.start),
+-            state_checks=1,
++            state_checks=presearch_state_checks,
+         )
+ 
+     direct_succeeded, direct_checks = direct_connector_available(problem, candidates)
+@@ -291,5 +337,9 @@
+     pdef = ob.ProblemDefinition(si)
+     pdef.addStartState(start_scoped)
+     pdef.setGoal(goal_ompl)
++    ompl_objective, objective_metadata = build_ompl_objective(si, problem)
++    pdef.setOptimizationObjective(ompl_objective)
++    ompl_metrics.update(objective_metadata)
++    extras.update(objective_metadata)
+ 
+     planner = make_planner(si)
+@@ -307,6 +359,11 @@
+     ompl_metrics["planner_data"] = planner_data_metrics(si, planner)
+     ompl_metrics["ompl_status"] = str(status)
+-    has_solution = bool(pdef.hasSolution())
++    has_solution, has_exact_solution, solution_difference = _solution_flags(pdef)
+     ompl_metrics["ompl_solved"] = has_solution
++    ompl_metrics["ompl_exact_solution"] = has_exact_solution
++    ompl_metrics["ompl_approximate_solution"] = bool(
++        has_solution and not has_exact_solution
++    )
++    ompl_metrics["ompl_solution_difference"] = solution_difference
+ 
+-    if not has_solution:
++    if not has_exact_solution:
+@@ -324,5 +382,5 @@
+             residual=problem.goal.residual(problem.start),
+             query_s=query_s,
+-            state_checks=1,
+-            motion_checks=direct_checks,
++            state_checks=presearch_state_checks + counters.state_checks,
++            motion_checks=direct_checks + counters.motion_checks,
+         )
+@@ -341,6 +405,6 @@
+             length_q=None,
+             residual=problem.goal.residual(problem.start),
+             query_s=query_s,
+-            state_checks=1,
+-            motion_checks=direct_checks,
++            state_checks=presearch_state_checks + counters.state_checks,
++            motion_checks=direct_checks + counters.motion_checks,
+         )
+@@ -355,7 +417,29 @@
+-    # Exact start must be preserved as the first waypoint.
+-    if not np.allclose(states[0].u, problem.start.u, atol=1e-12, rtol=0.0):
+-        states = (problem.start,) + tuple(states[1:])
++    # Exact start is an adapter invariant; never repair a mismatched first edge.
++    start_residual_u = float(np.linalg.norm(states[0].u - problem.start.u))
++    ompl_metrics["exact_start_residual_u"] = start_residual_u
++    if start_residual_u > ROUND_TRIP_TOL:
++        raise RuntimeError(
++            f"{planner_id} violated exact-start round trip: residual={start_residual_u}"
++        )
++    states = (problem.start,) + tuple(states[1:])
+ 
+     selected = states[-1]
+-    cost = path_cost_u(states)
++    selected_goal_satisfied = bool(problem.goal.satisfied(selected))
++    ompl_metrics["selected_goal_satisfied"] = selected_goal_satisfied
++    if not selected_goal_satisfied:
++        return _finish(
++            status=PlanningStatus.UNSOLVED,
++            task_class=task_class,
++            trajectory=None,
++            selected=None,
++            cost=None,
++            length_u=None,
++            length_q=None,
++            residual=problem.goal.residual(selected),
++            query_s=query_s,
++            state_checks=presearch_state_checks + counters.state_checks,
++            motion_checks=direct_checks + counters.motion_checks,
++        )
++
++    cost = float(problem.objective.trajectory_cost(states))
+     return _finish(
+@@ -371,5 +451,5 @@
+         residual=problem.goal.residual(selected),
+         query_s=query_s,
+-        state_checks=1,
+-        motion_checks=direct_checks,
++        state_checks=presearch_state_checks + counters.state_checks,
++        motion_checks=direct_checks + counters.motion_checks,
+     )
+diff --git a/src/inequality_mechanisms/adapters/ompl/validity.py b/src/inequality_mechanisms/adapters/ompl/validity.py
+--- a/src/inequality_mechanisms/adapters/ompl/validity.py
++++ b/src/inequality_mechanisms/adapters/ompl/validity.py
+@@ -3,3 +3,4 @@
+ from __future__ import annotations
+ 
++from dataclasses import dataclass
+ from typing import Any
+@@ -9,4 +10,12 @@
+ from inequality_mechanisms.core.problem import PlanningProblem
+ 
+ 
++@dataclass(slots=True)
++class OmplValidityCounters:
++    """Count OMPL calls delegated into Version 3 validity contracts."""
++
++    state_checks: int = 0
++    motion_checks: int = 0
++
++
+ def _is_state_valid(
+@@ -27,5 +37,6 @@
+     *,
+     assembly_state: dict[str, Any] | None,
++    counters: OmplValidityCounters,
+ ) -> Any:
+     """Return an OMPL ``StateValidityChecker`` delegating to ``problem.scene``."""
+     ob, _og = require_ompl()
+@@ -41,2 +52,3 @@
+         def isValid(self, state: Any) -> bool:  # noqa: N802 — OMPL API
++            counters.state_checks += 1
+             return _is_state_valid(
+@@ -52,3 +64,4 @@
+     *,
+     assembly_state: dict[str, Any] | None,
++    counters: OmplValidityCounters,
+ ) -> Any:
+@@ -79,4 +92,5 @@
+             # OMPL exposes 2-arg and 3-arg overloads; accept both.
+             if len(args) < 2:
+                 return False
++            counters.motion_checks += 1
+             s1, s2 = args[0], args[1]
+diff --git a/src/inequality_mechanisms/adapters/ompl/goals.py b/src/inequality_mechanisms/adapters/ompl/goals.py
+--- a/src/inequality_mechanisms/adapters/ompl/goals.py
++++ b/src/inequality_mechanisms/adapters/ompl/goals.py
+@@ -1,4 +1,4 @@
+-"""OMPL goal bridges for ExactOutputGoal and Cartesian disk goals (V3-503)."""
++"""OMPL finite goal-state bridge (V3-503)."""
+ 
+ from __future__ import annotations
+ 
+@@ -5,10 +5,27 @@
+ 
+ from inequality_mechanisms.adapters.ompl._availability import require_ompl
+ from inequality_mechanisms.adapters.ompl.state_space import write_u_to_ompl_state
+-from inequality_mechanisms.core.goals import GoalStateGenerator
++from inequality_mechanisms.core.goals import (
++    CartesianDiskGoal,
++    ExactOutputGoal,
++    GoalSamplingRequest,
++    GoalStateGenerator,
++)
+ from inequality_mechanisms.core.problem import PlanningProblem
+-from inequality_mechanisms.core.state import PhysicalState
+-from inequality_mechanisms.planners.sampling_space import select_goal_states
++from inequality_mechanisms.core.state import PhysicalState, StateCandidate
++
++
++def _goal_descriptor(problem: PlanningProblem) -> dict[str, Any]:
++    goal = problem.goal
++    if isinstance(goal, ExactOutputGoal):
++        return {"type": "exact_output", "tolerance": float(goal.tolerance)}
++    if isinstance(goal, CartesianDiskGoal):
++        return {
++            "type": "cartesian_disk",
++            "center": goal.center.tolist(),
++            "radius": float(goal.radius),
++        }
++    return {"type": type(goal).__name__}
+ 
+ 
+ def select_and_build_goal(
+@@ -15,24 +32,37 @@
+     goal_generator: GoalStateGenerator | None,
+     max_candidates: int,
+     rng: Generator | None,
+-) -> tuple[Any, list[PhysicalState]]:
+-    """Build an OMPL ``GoalStates`` from Version 3 goal candidates.
++) -> tuple[Any, list[PhysicalState], dict[str, Any]]:
++    """Realize a Version 3 goal predicate as finite OMPL ``GoalStates``."""
++    ob, _og = require_ompl()
++    raw: list[StateCandidate]
++    if isinstance(problem.goal, ExactOutputGoal):
++        raw = list(problem.robot.states_from_output(problem.goal.q_goal))
++    else:
++        if goal_generator is None:
++            raise ValueError("goal_generator required for non-exact OMPL goals")
++        seed = None if rng is None else int(rng.integers(0, 2**31 - 1))
++        request = GoalSamplingRequest(max_candidates=max_candidates, seed=seed)
++        raw = list(goal_generator.generate(problem.robot, problem.goal, request))
+ 
+-    Returns
+-    -------
+-    goal, candidates
+-        OMPL goal object and the physical candidates used to populate it.
+-    """
+-    ob, _og = require_ompl()
+-    candidates = select_goal_states(
+-        problem,
+-        goal_generator=goal_generator,
+-        max_candidates=max_candidates,
+-        rng=rng,
++    accepted = [cand for cand in raw if problem.scene.state_is_valid(cand.state)]
++    accepted = accepted[:max_candidates]
++    candidates = [cand.state for cand in accepted]
++    ik_families = sorted(
++        {str(cand.provenance.get("ik_family", "unknown")) for cand in accepted}
+     )
++    metadata = {
++        "goal_representation": "finite_goal_states",
++        "goal_region_descriptor": _goal_descriptor(problem),
++        "goal_samples_generated": len(raw),
++        "goal_samples_accepted": len(accepted),
++        "discrete_goal_state_count": len(candidates),
++        "ik_families": ik_families,
++    }
++
+     goal = ob.GoalStates(si)
+     for cand in candidates:
+         st = ob.State(space)
+         write_u_to_ompl_state(space, st(), cand.u)
+         goal.addState(st)
+-    return goal, candidates
++    return goal, candidates, metadata
+diff --git a/src/inequality_mechanisms/adapters/ompl/objective.py b/src/inequality_mechanisms/adapters/ompl/objective.py
+--- a/src/inequality_mechanisms/adapters/ompl/objective.py
++++ b/src/inequality_mechanisms/adapters/ompl/objective.py
+@@ -1,11 +1,39 @@
+-"""Path-cost helpers for OMPL adapter postprocessing (V3-503)."""
++"""OMPL objective bridge for the V3.5 actuator-space special case (V3-503)."""
+ 
+ from __future__ import annotations
+ 
++from typing import Any
++
++from inequality_mechanisms.adapters.ompl._availability import require_ompl
++from inequality_mechanisms.core.local_motion import InputLinearMotion
++from inequality_mechanisms.core.objectives import ActuatorTravelObjective
++from inequality_mechanisms.core.problem import PlanningProblem
+ from inequality_mechanisms.core.state import PhysicalState
+ from inequality_mechanisms.planners.sampling_space import path_cost_u, path_length_q
+ 
+-__all__ = ["path_cost_u", "path_length_q", "objective_cost_from_states"]
++__all__ = [
++    "build_ompl_objective",
++    "path_cost_u",
++    "path_length_q",
++    "objective_cost_from_states",
++]
++
++
++def build_ompl_objective(
++    si: Any, problem: PlanningProblem
++) -> tuple[Any, dict[str, str]]:
++    """Map actuator travel to OMPL path length only when the equivalence is exact."""
++    if not isinstance(problem.objective, ActuatorTravelObjective):
++        raise ValueError("OMPL V3.5 objective bridge requires ActuatorTravelObjective")
++    if not isinstance(problem.local_motion, InputLinearMotion):
++        raise ValueError("OMPL V3.5 objective bridge requires InputLinearMotion")
++    ob, _og = require_ompl()
++    objective = ob.PathLengthOptimizationObjective(si)
++    return objective, {
++        "objective_adapter": "actuator_travel_to_ompl_path_length",
++        "objective_equivalence": "exact_for_input_linear_euclidean_u",
++        "ompl_motion_cost": "euclidean_u",
++    }
+ 
+ 
+ def objective_cost_from_states(states: tuple[PhysicalState, ...]) -> float:
+diff --git a/src/inequality_mechanisms/adapters/ompl/prm.py b/src/inequality_mechanisms/adapters/ompl/prm.py
+--- a/src/inequality_mechanisms/adapters/ompl/prm.py
++++ b/src/inequality_mechanisms/adapters/ompl/prm.py
+@@ -36,5 +36,5 @@
+     def capabilities(self) -> PlannerCapabilities:
+-        """Declare stochastic, seed-reproducible OMPL PRM capabilities."""
++        """Declare stochastic OMPL PRM capabilities for the V3.5 wrapper."""
+         return PlannerCapabilities(
+             deterministic=False,
+-            reproducible_with_seed=True,
++            reproducible_with_seed=False,
+diff --git a/src/inequality_mechanisms/adapters/ompl/rrt_connect.py b/src/inequality_mechanisms/adapters/ompl/rrt_connect.py
+--- a/src/inequality_mechanisms/adapters/ompl/rrt_connect.py
++++ b/src/inequality_mechanisms/adapters/ompl/rrt_connect.py
+@@ -35,5 +35,5 @@
+     def capabilities(self) -> PlannerCapabilities:
+-        """Declare stochastic, seed-reproducible OMPL RRTConnect capabilities."""
++        """Declare stochastic OMPL RRTConnect capabilities for V3.5."""
+         return PlannerCapabilities(
+             deterministic=False,
+-            reproducible_with_seed=True,
++            reproducible_with_seed=False,
+diff --git a/src/inequality_mechanisms/benchmarks/smoke_ompl_2r.py b/src/inequality_mechanisms/benchmarks/smoke_ompl_2r.py
+--- a/src/inequality_mechanisms/benchmarks/smoke_ompl_2r.py
++++ b/src/inequality_mechanisms/benchmarks/smoke_ompl_2r.py
+@@ -91,5 +91,21 @@
+                     "ompl_objective_cost": ompl_result.objective_cost,
+                     "native_objective_cost": native_result.objective_cost,
++                    "ompl_selected_goal_u": (
++                        None
++                        if ompl_result.selected_goal_state is None
++                        else ompl_result.selected_goal_state.u.tolist()
++                    ),
++                    "native_selected_goal_u": (
++                        None
++                        if native_result.selected_goal_state is None
++                        else native_result.selected_goal_state.u.tolist()
++                    ),
++                    "ompl_query_time_s": ompl_result.query_time_s,
++                    "native_query_time_s": native_result.query_time_s,
++                    "ompl_total_wall_time_s": ompl_result.total_wall_time_s,
++                    "native_total_wall_time_s": native_result.total_wall_time_s,
+                     "ompl_provenance_planner_id": ompl_result.provenance.planner_id,
+                     "native_provenance_planner_id": native_result.provenance.planner_id,
++                    "ompl_provenance_extras": dict(ompl_result.provenance.extras),
++                    "native_provenance_extras": dict(native_result.provenance.extras),
+                     "same_task_class": ompl_result.task_class == native_result.task_class,
+diff --git a/tests/v3/test_v3_5_ompl_adapter.py b/tests/v3/test_v3_5_ompl_adapter.py
+--- a/tests/v3/test_v3_5_ompl_adapter.py
++++ b/tests/v3/test_v3_5_ompl_adapter.py
+@@ -6,4 +6,6 @@
+ from __future__ import annotations
++
++from dataclasses import replace
+ 
+ import numpy as np
+ import pytest
+@@ -21,3 +23,5 @@
+ from inequality_mechanisms.core.goals import CartesianDiskGoalGenerator
++from inequality_mechanisms.core.local_motion import OutputLinearMotion
++from inequality_mechanisms.core.objectives import ActuatorTravelObjective
+ from inequality_mechanisms.core.results import PlanningStatus
+ from inequality_mechanisms.core.state import PhysicalState
+@@ -62,5 +66,15 @@
+     assert ompl["direct_connector_available"] is not None
+     assert ompl["nn_distance"] == "euclidean_u"
++    assert ompl["goal_representation"] == "finite_goal_states"
++    assert ompl["goal_samples_generated"] >= ompl["goal_samples_accepted"]
++    assert ompl["discrete_goal_state_count"] == ompl["goal_samples_accepted"]
++    assert "goal_region_descriptor" in ompl
++    assert ompl["objective_adapter"] == "actuator_travel_to_ompl_path_length"
++    assert ompl["objective_equivalence"] == "exact_for_input_linear_euclidean_u"
+     assert result.task_class is not None
+     assert result.provenance.extras.get("nn_distance") == "euclidean_u"
+     assert result.provenance.extras.get("ompl_version") == ompl_version_string()
++    assert (
++        result.provenance.extras.get("ompl_seed_scope")
++        == "process_global_best_effort"
++    )
+@@ -75,5 +88,12 @@
+     assert result.objective_cost is not None
+     assert result.objective_cost >= 0.0
+     assert result.selected_goal_state is not None
++    assert result.trajectory is not None
++    expected = ActuatorTravelObjective().trajectory_cost(result.trajectory.states)
++    assert result.objective_cost == pytest.approx(expected)
++    assert result.state_validity_checks is not None
++    assert result.state_validity_checks > 1
++    assert result.motion_validity_checks is not None
++    assert result.motion_validity_checks > 0
+     problem = build_problem(arm, task)
+     assert problem.goal.satisfied(result.selected_goal_state)
+@@ -86,3 +106,7 @@
+     for row in rows:
+         assert row["same_task_class"], row
+         assert row["both_success_when_native_success"], row
++        assert "ompl_selected_goal_u" in row
++        assert "ompl_query_time_s" in row
++        assert "ompl_total_wall_time_s" in row
++        assert "ompl_provenance_extras" in row
+@@ -96,2 +120,6 @@
+-    assert OmplPRMPlanner().planner_id == "ompl_prm"
+-    assert OmplRRTConnectPlanner().planner_id == "ompl_rrt_connect"
++    prm = OmplPRMPlanner()
++    rrt = OmplRRTConnectPlanner()
++    assert prm.planner_id == "ompl_prm"
++    assert rrt.planner_id == "ompl_rrt_connect"
++    assert not prm.capabilities.reproducible_with_seed
++    assert not rrt.capabilities.reproducible_with_seed
+@@ -126,3 +154,22 @@
+         PlanningStatus.UNSOLVED,
+         PlanningStatus.INVALID,
+     )
++
++
++def test_unsupported_local_motion_is_rejected() -> None:
++    arm, task = _planning_feasible_task()
++    problem = build_problem(arm, task)
++    unsupported = replace(
++        problem,
++        local_motion=OutputLinearMotion(robot=arm.robot, n_samples=12),
++    )
++    from inequality_mechanisms.adapters.ompl import OmplPRMPlanner
++
++    fk = arm.robot.planar_fk
++    assert fk is not None
++    planner = OmplPRMPlanner(
++        seed=SMOKE_SEED,
++        goal_generator=CartesianDiskGoalGenerator(planar_fk=fk),
++    )
++    with pytest.raises(ValueError, match="InputLinearMotion only"):
++        planner.solve(unsupported)
+diff --git a/tests/v3/test_v3_5_ompl_optional_gate.py b/tests/v3/test_v3_5_ompl_optional_gate.py
+--- a/tests/v3/test_v3_5_ompl_optional_gate.py
++++ b/tests/v3/test_v3_5_ompl_optional_gate.py
+@@ -43,3 +43,24 @@
+     import inequality_mechanisms.benchmarks.smoke_ompl_2r as smoke
+ 
+     assert hasattr(smoke, "run_ompl_parity_smoke_pack")
++
++
++def test_solution_flags_do_not_promote_approximate_paths() -> None:
++    from inequality_mechanisms.adapters.ompl.planner_base import _solution_flags
++
++    class ApproximateProblemDefinition:
++        def hasSolution(self) -> bool:  # noqa: N802
++            return True
++
++        def hasExactSolution(self) -> bool:  # noqa: N802
++            return False
++
++        def getSolutionDifference(self) -> float:  # noqa: N802
++            return 0.25
++
++    any_solution, exact_solution, difference = _solution_flags(
++        ApproximateProblemDefinition()
++    )
++    assert any_solution
++    assert not exact_solution
++    assert difference == pytest.approx(0.25)
+diff --git a/docs/software/planning/sprints/v3/SPRINT_V3_5_OMPL_ADAPTER.md b/docs/software/planning/sprints/v3/SPRINT_V3_5_OMPL_ADAPTER.md
+--- a/docs/software/planning/sprints/v3/SPRINT_V3_5_OMPL_ADAPTER.md
++++ b/docs/software/planning/sprints/v3/SPRINT_V3_5_OMPL_ADAPTER.md
+@@ -3,2 +3,2 @@
+-**Status:** active — direct OMPL integration and native-planner parity
++**Status:** active — corrective adapter-contract closeout and native-planner parity
+ **Code authorization:** V3-500–V3-505 only
+@@ -48,4 +48,17 @@
+ 
+ Test exact-start preservation, state round-trip, goal residuals, objective/path-cost agreement, validity delegation, seed/provenance behavior where supported, and bounded parity against native PRM/RRTConnect. Preserve V1/V2 golden suites and V3.1–V3.4 regressions.
+ 
++### Corrective review amendments
++
++Before V3.5 closes:
++
++- OMPL accepts `InputLinearMotion` only; unsupported local-motion models are rejected rather than replaced.
++- `ActuatorTravelObjective` is installed explicitly as OMPL path length only under the exact Euclidean-`U` / input-linear equivalence, and that equivalence is recorded.
++- approximate OMPL solutions remain post-search `unsolved` outcomes; only exact solutions satisfying the Version 3 goal predicate become `SUCCESS`.
++- in-process OMPL seed setting is recorded as process-global best effort and does not claim per-solve reproducibility; V3.6 may use process isolation for frozen repetitions.
++- finite `GoalStates` realization reports its goal-region descriptor, candidate counts, and represented IK families.
++- OMPL state- and motion-validity callbacks are counted and returned in common Version 3 metrics.
++- parity smoke rows include selected goals, timings, and provenance in addition to status, task class, and objective cost.
++- exact-start round-trip mismatch is an adapter failure, never repaired by inserting a new first waypoint.
++
+ ## Exit criteria
+@@ -69,3 +83,5 @@
+ 7. Optional dependency behavior is documented and testable; absence of OMPL does not break the core package or frozen V1/V2 suites.
+-8. No MoveIt, obstacle, higher-DOF, population-evidence, or Monte Carlo work is activated opportunistically.
+-9. Hand off to V3.6 for the frozen free-space planner evidence bank.
++8. Unsupported local motion is rejected explicitly; approximate OMPL paths cannot satisfy the Version 3 success contract.
++9. Goal discretization, objective equivalence, seed scope, and delegated validity-call counts are recorded in result metrics/provenance.
++10. No MoveIt, obstacle, higher-DOF, population-evidence, or Monte Carlo work is activated opportunistically.
++11. Hand off to V3.6 only after the corrective review amendments are green under an OMPL-enabled environment.

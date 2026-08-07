@@ -1,6 +1,6 @@
 # Sprint V3.5 — OMPL Adapter
 
-**Status:** active — direct OMPL integration and native-planner parity
+**Status:** active — corrective adapter-contract closeout and native-planner parity
 **Code authorization:** V3-500–V3-505 only
 **Depends on:** [Sprint V3.4](SPRINT_V3_4_NATIVE_ROADMAP_TREE.md) (completed); accepted ADRs 021–026
 **Reference:** [V3_PROJECT_PLAN.md](../../../V3_PROJECT_PLAN.md) §16 V3-M5
@@ -55,6 +55,19 @@ Run a bounded free-space smoke using a small OMPL planner subset chosen to overl
 
 Test exact-start preservation, state round-trip, goal residuals, objective/path-cost agreement, validity delegation, seed/provenance behavior where supported, and bounded parity against native PRM/RRTConnect. Preserve V1/V2 golden suites and V3.1–V3.4 regressions.
 
+### Corrective review amendments
+
+Before V3.5 closes:
+
+- OMPL accepts `InputLinearMotion` only; unsupported local-motion models are rejected rather than replaced.
+- `ActuatorTravelObjective` is installed explicitly as OMPL path length only under the exact Euclidean-`U` / input-linear equivalence, and that equivalence is recorded.
+- approximate OMPL solutions remain post-search `unsolved` outcomes; only exact solutions satisfying the Version 3 goal predicate become `SUCCESS`.
+- in-process OMPL seed setting is recorded as process-global best effort and does not claim per-solve reproducibility; V3.6 may use process isolation for frozen repetitions.
+- finite `GoalStates` realization reports its goal-region descriptor, candidate counts, and represented IK families.
+- OMPL state- and motion-validity callbacks are counted and returned in common Version 3 metrics.
+- parity smoke rows include selected goals, timings, and provenance in addition to status, task class, and objective cost.
+- exact-start round-trip mismatch is an adapter failure, never repaired by inserting a new first waypoint.
+
 ## Exit criteria
 
 1. At least one roadmap-family and one tree-family OMPL planner consume the same Version 3 `PlanningProblem` without planner-specific problem fields.
@@ -64,8 +77,10 @@ Test exact-start preservation, state round-trip, goal residuals, objective/path-
 5. OMPL-specific planner data are namespaced and are not compared as if identical to native family event counts.
 6. A bounded parity smoke against native PRM/RRTConnect records status, selected goal, objective cost, task class, timings, and provenance.
 7. Optional dependency behavior is documented and testable; absence of OMPL does not break the core package or frozen V1/V2 suites.
-8. No MoveIt, obstacle, higher-DOF, population-evidence, or Monte Carlo work is activated opportunistically.
-9. Hand off to V3.6 for the frozen free-space planner evidence bank.
+8. Unsupported local motion is rejected explicitly; approximate OMPL paths cannot satisfy the Version 3 success contract.
+9. Goal discretization, objective equivalence, seed scope, and delegated validity-call counts are recorded in result metrics/provenance.
+10. No MoveIt, obstacle, higher-DOF, population-evidence, or Monte Carlo work is activated opportunistically.
+11. Hand off to V3.6 only after the corrective review amendments are green under an OMPL-enabled environment.
 
 ## Deferred work
 

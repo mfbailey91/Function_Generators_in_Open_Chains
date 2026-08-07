@@ -2,12 +2,21 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import Any
 
 from inequality_mechanisms.adapters.ompl._availability import require_ompl
 from inequality_mechanisms.adapters.ompl.state_space import physical_state_from_ompl
 from inequality_mechanisms.core.local_motion import LocalMotionModel
 from inequality_mechanisms.core.problem import PlanningProblem
+
+
+@dataclass(slots=True)
+class OmplValidityCounters:
+    """Count OMPL calls delegated into Version 3 validity contracts."""
+
+    state_checks: int = 0
+    motion_checks: int = 0
 
 
 def _is_state_valid(
@@ -35,6 +44,7 @@ def make_state_validity_checker(
     space: Any,
     *,
     assembly_state: dict[str, Any] | None,
+    counters: OmplValidityCounters,
 ) -> Any:
     """Return an OMPL ``StateValidityChecker`` delegating to ``problem.scene``."""
     ob, _og = require_ompl()
@@ -44,6 +54,7 @@ def make_state_validity_checker(
             super().__init__(si)
 
         def isValid(self, state: Any) -> bool:  # noqa: N802 — OMPL API
+            counters.state_checks += 1
             return _is_state_valid(
                 problem, space, state, assembly_state=assembly_state
             )
@@ -58,6 +69,7 @@ def make_motion_validator(
     connector: LocalMotionModel,
     *,
     assembly_state: dict[str, Any] | None,
+    counters: OmplValidityCounters,
 ) -> Any:
     """Return an OMPL ``MotionValidator`` using continuous local-motion checks."""
     ob, _og = require_ompl()
@@ -83,6 +95,7 @@ def make_motion_validator(
             # OMPL exposes 2-arg and 3-arg overloads; accept both.
             if len(args) < 2:
                 return False
+            counters.motion_checks += 1
             s1, s2 = args[0], args[1]
             ok = _segment_ok(s1, s2)
             if not ok and len(args) >= 3:

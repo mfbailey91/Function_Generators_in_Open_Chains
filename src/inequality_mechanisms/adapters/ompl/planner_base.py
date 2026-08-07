@@ -13,12 +13,15 @@ from inequality_mechanisms.adapters.ompl._availability import (
 )
 from inequality_mechanisms.adapters.ompl.goals import select_and_build_goal
 from inequality_mechanisms.adapters.ompl.metrics import planner_data_metrics
+from inequality_mechanisms.adapters.ompl.objective import build_ompl_objective
 from inequality_mechanisms.adapters.ompl.state_space import (
+    ROUND_TRIP_TOL,
     build_actuator_state_space,
     physical_state_from_ompl,
     write_u_to_ompl_state,
 )
 from inequality_mechanisms.adapters.ompl.validity import (
+    OmplValidityCounters,
     make_motion_validator,
     make_state_validity_checker,
 )
@@ -28,6 +31,7 @@ from inequality_mechanisms.benchmarks.classification import (
     classify_direct_attempt,
 )
 from inequality_mechanisms.core.goals import GoalStateGenerator
+from inequality_mechanisms.core.local_motion import InputLinearMotion
 from inequality_mechanisms.core.objectives import ActuatorTravelObjective
 from inequality_mechanisms.core.problem import PlanningProblem
 from inequality_mechanisms.core.results import (
@@ -45,9 +49,7 @@ from inequality_mechanisms.planners.sampling_rng import (
 from inequality_mechanisms.planners.sampling_space import (
     actuator_bounds,
     direct_connector_available,
-    path_cost_u,
     path_length_q,
-    resolve_connector,
 )
 
 
@@ -60,7 +62,7 @@ def _goal_usable(problem: PlanningProblem) -> bool:
 
 
 def _apply_ompl_seed(seed: int) -> bool:
-    """Best-effort OMPL RNG seed; return True when an API was set."""
+    """Best-effort process-global OMPL RNG seed request."""
     try:
         import ompl.util as ou  # type: ignore[attr-defined]
 
@@ -70,6 +72,21 @@ def _apply_ompl_seed(seed: int) -> bool:
     except Exception:
         pass
     return False
+
+
+def _solution_flags(pdef: Any) -> tuple[bool, bool, float | None]:
+    """Return ``(has_any, has_exact, difference)`` without conflating approximate paths."""
+    has_any = bool(pdef.hasSolution())
+    has_exact = (
+        bool(pdef.hasExactSolution()) if hasattr(pdef, "hasExactSolution") else has_any
+    )
+    difference: float | None = None
+    if has_any and hasattr(pdef, "getSolutionDifference"):
+        try:
+            difference = float(pdef.getSolutionDifference())
+        except Exception:
+            difference = None
+    return has_any, has_exact, difference
 
 
 def extract_path_states(
@@ -119,6 +136,11 @@ def solve_with_ompl_planner(
             f"{planner_id} requires ActuatorTravelObjective; "
             f"got {type(problem.objective).__name__}"
         )
+    if not isinstance(problem.local_motion, InputLinearMotion):
+        raise ValueError(
+            f"{planner_id} supports InputLinearMotion only in V3.5; "
+            f"got {type(problem.local_motion).__name__}"
+        )
     # Reject robots without certified branch bounds (no silent joint fallback).
     try:
         actuator_bounds(problem.robot)
@@ -127,13 +149,16 @@ def solve_with_ompl_planner(
             f"{planner_id} requires a robot with certified actuator bounds"
         ) from exc
 
-    ob, og = require_ompl()
+    ob, _og = require_ompl()
     t0 = time.perf_counter()
     run = SeededRun(seed=seed, repetition_index=repetition_index)
     rng = make_generator(run.seed, repetition_index=run.repetition_index)
     extras = seed_provenance_extras(run, planner_id=planner_id)
     extras["ompl_version"] = ompl_version_string()
     extras["nn_distance"] = "euclidean_u"
+    extras["ompl_seed_requested"] = int(run.seed)
+    extras["ompl_seed_scope"] = "process_global_best_effort"
+    extras["reproducibility_contract"] = "not_claimed_in_process"
     if extras_base:
         extras.update(extras_base)
 
@@ -148,6 +173,9 @@ def solve_with_ompl_planner(
         "nn_distance": "euclidean_u",
         "ompl_version": ompl_version_string(),
         "ompl_seed_applied": seed_applied,
+        "ompl_seed_requested": int(seed),
+        "ompl_seed_scope": "process_global_best_effort",
+        "reproducibility_contract": "not_claimed_in_process",
         "seed": int(seed),
         "repetition_index": int(repetition_index),
         "solve_time_budget_s": float(solve_time_s),
@@ -237,20 +265,26 @@ def solve_with_ompl_planner(
     assembly = dict(problem.start.assembly_state)
     space = build_actuator_state_space(problem.robot)
     si = ob.SpaceInformation(space)
+    counters = OmplValidityCounters()
     validity = make_state_validity_checker(
-        si, problem, space, assembly_state=assembly
+        si, problem, space, assembly_state=assembly, counters=counters
     )
     si.setStateValidityChecker(validity)
-    connector = resolve_connector(problem)
+    connector = problem.local_motion
     si.setMotionValidator(
         make_motion_validator(
-            si, problem, space, connector, assembly_state=assembly
+            si,
+            problem,
+            space,
+            connector,
+            assembly_state=assembly,
+            counters=counters,
         )
     )
     si.setup()
 
     try:
-        goal_ompl, candidates = select_and_build_goal(
+        goal_ompl, candidates, goal_metadata = select_and_build_goal(
             si,
             space,
             problem,
@@ -271,6 +305,9 @@ def solve_with_ompl_planner(
             state_checks=1,
         )
 
+    ompl_metrics.update(goal_metadata)
+    presearch_state_checks = 1 + int(goal_metadata["goal_samples_generated"])
+
     if not candidates:
         return _finish(
             status=PlanningStatus.INVALID,
@@ -281,7 +318,7 @@ def solve_with_ompl_planner(
             length_u=None,
             length_q=None,
             residual=problem.goal.residual(problem.start),
-            state_checks=1,
+            state_checks=presearch_state_checks,
         )
 
     direct_succeeded, direct_checks = direct_connector_available(problem, candidates)
@@ -300,6 +337,10 @@ def solve_with_ompl_planner(
     pdef = ob.ProblemDefinition(si)
     pdef.addStartState(start_scoped)
     pdef.setGoal(goal_ompl)
+    ompl_objective, objective_metadata = build_ompl_objective(si, problem)
+    pdef.setOptimizationObjective(ompl_objective)
+    ompl_metrics.update(objective_metadata)
+    extras.update(objective_metadata)
 
     planner = make_planner(si)
     planner.setProblemDefinition(pdef)
@@ -310,10 +351,15 @@ def solve_with_ompl_planner(
     query_s = time.perf_counter() - t_query
     ompl_metrics["planner_data"] = planner_data_metrics(si, planner)
     ompl_metrics["ompl_status"] = str(status)
-    has_solution = bool(pdef.hasSolution())
+    has_solution, has_exact_solution, solution_difference = _solution_flags(pdef)
     ompl_metrics["ompl_solved"] = has_solution
+    ompl_metrics["ompl_exact_solution"] = has_exact_solution
+    ompl_metrics["ompl_approximate_solution"] = bool(
+        has_solution and not has_exact_solution
+    )
+    ompl_metrics["ompl_solution_difference"] = solution_difference
 
-    if not has_solution:
+    if not has_exact_solution:
         return _finish(
             status=PlanningStatus.UNSOLVED,
             task_class=task_class,
@@ -324,8 +370,8 @@ def solve_with_ompl_planner(
             length_q=None,
             residual=problem.goal.residual(problem.start),
             query_s=query_s,
-            state_checks=1,
-            motion_checks=direct_checks,
+            state_checks=presearch_state_checks + counters.state_checks,
+            motion_checks=direct_checks + counters.motion_checks,
         )
 
     path = pdef.getSolutionPath()
@@ -350,16 +396,38 @@ def solve_with_ompl_planner(
             length_q=None,
             residual=problem.goal.residual(problem.start),
             query_s=query_s,
-            state_checks=1,
-            motion_checks=direct_checks,
+            state_checks=presearch_state_checks + counters.state_checks,
+            motion_checks=direct_checks + counters.motion_checks,
         )
 
-    # Exact start must be preserved as the first waypoint.
-    if not np.allclose(states[0].u, problem.start.u, atol=1e-12, rtol=0.0):
-        states = (problem.start,) + tuple(states[1:])
+    # Exact start is an adapter invariant; never repair a mismatched first edge.
+    start_residual_u = float(np.linalg.norm(states[0].u - problem.start.u))
+    ompl_metrics["exact_start_residual_u"] = start_residual_u
+    if start_residual_u > ROUND_TRIP_TOL:
+        raise RuntimeError(
+            f"{planner_id} violated exact-start round trip: residual={start_residual_u}"
+        )
+    states = (problem.start,) + tuple(states[1:])
 
     selected = states[-1]
-    cost = path_cost_u(states)
+    selected_goal_satisfied = bool(problem.goal.satisfied(selected))
+    ompl_metrics["selected_goal_satisfied"] = selected_goal_satisfied
+    if not selected_goal_satisfied:
+        return _finish(
+            status=PlanningStatus.UNSOLVED,
+            task_class=task_class,
+            trajectory=None,
+            selected=None,
+            cost=None,
+            length_u=None,
+            length_q=None,
+            residual=problem.goal.residual(selected),
+            query_s=query_s,
+            state_checks=presearch_state_checks + counters.state_checks,
+            motion_checks=direct_checks + counters.motion_checks,
+        )
+
+    cost = float(problem.objective.trajectory_cost(states))
     return _finish(
         status=PlanningStatus.SUCCESS,
         task_class=task_class,
@@ -370,6 +438,6 @@ def solve_with_ompl_planner(
         length_q=path_length_q(states),
         residual=problem.goal.residual(selected),
         query_s=query_s,
-        state_checks=1,
-        motion_checks=direct_checks,
+        state_checks=presearch_state_checks + counters.state_checks,
+        motion_checks=direct_checks + counters.motion_checks,
     )

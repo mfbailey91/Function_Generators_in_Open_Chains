@@ -50,3 +50,24 @@ def test_ompl_marked_tests_are_skippable_without_backend() -> None:
     import inequality_mechanisms.benchmarks.smoke_ompl_2r as smoke
 
     assert hasattr(smoke, "run_ompl_parity_smoke_pack")
+
+
+def test_solution_flags_do_not_promote_approximate_paths() -> None:
+    from inequality_mechanisms.adapters.ompl.planner_base import _solution_flags
+
+    class ApproximateProblemDefinition:
+        def hasSolution(self) -> bool:  # noqa: N802
+            return True
+
+        def hasExactSolution(self) -> bool:  # noqa: N802
+            return False
+
+        def getSolutionDifference(self) -> float:  # noqa: N802
+            return 0.25
+
+    any_solution, exact_solution, difference = _solution_flags(
+        ApproximateProblemDefinition()
+    )
+    assert any_solution
+    assert not exact_solution
+    assert difference == pytest.approx(0.25)

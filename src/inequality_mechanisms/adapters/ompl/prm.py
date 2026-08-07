@@ -39,10 +39,10 @@ class OmplPRMPlanner:
 
     @property
     def capabilities(self) -> PlannerCapabilities:
-        """Declare stochastic, seed-reproducible OMPL PRM capabilities."""
+        """Declare stochastic OMPL PRM capabilities for the V3.5 wrapper."""
         return PlannerCapabilities(
             deterministic=False,
-            reproducible_with_seed=True,
+            reproducible_with_seed=False,
             multi_query=False,
             optimizing=False,
             probabilistically_complete=None,
