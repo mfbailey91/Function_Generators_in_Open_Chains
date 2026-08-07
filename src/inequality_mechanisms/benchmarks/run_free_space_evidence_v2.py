@@ -476,7 +476,14 @@ def _solve_ompl_isolated(
             cmd,
             capture_output=True,
             text=True,
-            timeout=max(15.0, float(solve_time_s) + 10.0),
+            # OMPL PRM evaluates the frozen goal set sequentially (one GoalState
+            # per attempt) to avoid a nanobind multi-GoalStates hang.
+            timeout=max(
+                60.0,
+                float(contract.goal_representation.max_candidates)
+                * (float(solve_time_s) + 3.0)
+                + 30.0,
+            ),
             env=os.environ.copy(),
         )
         if proc.returncode != 0:

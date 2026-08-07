@@ -4,7 +4,10 @@ from __future__ import annotations
 
 import argparse
 import json
+import time
+from dataclasses import dataclass, replace
 from pathlib import Path
+from typing import Any
 
 from inequality_mechanisms.adapters.ompl import (
     OmplPRMPlanner,
@@ -17,7 +20,101 @@ from inequality_mechanisms.benchmarks.free_space_bank_v2 import (
     load_free_space_bank_v2,
     resolve_free_space_tasks_v2,
 )
+from inequality_mechanisms.core.goals import GoalConstraint, GoalSamplingRequest
+from inequality_mechanisms.core.results import PlanningResult, PlanningStatus
 from inequality_mechanisms.core.serialize import planning_result_to_dict
+from inequality_mechanisms.core.state import StateCandidate
+
+
+@dataclass(frozen=True, slots=True)
+class _SingleCandidateGenerator:
+    """Yield exactly one frozen goal candidate (OMPL PRM multi-goal workaround)."""
+
+    candidate: StateCandidate
+
+    def generate(
+        self,
+        robot: Any,
+        goal: GoalConstraint,
+        request: GoalSamplingRequest,
+    ) -> tuple[StateCandidate, ...]:
+        return (self.candidate,)
+
+
+def _merge_sequential_prm(
+    results: list[PlanningResult],
+    *,
+    wall_s: float,
+) -> PlanningResult:
+    """Pick the best exact success among sequential single-goal PRM solves."""
+    successes = [
+        r
+        for r in results
+        if r.status == PlanningStatus.SUCCESS and r.objective_cost is not None
+    ]
+    if successes:
+        best = min(successes, key=lambda r: float(r.objective_cost))
+    elif results:
+        best = results[-1]
+    else:
+        raise RuntimeError("OMPL PRM sequential solve produced no results")
+
+    metrics = dict(best.planner_metrics)
+    metrics["ompl_prm_sequential_goal_states"] = True
+    metrics["ompl_prm_sequential_attempts"] = len(results)
+    metrics["ompl_prm_sequential_successes"] = len(successes)
+    extras = dict(best.provenance.extras)
+    extras["ompl_prm_sequential_goal_states"] = True
+    extras["ompl_prm_multi_goalstates_workaround"] = (
+        "nanobind OMPL PRM hangs with GoalStates size>1; "
+        "V3.6 evaluates the frozen represented set via sequential single-goal solves"
+    )
+    return replace(
+        best,
+        total_wall_time_s=float(wall_s),
+        planner_metrics=metrics,
+        provenance=replace(best.provenance, extras=extras),
+        state_validity_checks=sum(
+            (r.state_validity_checks or 0) for r in results
+        ),
+        motion_validity_checks=sum(
+            (r.motion_validity_checks or 0) for r in results
+        ),
+    )
+
+
+def _solve_ompl_prm_sequential(
+    *,
+    problem: Any,
+    generator: Any,
+    seed: int,
+    solve_time_s: float,
+    max_candidates: int,
+) -> PlanningResult:
+    """Avoid multi-GoalStates PRM hang by solving one represented goal at a time."""
+    request = GoalSamplingRequest(max_candidates=max_candidates)
+    candidates = list(generator.generate(problem.robot, problem.goal, request))
+    if not candidates:
+        # Fall back to the adapter's own invalid/unrepresentable path.
+        return OmplPRMPlanner(
+            seed=seed,
+            goal_generator=generator,
+            max_goal_candidates=1,
+            solve_time_s=solve_time_s,
+        ).solve(problem)
+
+    t0 = time.perf_counter()
+    results: list[PlanningResult] = []
+    for cand in candidates:
+        results.append(
+            OmplPRMPlanner(
+                seed=seed,
+                goal_generator=_SingleCandidateGenerator(cand),
+                max_goal_candidates=1,
+                solve_time_s=solve_time_s,
+            ).solve(problem)
+        )
+    return _merge_sequential_prm(results, wall_s=time.perf_counter() - t0)
 
 
 def run_request(request: dict) -> dict:
@@ -37,23 +134,23 @@ def run_request(request: dict) -> dict:
 
     planner_name = str(request["planner"])
     if planner_name == "ompl_prm":
-        planner = OmplPRMPlanner(
+        result = _solve_ompl_prm_sequential(
+            problem=problem,
+            generator=generator,
             seed=seed,
-            goal_generator=generator,
-            max_goal_candidates=max_candidates,
             solve_time_s=solve_time_s,
+            max_candidates=max_candidates,
         )
     elif planner_name == "ompl_rrt_connect":
-        planner = OmplRRTConnectPlanner(
+        result = OmplRRTConnectPlanner(
             seed=seed,
             goal_generator=generator,
             max_goal_candidates=max_candidates,
             solve_time_s=solve_time_s,
-        )
+        ).solve(problem)
     else:
         raise ValueError(f"unsupported OMPL worker planner {planner_name!r}")
 
-    result = planner.solve(problem)
     return {
         "process_isolated": True,
         "planner": planner_name,
