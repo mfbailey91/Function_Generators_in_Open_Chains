@@ -18,7 +18,17 @@ Generate the complete V3.2–V3.5 review package in an OMPL-enabled environment:
 PYTHONPATH=src python scripts/export_v3_review_results.py
 ```
 
-The command writes `results/v3_review/v3_5_closeout/`. Commit that generated
-directory together with the V3.5 closeout changes. The exporter refuses to
-produce a partial closeout snapshot when OMPL is unavailable and fails if the
-native/OMPL parity invariants do not pass.
+Output: `results/v3_review/v3_5_closeout/`.
+
+## V3.6 free-space evidence
+
+Bounded free-space planner evidence over the frozen Cartesian bank (not
+population inference):
+
+```bash
+PYTHONPATH=src:. python scripts/run_v3_6_free_space_evidence.py
+```
+
+Prefer an OMPL-enabled interpreter (e.g. `.conda-ompl`) so `ompl_*` rows are
+populated rather than skipped. Output: `results/v3_review/v3_6_free_space/`
+plus `docs/software/experiments/reports/V3_6_FREE_SPACE_EVIDENCE.html`.
