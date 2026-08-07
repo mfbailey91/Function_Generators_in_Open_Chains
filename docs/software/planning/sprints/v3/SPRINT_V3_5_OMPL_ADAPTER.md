@@ -15,6 +15,10 @@ Add OMPL as the first external planner backend while keeping Version 3 authorita
 2. ACTIVE_SPRINT explicitly activates V3.5.
 3. ADR-025 remains the adapter boundary: OMPL is an algorithm backend, not the source of truth for mechanism state or metric semantics.
 
+## Optional OMPL environment
+
+OMPL Python bindings are an **optional** backend. The core package must import and pass V1–V3.4 suites without them. Install bindings separately (commonly `conda install -c conda-forge ompl`); there is no reliable cross-platform pip wheel. The empty pyproject extra `ompl` is a documentation marker only. Gate via `inequality_mechanisms.adapters.ompl.is_ompl_available()`; tests marked `@pytest.mark.ompl` skip when bindings are absent.
+
 ## Non-goals
 
 - MoveIt, ROS, URDF/SRDF application integration;
