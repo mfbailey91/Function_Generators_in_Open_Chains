@@ -8,4 +8,7 @@ one experiment runner (see `docs/software/planning/sprints/v3/README.md`).
 
 | File | Sprint | Role |
 | --- | --- | --- |
-| [`free_space_planar2r_v1.json`](free_space_planar2r_v1.json) | V3.6 | Bounded free-space Cartesian disk evidence bank (not a population sample) |
+| [`free_space_planar2r_v1.json`](free_space_planar2r_v1.json) | V3.6 pilot | Original bounded bank. Preserved as provenance; its normalized actuator starts produce different physical starts across mechanisms. |
+| [`free_space_planar2r_v2.json`](free_space_planar2r_v2.json) | V3.6 corrective | Corrected evidence contract. Resolves each authoring start through a reference arm into one shared `q` / Cartesian start, freezes a finite Cartesian-disk goal representation, and declares stochastic repetition seeds. |
+
+`v1` is not rewritten. The corrected V3.6 closeout candidate is `v2`.

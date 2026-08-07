@@ -22,13 +22,22 @@ Output: `results/v3_review/v3_5_closeout/`.
 
 ## V3.6 free-space evidence
 
-Bounded free-space planner evidence over the frozen Cartesian bank (not
-population inference):
+`results/v3_review/v3_6_free_space/` is retained as the **v1 pilot artifact**.
+Review found that equal normalized actuator starts did not produce equal
+physical starts across the paired mechanisms, so its pooled means are not the
+V3.6 closeout evidence.
+
+The corrected V3.6 contract is generated from `free_space_planar2r_v2.json`:
 
 ```bash
-PYTHONPATH=src:. python scripts/run_v3_6_free_space_evidence.py
+# First commit the implementation/bank correction so HEAD is clean.
+PYTHONPATH=src:. python scripts/run_v3_6_free_space_evidence_v2.py
+
+# Then review and commit the generated evidence separately.
+git add results/v3_review/v3_6_free_space_v2         docs/software/experiments/reports/V3_6_FREE_SPACE_EVIDENCE_V2.html
 ```
 
-Prefer an OMPL-enabled interpreter (e.g. `.conda-ompl`) so `ompl_*` rows are
-populated rather than skipped. Output: `results/v3_review/v3_6_free_space/`
-plus `docs/software/experiments/reports/V3_6_FREE_SPACE_EVIDENCE.html`.
+The v2 exporter records the clean implementation revision that generated the
+artifact, resolves one shared `q`/Cartesian start for both mechanisms, freezes
+the represented Cartesian goal set, and runs stochastic OMPL repetitions in
+fresh processes.

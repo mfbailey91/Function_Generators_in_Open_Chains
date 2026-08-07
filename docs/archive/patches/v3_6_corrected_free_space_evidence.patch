@@ -1,0 +1,2156 @@
+diff --git a/configs/v3/README.md b/configs/v3/README.md
+index b04c046..1f54156 100644
+--- a/configs/v3/README.md
++++ b/configs/v3/README.md
+@@ -8,4 +8,7 @@ one experiment runner (see `docs/software/planning/sprints/v3/README.md`).
+ 
+ | File | Sprint | Role |
+ | --- | --- | --- |
+-| [`free_space_planar2r_v1.json`](free_space_planar2r_v1.json) | V3.6 | Bounded free-space Cartesian disk evidence bank (not a population sample) |
++| [`free_space_planar2r_v1.json`](free_space_planar2r_v1.json) | V3.6 pilot | Original bounded bank. Preserved as provenance; its normalized actuator starts produce different physical starts across mechanisms. |
++| [`free_space_planar2r_v2.json`](free_space_planar2r_v2.json) | V3.6 corrective | Corrected evidence contract. Resolves each authoring start through a reference arm into one shared `q` / Cartesian start, freezes a finite Cartesian-disk goal representation, and declares stochastic repetition seeds. |
++
++`v1` is not rewritten. The corrected V3.6 closeout candidate is `v2`.
+diff --git a/configs/v3/free_space_planar2r_v2.json b/configs/v3/free_space_planar2r_v2.json
+new file mode 100644
+index 0000000..6b0d976
+--- /dev/null
++++ b/configs/v3/free_space_planar2r_v2.json
+@@ -0,0 +1,38 @@
++{
++  "bank_id": "free_space_planar2r_v2",
++  "schema_version": 2,
++  "architecture_version": 3,
++  "description": "Corrective Sprint V3.6 contract layered over free_space_planar2r_v1. The v1 start_u_frac is an authoring reference on the four-bar only; the loaded task resolves one shared q/start tip for both mechanisms. The physical Cartesian disk remains the predicate while planners share one frozen finite disk representation. Not a population sample.",
++  "base_bank_path": "free_space_planar2r_v1.json",
++  "base_bank_id": "free_space_planar2r_v1",
++  "start_contract": {
++    "authoring_reference_mechanism": "fourbar",
++    "base_authoring_field": "start_u_frac",
++    "resolved_shared_coordinate": "q",
++    "cartesian_tip_tolerance": 1e-09
++  },
++  "goal_representation": {
++    "kind": "center_plus_near_boundary_octants_v1",
++    "include_center": true,
++    "boundary_angles_deg": [
++      0,
++      45,
++      90,
++      135,
++      180,
++      225,
++      270,
++      315
++    ],
++    "boundary_radius_fraction": 0.98,
++    "max_candidates": 32
++  },
++  "stochastic_repetitions": {
++    "seeds": [
++      7,
++      29,
++      61
++    ],
++    "ompl_process_isolation": true
++  }
++}
+diff --git a/docs/software/planning/sprints/v3/SPRINT_V3_6_FREE_SPACE_EVIDENCE.md b/docs/software/planning/sprints/v3/SPRINT_V3_6_FREE_SPACE_EVIDENCE.md
+index b198d2e..28b0b9b 100644
+--- a/docs/software/planning/sprints/v3/SPRINT_V3_6_FREE_SPACE_EVIDENCE.md
++++ b/docs/software/planning/sprints/v3/SPRINT_V3_6_FREE_SPACE_EVIDENCE.md
+@@ -1,6 +1,6 @@
+ # Sprint V3.6 — Free-Space Planner Evidence
+ 
+-**Status:** active — bounded free-space evidence bank across delivered planner families
++**Status:** active — corrective free-space evidence contract after v1 pilot review
+ **Code authorization:** V3-600–V3-605 only
+ **Depends on:** [Sprint V3.5](SPRINT_V3_5_OMPL_ADAPTER.md) (completed); accepted ADRs 021–026
+ **Reference:** [V3_PROJECT_PLAN.md](../../../V3_PROJECT_PLAN.md) §16 V3-M6
+@@ -9,6 +9,17 @@
+ 
+ Publish a **frozen external Cartesian** free-space task bank and run the already-delivered planner families (direct, lattice Dijkstra, native PRM/RRTConnect, OMPL when available) under ADR-026 pre-search classification and size strata. Produce a tracked review artifact. This is **not** population inference, Monte Carlo, or an obstacle study.
+ 
++The scientific role of V3.6 is the free-space representation/optimality baseline:
++
++> On the same physical start and the same represented Cartesian goal region, how
++> faithfully does each planner recover the mechanism-aware direct actuator-space
++> reference, and what algorithmic overhead/suboptimality does its representation
++> introduce?
++
++Under the current monotonic branch, convex actuator bounds, input-linear local
++motion, and no obstacles, direct feasibility is expected for valid represented
++goal states. Genuine routing necessity enters in V3.7.
++
+ ## Entry conditions
+ 
+ 1. V3.5 OMPL adapter, corrective contract, and `results/v3_review/v3_5_closeout/` are accepted.
+@@ -21,7 +32,73 @@ Publish a **frozen external Cartesian** free-space task bank and run the already
+ - MoveIt, higher-DOF, production Monte Carlo;
+ - Closing `V3-DEFER-001` native breadth (Lazy-PRM, PRM*, RRT*, …);
+ - Reinterpreting frozen V2 evidence;
+-- Claiming bank means equal population estimands.
++- Claiming bank means equal population estimands;
++- manufacturing `neither_direct` cases in an unconstrained convex free-space domain.
++
++## V3.6 v1 pilot finding
++
++`free_space_planar2r_v1.json` and `results/v3_review/v3_6_free_space/` are
++preserved as pilot provenance. Review found two closeout blockers:
++
++1. applying the same normalized `start_u_frac` independently to each
++   transmission did **not** preserve the same physical start (`q` / Cartesian
++   tip) across the four-bar and gearbox;
++2. nonzero Cartesian disk radii were mostly realized through center IK only,
++   so planner comparisons did not share an explicit finite goal-set
++   approximation of the disk.
++
++The v1 artifact must therefore not be used as the V3.6 closeout evidence.
++
++## Corrective evidence contract (`free_space_planar2r_v2`)
++
++### Shared start
++
++The v2 bank retains each v1 actuator fraction only as an **authoring reference**
++on the four-bar. At load time it is resolved once to a shared output state:
++
++\[
++q_s = g_F(u_{s,\mathrm{ref}})
++\]
++
++and every paired mechanism starts from its own certified inverse realization of
++that same `q_s`. The loader verifies the resulting Cartesian start tips agree
++within tolerance. The resolved `start_q` and `start_tip` are written into the
++review artifact.
++
++### Frozen Cartesian goal representation
++
++Each physical disk goal remains the task predicate. For planner realization,
++v2 freezes a common Cartesian sample set: the center plus eight near-boundary
++points. The same Cartesian points and IK ordering feed all planner families.
++The artifact records those points and the accepted physical goal candidates.
++
++For each mechanism-task, the benchmark computes the exact free-space
++input-linear actuator-travel optimum over this **represented goal set**:
++
++\[
++J^*_{\mathrm{rep}} =
++\min_{s_g \in G_{\mathrm{rep}}}
++\|u_g-u_s\|_2.
++\]
++
++Planner suboptimality is reported as `J_planner - J*_rep`.
++
++### Stochastic repetitions
++
++Direct and deterministic lattice planners run once. Native PRM/RRTConnect and
++OMPL PRM/RRTConnect run the frozen seed set from the v2 contract. OMPL
++repetitions run in fresh processes because its Python seed control is
++process-global best effort.
++
++### Publication provenance
++
++Implementation and evidence are two commits:
++
++1. commit the corrected bank/runner/tests;
++2. from that clean revision, generate `results/v3_review/v3_6_free_space_v2/`
++   and commit the generated artifact separately.
++
++The manifest records the implementation revision, not the result commit.
+ 
+ ## Work packages
+ 
+@@ -31,32 +108,50 @@ Author this contract; authorize V3-600–V3-605 only.
+ 
+ ### V3-601 — Frozen Cartesian task bank
+ 
+-Versioned JSON bank `configs/v3/free_space_planar2r_v1.json` with external tip centers/radii and start U-fractions; loader builds paired four-bar / gearbox `PlanningProblem`s.
++Preserve v1; add `configs/v3/free_space_planar2r_v2.json` as a corrective
++contract layered over the frozen v1 task list. Resolve one shared `q`/tip start,
++and freeze the finite disk representation.
+ 
+-### V3-602 — Classification and size strata
++### V3-602 — Classification, direct reference, and strata
+ 
+-ADR-026 per-mechanism task class before search; paired strata; tip-separation size bins; pre-search descriptors.
++ADR-026 per-mechanism task class before search; paired strata; shared
++tip-separation size bins; pre-search descriptors; represented-goal-set direct
++reference cost.
+ 
+ ### V3-603 — Multi-planner evidence runner
+ 
+-Same bank × mechanisms × planner families; OMPL rows skip cleanly when bindings are absent.
++Same resolved tasks × mechanisms × delivered planner families. Lattice search
++evaluates the frozen goal candidate set rather than silently selecting the
++first candidate. `already satisfied` and invalid tasks short-circuit to common
++V3 results rather than planner-specific skips. Stochastic planners use frozen
++repetitions; OMPL uses process isolation.
+ 
+ ### V3-604 — Review artifact
+ 
+-Tracked package under `results/v3_review/v3_6_free_space/` plus HTML printout. Not a population study.
++Tracked package under `results/v3_review/v3_6_free_space_v2/` plus HTML
++printout. Primary summaries are planner suboptimality, paired mechanism effects
++(`ΔJ`, `Δ total_wall_time`), and common status metrics by size/class stratum.
++Query-only timing remains secondary.
+ 
+ ### V3-605 — Tests and gates
+ 
+-Bank load, strata determinism, runner columns, OMPL skip path; preserve V1–V3.5 suites.
++Shared-start equality, frozen goal-set determinism, direct-reference lower-bound
++checks, lattice short-circuit behavior, paired summaries, OMPL process-isolated
++worker path, and V1–V3.5 regressions.
+ 
+ ## Exit criteria
+ 
+-1. Frozen bank is versioned and loadable without editing Python smoke catalogs.
+-2. Every evidence row records ADR-026 `task_class`, size stratum, and paired stratum when applicable.
+-3. Delivered planner families run on the same external tasks (OMPL optional).
+-4. Review artifact records revision, seed, and row-level JSON.
+-5. No population inference or obstacle work is activated.
+-6. Hand off to V3.7 only after free-space semantics are reviewed.
++1. The corrected v2 bank is versioned without rewriting v1 pilot provenance.
++2. Both mechanisms realize the same `start_q` and Cartesian start tip for every paired task.
++3. Every planner receives the same frozen Cartesian goal sample set/IK ordering.
++4. Every evidence row records ADR-026 `task_class`, size stratum, paired stratum, represented-goal reference cost, and planner suboptimality when defined.
++5. Lattice `already satisfied` / invalid tasks produce common V3 outcomes rather than `no_goal_candidate` skips.
++6. Primary cross-family timing uses `total_wall_time`; setup/preprocess/query fields remain available separately.
++7. Native and OMPL stochastic evidence use the declared frozen repetitions; OMPL repetitions are process isolated.
++8. Review summaries report per-planner paired mechanism effects and suboptimality rather than only pooled planner means.
++9. The generated manifest points to the clean implementation commit that contains the corrected V3.6 runner and bank.
++10. No population inference or obstacle work is activated.
++11. Hand off to V3.7 only after the corrected free-space semantics are reviewed.
+ 
+ ## Deferred work
+ 
+diff --git a/results/v3_review/README.md b/results/v3_review/README.md
+index b924d5e..82a453e 100644
+--- a/results/v3_review/README.md
++++ b/results/v3_review/README.md
+@@ -22,13 +22,22 @@ Output: `results/v3_review/v3_5_closeout/`.
+ 
+ ## V3.6 free-space evidence
+ 
+-Bounded free-space planner evidence over the frozen Cartesian bank (not
+-population inference):
++`results/v3_review/v3_6_free_space/` is retained as the **v1 pilot artifact**.
++Review found that equal normalized actuator starts did not produce equal
++physical starts across the paired mechanisms, so its pooled means are not the
++V3.6 closeout evidence.
++
++The corrected V3.6 contract is generated from `free_space_planar2r_v2.json`:
+ 
+ ```bash
+-PYTHONPATH=src:. python scripts/run_v3_6_free_space_evidence.py
++# First commit the implementation/bank correction so HEAD is clean.
++PYTHONPATH=src:. python scripts/run_v3_6_free_space_evidence_v2.py
++
++# Then review and commit the generated evidence separately.
++git add results/v3_review/v3_6_free_space_v2         docs/software/experiments/reports/V3_6_FREE_SPACE_EVIDENCE_V2.html
+ ```
+ 
+-Prefer an OMPL-enabled interpreter (e.g. `.conda-ompl`) so `ompl_*` rows are
+-populated rather than skipped. Output: `results/v3_review/v3_6_free_space/`
+-plus `docs/software/experiments/reports/V3_6_FREE_SPACE_EVIDENCE.html`.
++The v2 exporter records the clean implementation revision that generated the
++artifact, resolves one shared `q`/Cartesian start for both mechanisms, freezes
++the represented Cartesian goal set, and runs stochastic OMPL repetitions in
++fresh processes.
+diff --git a/results/v3_review/v3_6_free_space/README.md b/results/v3_review/v3_6_free_space/README.md
+index 566f918..ad3165b 100644
+--- a/results/v3_review/v3_6_free_space/README.md
++++ b/results/v3_review/v3_6_free_space/README.md
+@@ -1,5 +1,12 @@
+ # Version 3 review snapshot — V3.6 free-space evidence
+ 
++> **Pilot / superseded for V3.6 closeout.** This artifact is preserved exactly
++> because it exposed an experimental-design defect: `start_u_frac` was applied
++> independently to the four-bar and gearbox, so paired rows did not necessarily
++> share the same `q` or Cartesian start. The corrected contract is
++> `configs/v3/free_space_planar2r_v2.json` and its review output is
++> `results/v3_review/v3_6_free_space_v2/`.
++
+ This directory is a **bounded free-space planner evidence package**, not a population study, Monte Carlo result, or obstacle campaign.
+ 
+ - Code revision: `f1f3ab9a5edd259cc26deae514695f3c19cd45b3`
+@@ -46,15 +53,15 @@ Native stochastic planners reuse V3.4 `SMOKE_SEED` (7). OMPL adapters declare `r
+ 
+ Files:
+ 
+-- `rows.json` — row-level evidence
++- `rows.json` — row-level pilot evidence
+ - `manifest.json` — run metadata
+-- `summary.json` — stratum / planner aggregates
+-- `V3_6_FREE_SPACE_EVIDENCE.html` — print-ready summary
++- `summary.json` — pilot aggregates
++- `V3_6_FREE_SPACE_EVIDENCE.html` — print-ready pilot summary
+ 
+-Regenerate with:
++Regenerate the pilot only for provenance:
+ 
+ ```bash
+ PYTHONPATH=src:. python scripts/run_v3_6_free_space_evidence.py
+ ```
+ 
+-Prefer the OMPL-enabled interpreter (e.g. `.conda-ompl`) when publishing OMPL rows.
++Do not use the v1 pooled means as the V3.6 closeout result.
+diff --git a/scripts/run_v3_6_free_space_evidence_v2.py b/scripts/run_v3_6_free_space_evidence_v2.py
+new file mode 100755
+index 0000000..db93dec
+--- /dev/null
++++ b/scripts/run_v3_6_free_space_evidence_v2.py
+@@ -0,0 +1,148 @@
++#!/usr/bin/env python3
++"""Generate the corrected Sprint V3.6 review artifact.
++
++Publication is intentionally two-stage.  Commit this implementation first, then
++run this script from a clean worktree.  The manifest records that clean HEAD;
++the generated result files are committed in a second commit.
++"""
++
++from __future__ import annotations
++
++import argparse
++import json
++import shutil
++import subprocess
++from pathlib import Path
++from typing import Any
++
++import numpy as np
++
++from inequality_mechanisms.adapters.ompl import ompl_version_string
++from inequality_mechanisms.benchmarks.free_space_bank_v2 import (
++    load_free_space_bank_v2,
++)
++from inequality_mechanisms.benchmarks.free_space_report_v2 import (
++    build_html_v2,
++    build_readme_v2,
++    summarize_v3_6_v2,
++)
++from inequality_mechanisms.benchmarks.run_free_space_evidence_v2 import (
++    evidence_manifest_v2,
++    run_free_space_evidence_v2,
++)
++
++DEFAULT_OUTPUT = Path("results/v3_review/v3_6_free_space_v2")
++DEFAULT_HTML_COPY = Path(
++    "docs/software/experiments/reports/V3_6_FREE_SPACE_EVIDENCE_V2.html"
++)
++
++
++def _git_revision() -> str | None:
++    try:
++        proc = subprocess.run(
++            ["git", "rev-parse", "HEAD"],
++            check=True,
++            capture_output=True,
++            text=True,
++        )
++    except (OSError, subprocess.CalledProcessError):
++        return None
++    return proc.stdout.strip() or None
++
++
++def _git_dirty() -> bool:
++    try:
++        proc = subprocess.run(
++            ["git", "status", "--porcelain"],
++            check=True,
++            capture_output=True,
++            text=True,
++        )
++    except (OSError, subprocess.CalledProcessError):
++        return True
++    return bool(proc.stdout.strip())
++
++
++def _json_default(value: Any) -> Any:
++    if isinstance(value, np.ndarray):
++        return value.tolist()
++    if isinstance(value, np.generic):
++        return value.item()
++    if isinstance(value, Path):
++        return str(value)
++    raise TypeError(f"not JSON serializable: {type(value).__name__}")
++
++
++def _write_json(path: Path, value: Any) -> None:
++    path.write_text(
++        json.dumps(
++            value,
++            indent=2,
++            sort_keys=True,
++            default=_json_default,
++            allow_nan=False,
++        )
++        + "\n",
++        encoding="utf-8",
++    )
++
++
++def main() -> None:
++    parser = argparse.ArgumentParser()
++    parser.add_argument("--out", type=Path, default=DEFAULT_OUTPUT)
++    parser.add_argument("--ompl-solve-time-s", type=float, default=1.0)
++    parser.add_argument("--allow-dirty", action="store_true")
++    parser.add_argument("--no-html-copy", action="store_true")
++    args = parser.parse_args()
++
++    if _git_dirty() and not args.allow_dirty:
++        raise SystemExit(
++            "Refusing V3.6 evidence generation from a dirty worktree. "
++            "Commit the corrected implementation first, then rerun. "
++            "Use --allow-dirty only for diagnostics, not published evidence."
++        )
++
++    implementation_revision = _git_revision()
++    contract = load_free_space_bank_v2()
++    rows, resolved_bank = run_free_space_evidence_v2(
++        contract=contract,
++        ompl_solve_time_s=args.ompl_solve_time_s,
++    )
++    manifest = evidence_manifest_v2(
++        rows,
++        contract=contract,
++        implementation_revision=implementation_revision,
++        ompl_solve_time_s=args.ompl_solve_time_s,
++    )
++    manifest["ompl_version"] = ompl_version_string()
++    summary = summarize_v3_6_v2(rows)
++
++    args.out.mkdir(parents=True, exist_ok=True)
++    _write_json(args.out / "resolved_bank.json", resolved_bank)
++    _write_json(args.out / "rows.json", rows)
++    _write_json(args.out / "manifest.json", manifest)
++    _write_json(args.out / "summary.json", summary)
++    (args.out / "README.md").write_text(
++        build_readme_v2(manifest=manifest, summary=summary),
++        encoding="utf-8",
++    )
++    html = build_html_v2(manifest=manifest, summary=summary)
++    html_path = args.out / "V3_6_FREE_SPACE_EVIDENCE_V2.html"
++    html_path.write_text(html, encoding="utf-8")
++
++    if not args.no_html_copy:
++        DEFAULT_HTML_COPY.parent.mkdir(parents=True, exist_ok=True)
++        shutil.copyfile(html_path, DEFAULT_HTML_COPY)
++
++    print(
++        f"wrote corrected V3.6 evidence rows={len(rows)} "
++        f"implementation_revision={implementation_revision}"
++    )
++    print(
++        "Review the artifact, then commit the generated result directory "
++        "as a separate evidence commit."
++    )
++
++
++if __name__ == "__main__":
++    main()
+diff --git a/src/inequality_mechanisms/benchmarks/free_space_bank_v2.py b/src/inequality_mechanisms/benchmarks/free_space_bank_v2.py
+new file mode 100644
+index 0000000..67c2eef
+--- /dev/null
++++ b/src/inequality_mechanisms/benchmarks/free_space_bank_v2.py
+@@ -0,0 +1,383 @@
++"""Corrected Version 3.6 free-space bank contract.
++
++The v1 JSON task list is immutable pilot provenance.  V2 layers a corrected
++execution contract over it:
++
++- v1 ``start_u_frac`` is interpreted only on one reference mechanism;
++- that reference state is resolved to one shared ``q`` / Cartesian start;
++- every paired mechanism realizes that same ``q`` through its own inverse map;
++- the physical Cartesian disk remains the task predicate;
++- all planners consume one frozen finite Cartesian sample set for that disk.
++"""
++
++from __future__ import annotations
++
++import json
++import math
++from dataclasses import dataclass
++from pathlib import Path
++from typing import Any
++
++import numpy as np
++from numpy.typing import NDArray
++
++from inequality_mechanisms.benchmarks.free_space_bank import (
++    FreeSpaceBankTask,
++    FreeSpaceTaskBank,
++    MechanismName,
++    build_bank_arms,
++    build_cartesian_problem,
++    load_free_space_bank,
++)
++from inequality_mechanisms.benchmarks.smoke_sampling_2r import SamplingSmokeArm
++from inequality_mechanisms.core.goals import (
++    CartesianDiskGoal,
++    GoalConstraint,
++    GoalSamplingRequest,
++    planar_2r_ik_family,
++)
++from inequality_mechanisms.core.state import PhysicalState, StateCandidate
++from inequality_mechanisms.kinematics.planar_2r import Planar2R
++
++DEFAULT_BANK_V2_PATH = (
++    Path(__file__).resolve().parents[3]
++    / "configs"
++    / "v3"
++    / "free_space_planar2r_v2.json"
++)
++
++
++@dataclass(frozen=True, slots=True)
++class GoalRepresentationV2:
++    kind: str
++    include_center: bool
++    boundary_angles_deg: tuple[float, ...]
++    boundary_radius_fraction: float
++    max_candidates: int
++
++
++@dataclass(frozen=True, slots=True)
++class FreeSpaceEvidenceContractV2:
++    bank_id: str
++    schema_version: int
++    description: str
++    base_bank: FreeSpaceTaskBank
++    reference_mechanism: MechanismName
++    start_tip_tolerance: float
++    goal_representation: GoalRepresentationV2
++    stochastic_seeds: tuple[int, ...]
++    ompl_process_isolation: bool
++    source_path: Path
++
++
++@dataclass(frozen=True, slots=True)
++class ResolvedFreeSpaceTaskV2:
++    task_id: str
++    start_q: NDArray[np.float64]
++    start_tip: NDArray[np.float64]
++    goal_center: NDArray[np.float64]
++    goal_radius: float
++    goal_points: tuple[NDArray[np.float64], ...]
++    goal_point_ids: tuple[str, ...]
++    notes: str = ""
++
++    def __post_init__(self) -> None:
++        object.__setattr__(
++            self, "start_q", np.asarray(self.start_q, dtype=np.float64).copy()
++        )
++        object.__setattr__(
++            self, "start_tip", np.asarray(self.start_tip, dtype=np.float64).copy()
++        )
++        object.__setattr__(
++            self,
++            "goal_center",
++            np.asarray(self.goal_center, dtype=np.float64).copy(),
++        )
++        object.__setattr__(
++            self,
++            "goal_points",
++            tuple(np.asarray(x, dtype=np.float64).copy() for x in self.goal_points),
++        )
++
++
++@dataclass(frozen=True, slots=True)
++class FrozenCartesianDiskGoalGenerator:
++    """Deterministic finite realization of one Cartesian disk predicate."""
++
++    planar_fk: Planar2R
++    goal_points: tuple[NDArray[np.float64], ...]
++    goal_point_ids: tuple[str, ...]
++    numerical_tolerance: float = 1e-9
++
++    def generate(
++        self,
++        robot: Any,
++        goal: GoalConstraint,
++        request: GoalSamplingRequest,
++    ) -> tuple[StateCandidate, ...]:
++        if not isinstance(goal, CartesianDiskGoal):
++            raise TypeError(
++                "FrozenCartesianDiskGoalGenerator requires CartesianDiskGoal"
++            )
++        if len(self.goal_points) != len(self.goal_point_ids):
++            raise ValueError("goal point ids must match goal points")
++
++        out: list[StateCandidate] = []
++        seen: set[tuple[float, ...]] = set()
++        for point_index, (point_id, point) in enumerate(
++            zip(self.goal_point_ids, self.goal_points)
++        ):
++            for q in self.planar_fk.inverse(point):
++                q_arr = np.asarray(q, dtype=np.float64)
++                key = tuple(np.round(q_arr, decimals=12).tolist())
++                if key in seen:
++                    continue
++                for cand in robot.states_from_output(q_arr):
++                    if not robot.state_within_limits(cand.state):
++                        continue
++                    tip = np.asarray(
++                        robot.forward_kinematics(cand.state).position,
++                        dtype=np.float64,
++                    )
++                    cart_dist = float(np.linalg.norm(tip - goal.center))
++                    if cart_dist > float(goal.radius) + self.numerical_tolerance:
++                        continue
++                    seen.add(key)
++                    provenance = {
++                        **dict(cand.provenance),
++                        "ik_family": planar_2r_ik_family(q_arr),
++                        "goal_representation": "frozen_cartesian_disk_points_v1",
++                        "goal_sample_id": point_id,
++                        "goal_sample_index": int(point_index),
++                        "goal_sample_point": point.tolist(),
++                    }
++                    out.append(
++                        StateCandidate(
++                            state=cand.state,
++                            residual=max(float(cand.residual), cart_dist),
++                            provenance=provenance,
++                        )
++                    )
++                    if len(out) >= request.max_candidates:
++                        return tuple(out)
++        return tuple(out)
++
++
++def load_free_space_bank_v2(
++    path: Path | None = None,
++) -> FreeSpaceEvidenceContractV2:
++    source = Path(path) if path is not None else DEFAULT_BANK_V2_PATH
++    raw = json.loads(source.read_text(encoding="utf-8"))
++    if int(raw.get("schema_version", -1)) != 2:
++        raise ValueError(f"unsupported V3.6 corrective schema in {source}")
++
++    base_path = source.parent / str(raw["base_bank_path"])
++    base_bank = load_free_space_bank(base_path)
++    if base_bank.bank_id != str(raw["base_bank_id"]):
++        raise ValueError("base bank id does not match corrective contract")
++
++    start = dict(raw["start_contract"])
++    goal = dict(raw["goal_representation"])
++    reps = dict(raw["stochastic_repetitions"])
++    reference = str(start["authoring_reference_mechanism"])
++    if reference not in base_bank.mechanisms:
++        raise ValueError(f"unknown reference mechanism {reference!r}")
++
++    radius_fraction = float(goal["boundary_radius_fraction"])
++    if not (0.0 < radius_fraction < 1.0):
++        raise ValueError("boundary_radius_fraction must lie in (0, 1)")
++    seeds = tuple(int(s) for s in reps["seeds"])
++    if not seeds or len(set(seeds)) != len(seeds):
++        raise ValueError("stochastic seeds must be nonempty and unique")
++
++    return FreeSpaceEvidenceContractV2(
++        bank_id=str(raw["bank_id"]),
++        schema_version=2,
++        description=str(raw.get("description", "")),
++        base_bank=base_bank,
++        reference_mechanism=reference,  # type: ignore[arg-type]
++        start_tip_tolerance=float(start["cartesian_tip_tolerance"]),
++        goal_representation=GoalRepresentationV2(
++            kind=str(goal["kind"]),
++            include_center=bool(goal["include_center"]),
++            boundary_angles_deg=tuple(float(v) for v in goal["boundary_angles_deg"]),
++            boundary_radius_fraction=radius_fraction,
++            max_candidates=int(goal["max_candidates"]),
++        ),
++        stochastic_seeds=seeds,
++        ompl_process_isolation=bool(reps["ompl_process_isolation"]),
++        source_path=source.resolve(),
++    )
++
++
++def _goal_points(
++    task: FreeSpaceBankTask,
++    spec: GoalRepresentationV2,
++) -> tuple[tuple[NDArray[np.float64], ...], tuple[str, ...]]:
++    points: list[NDArray[np.float64]] = []
++    ids: list[str] = []
++    if spec.include_center:
++        points.append(np.asarray(task.goal_center, dtype=np.float64).copy())
++        ids.append("center")
++    radial = float(task.goal_radius) * spec.boundary_radius_fraction
++    for angle_deg in spec.boundary_angles_deg:
++        theta = math.radians(float(angle_deg))
++        offset = radial * np.asarray([math.cos(theta), math.sin(theta)])
++        points.append(np.asarray(task.goal_center, dtype=np.float64) + offset)
++        ids.append(f"boundary_{angle_deg:g}deg")
++    return tuple(points), tuple(ids)
++
++
++def state_from_shared_q(
++    arm: SamplingSmokeArm,
++    start_q: NDArray[np.float64],
++) -> PhysicalState:
++    candidates = list(arm.robot.states_from_output(start_q))
++    if len(candidates) != 1:
++        raise ValueError(
++            f"{arm.name} expected exactly one certified start realization, "
++            f"got {len(candidates)}"
++        )
++    state = candidates[0].state
++    if not arm.robot.validate_state(state, 1e-9):
++        raise ValueError(f"{arm.name} produced inconsistent shared start")
++    if not arm.robot.state_within_limits(state):
++        raise ValueError(f"{arm.name} shared start is outside certified limits")
++    return state
++
++
++def resolve_free_space_tasks_v2(
++    contract: FreeSpaceEvidenceContractV2,
++    *,
++    arms: dict[MechanismName, SamplingSmokeArm] | None = None,
++) -> tuple[ResolvedFreeSpaceTaskV2, ...]:
++    arms = arms if arms is not None else build_bank_arms(contract.base_bank)
++    ref_arm = arms[contract.reference_mechanism]
++    cert = ref_arm.branch.certificate
++    u_lo = np.asarray(cert.input_lower, dtype=np.float64)
++    u_hi = np.asarray(cert.input_upper, dtype=np.float64)
++
++    resolved: list[ResolvedFreeSpaceTaskV2] = []
++    for task in contract.base_bank.tasks:
++        frac = np.asarray(task.start_u_frac, dtype=np.float64)
++        u_ref = u_lo + frac * (u_hi - u_lo)
++        ref_state = ref_arm.robot.state_from_input(u_ref)
++        start_q = np.asarray(ref_state.q, dtype=np.float64).copy()
++        start_tip = np.asarray(
++            ref_arm.robot.forward_kinematics(ref_state).position,
++            dtype=np.float64,
++        )
++        for mech in contract.base_bank.mechanisms:
++            state = state_from_shared_q(arms[mech], start_q)
++            tip = np.asarray(
++                arms[mech].robot.forward_kinematics(state).position,
++                dtype=np.float64,
++            )
++            residual = float(np.linalg.norm(tip - start_tip))
++            if residual > contract.start_tip_tolerance:
++                raise ValueError(
++                    f"{task.task_id}: paired start-tip mismatch for {mech}: "
++                    f"{residual}"
++                )
++        points, point_ids = _goal_points(task, contract.goal_representation)
++        resolved.append(
++            ResolvedFreeSpaceTaskV2(
++                task_id=task.task_id,
++                start_q=start_q,
++                start_tip=start_tip,
++                goal_center=np.asarray(task.goal_center, dtype=np.float64),
++                goal_radius=float(task.goal_radius),
++                goal_points=points,
++                goal_point_ids=point_ids,
++                notes=task.notes,
++            )
++        )
++    return tuple(resolved)
++
++
++def build_problem_v2(
++    arm: SamplingSmokeArm,
++    task: ResolvedFreeSpaceTaskV2,
++) -> Any:
++    """Build the common input-linear V3.6 benchmark problem."""
++    base_task = FreeSpaceBankTask(
++        task_id=task.task_id,
++        start_u_frac=(0.0, 0.0),  # ignored below; retained for V1 container reuse
++        goal_center=task.goal_center,
++        goal_radius=task.goal_radius,
++        notes=task.notes,
++    )
++    problem = build_cartesian_problem(arm, base_task)
++    start = state_from_shared_q(arm, task.start_q)
++    return type(problem)(
++        robot=problem.robot,
++        scene=problem.scene,
++        start=start,
++        goal=problem.goal,
++        path_constraints=problem.path_constraints,
++        local_motion=problem.local_motion,
++        objective=problem.objective,
++    )
++
++
++def goal_generator_v2(
++    arm: SamplingSmokeArm,
++    task: ResolvedFreeSpaceTaskV2,
++) -> FrozenCartesianDiskGoalGenerator:
++    fk = arm.robot.planar_fk
++    if fk is None:
++        raise ValueError("planar FK is required for the V3.6 corrected goal set")
++    return FrozenCartesianDiskGoalGenerator(
++        planar_fk=fk,
++        goal_points=task.goal_points,
++        goal_point_ids=task.goal_point_ids,
++    )
++
++
++def resolved_bank_to_dict(
++    contract: FreeSpaceEvidenceContractV2,
++    tasks: tuple[ResolvedFreeSpaceTaskV2, ...],
++) -> dict[str, Any]:
++    return {
++        "bank_id": contract.bank_id,
++        "schema_version": contract.schema_version,
++        "base_bank_id": contract.base_bank.bank_id,
++        "reference_mechanism": contract.reference_mechanism,
++        "start_contract": "shared_q_resolved_from_reference_arm",
++        "goal_representation": {
++            "kind": contract.goal_representation.kind,
++            "boundary_radius_fraction": (
++                contract.goal_representation.boundary_radius_fraction
++            ),
++            "max_candidates": contract.goal_representation.max_candidates,
++        },
++        "stochastic_seeds": list(contract.stochastic_seeds),
++        "tasks": [
++            {
++                "task_id": task.task_id,
++                "start_q": task.start_q.tolist(),
++                "start_tip": task.start_tip.tolist(),
++                "goal_center": task.goal_center.tolist(),
++                "goal_radius": task.goal_radius,
++                "goal_point_ids": list(task.goal_point_ids),
++                "goal_points": [x.tolist() for x in task.goal_points],
++                "notes": task.notes,
++            }
++            for task in tasks
++        ],
++    }
++
++
++__all__ = [
++    "DEFAULT_BANK_V2_PATH",
++    "FreeSpaceEvidenceContractV2",
++    "FrozenCartesianDiskGoalGenerator",
++    "GoalRepresentationV2",
++    "ResolvedFreeSpaceTaskV2",
++    "build_problem_v2",
++    "goal_generator_v2",
++    "load_free_space_bank_v2",
++    "resolve_free_space_tasks_v2",
++    "resolved_bank_to_dict",
++    "state_from_shared_q",
++]
+diff --git a/src/inequality_mechanisms/benchmarks/free_space_report_v2.py b/src/inequality_mechanisms/benchmarks/free_space_report_v2.py
+new file mode 100644
+index 0000000..e307865
+--- /dev/null
++++ b/src/inequality_mechanisms/benchmarks/free_space_report_v2.py
+@@ -0,0 +1,253 @@
++"""Review summaries for corrected Sprint V3.6 evidence."""
++
++from __future__ import annotations
++
++import html
++import json
++import statistics
++from collections import Counter, defaultdict
++from typing import Any
++
++
++def _success(row: dict[str, Any]) -> bool:
++    return not row.get("skipped") and str(row.get("status")) == "success"
++
++
++def _mean(values: list[float]) -> float | None:
++    return None if not values else float(sum(values) / len(values))
++
++
++def _median(values: list[float]) -> float | None:
++    return None if not values else float(statistics.median(values))
++
++
++def summarize_v3_6_v2(rows: list[dict[str, Any]]) -> dict[str, Any]:
++    status_by_planner: dict[str, Counter[str]] = defaultdict(Counter)
++    by_size: dict[str, Counter[str]] = defaultdict(Counter)
++    by_paired: dict[str, Counter[str]] = defaultdict(Counter)
++    cost: dict[str, list[float]] = defaultdict(list)
++    total_time: dict[str, list[float]] = defaultdict(list)
++    query_time: dict[str, list[float]] = defaultdict(list)
++    subopt: dict[str, list[float]] = defaultdict(list)
++
++    paired_rows: dict[tuple[str, str, Any], dict[str, dict[str, Any]]] = defaultdict(dict)
++    for row in rows:
++        planner = str(row["planner"])
++        label = (
++            f"skipped:{row['skipped']}"
++            if row.get("skipped")
++            else str(row.get("status"))
++        )
++        status_by_planner[planner][label] += 1
++        by_size[str(row["size_stratum"])][label] += 1
++        by_paired[str(row["paired_stratum"])][label] += 1
++
++        key = (str(row["task_id"]), planner, row.get("seed"))
++        paired_rows[key][str(row["mechanism"])] = row
++
++        if not _success(row):
++            continue
++        if row.get("objective_cost") is not None:
++            cost[planner].append(float(row["objective_cost"]))
++        if row.get("total_wall_time_s") is not None:
++            total_time[planner].append(float(row["total_wall_time_s"]))
++        if row.get("query_time_s") is not None:
++            query_time[planner].append(float(row["query_time_s"]))
++        if row.get("suboptimality_to_direct_reference") is not None:
++            subopt[planner].append(
++                float(row["suboptimality_to_direct_reference"])
++            )
++
++    paired_effects: list[dict[str, Any]] = []
++    delta_j: dict[str, list[float]] = defaultdict(list)
++    delta_total: dict[str, list[float]] = defaultdict(list)
++    for (task_id, planner, seed), pair in paired_rows.items():
++        if set(pair) != {"fourbar", "gearbox"}:
++            continue
++        fb = pair["fourbar"]
++        gb = pair["gearbox"]
++        if not (_success(fb) and _success(gb)):
++            continue
++        if fb.get("objective_cost") is None or gb.get("objective_cost") is None:
++            continue
++        dj = float(fb["objective_cost"]) - float(gb["objective_cost"])
++        dt = None
++        if (
++            fb.get("total_wall_time_s") is not None
++            and gb.get("total_wall_time_s") is not None
++        ):
++            dt = float(fb["total_wall_time_s"]) - float(
++                gb["total_wall_time_s"]
++            )
++            delta_total[planner].append(dt)
++        delta_j[planner].append(dj)
++        paired_effects.append(
++            {
++                "task_id": task_id,
++                "planner": planner,
++                "seed": seed,
++                "paired_stratum": fb["paired_stratum"],
++                "size_stratum": fb["size_stratum"],
++                "delta_J_fourbar_minus_gearbox": dj,
++                "delta_total_wall_time_s_fourbar_minus_gearbox": dt,
++                "fourbar_cost": fb["objective_cost"],
++                "gearbox_cost": gb["objective_cost"],
++            }
++        )
++
++    planners = sorted(status_by_planner)
++    planner_summary = {}
++    for planner in planners:
++        planner_summary[planner] = {
++            "status_counts": dict(status_by_planner[planner]),
++            "n_success": len(cost[planner]),
++            "mean_objective_cost": _mean(cost[planner]),
++            "median_objective_cost": _median(cost[planner]),
++            "mean_total_wall_time_s": _mean(total_time[planner]),
++            "median_total_wall_time_s": _median(total_time[planner]),
++            "mean_query_time_s_secondary": _mean(query_time[planner]),
++            "mean_suboptimality_to_direct_reference": _mean(subopt[planner]),
++            "median_suboptimality_to_direct_reference": _median(subopt[planner]),
++            "mean_delta_J_fourbar_minus_gearbox": _mean(delta_j[planner]),
++            "median_delta_J_fourbar_minus_gearbox": _median(delta_j[planner]),
++            "mean_delta_total_wall_time_s_fourbar_minus_gearbox": _mean(
++                delta_total[planner]
++            ),
++        }
++
++    return {
++        "planner_summary": planner_summary,
++        "by_size": {k: dict(v) for k, v in sorted(by_size.items())},
++        "by_paired": {k: dict(v) for k, v in sorted(by_paired.items())},
++        "paired_effects": paired_effects,
++    }
++
++
++def build_readme_v2(
++    *,
++    manifest: dict[str, Any],
++    summary: dict[str, Any],
++) -> str:
++    lines = [
++        "# Version 3 review snapshot — corrected V3.6 free-space evidence",
++        "",
++        "This is the **v2 corrective closeout candidate** for Sprint V3.6. "
++        "The v1 artifact is retained as pilot provenance.",
++        "",
++        f"- Implementation revision: `{manifest.get('implementation_revision')}`",
++        f"- Generated UTC: `{manifest.get('generated_at_utc')}`",
++        f"- Bank: `{manifest.get('bank_id')}`",
++        f"- Frozen stochastic seeds: `{manifest.get('stochastic_seeds')}`",
++        f"- OMPL process isolation: `{manifest.get('ompl_process_isolation')}`",
++        f"- Rows: `{manifest.get('n_rows')}`",
++        "",
++        "## Interpretation",
++        "",
++        "All paired tasks use the same resolved `start_q` and Cartesian start tip. "
++        "The physical Cartesian disk remains the goal predicate, while every "
++        "planner receives the same frozen center + near-boundary representation.",
++        "",
++        "In this unconstrained convex free-space baseline, valid represented goals "
++        "are expected to be input-linearly direct. The primary question is therefore "
++        "planner representation/optimality relative to the direct represented-goal "
++        "reference, not whether nonlocal routing is necessary.",
++        "",
++        "Primary cross-family timing is `total_wall_time_s`; query-only timing is "
++        "reported as a secondary implementation diagnostic.",
++        "",
++        "## Planner summary",
++        "",
++        "| planner | n success | mean cost | mean subopt | mean total wall s | mean ΔJ F-G |",
++        "| --- | ---: | ---: | ---: | ---: | ---: |",
++    ]
++    for planner, values in summary["planner_summary"].items():
++        def fmt(v: Any) -> str:
++            return "—" if v is None else f"{float(v):.5g}"
++        lines.append(
++            f"| `{planner}` | {values['n_success']} | "
++            f"{fmt(values['mean_objective_cost'])} | "
++            f"{fmt(values['mean_suboptimality_to_direct_reference'])} | "
++            f"{fmt(values['mean_total_wall_time_s'])} | "
++            f"{fmt(values['mean_delta_J_fourbar_minus_gearbox'])} |"
++        )
++    lines.extend(
++        [
++            "",
++            "Files:",
++            "",
++            "- `resolved_bank.json` — audited shared starts and frozen goal points",
++            "- `rows.json` — row-level evidence",
++            "- `manifest.json` — implementation revision and run contract",
++            "- `summary.json` — paired/suboptimality aggregates",
++            "- `V3_6_FREE_SPACE_EVIDENCE_V2.html` — GitHub/print review",
++            "",
++            "This remains bounded evidence, not a population estimand or Monte Carlo campaign.",
++            "",
++        ]
++    )
++    return "\n".join(lines)
++
++
++def build_html_v2(
++    *,
++    manifest: dict[str, Any],
++    summary: dict[str, Any],
++) -> str:
++    esc = lambda x: html.escape(str(x))
++    rows = []
++    for planner, values in summary["planner_summary"].items():
++        def fmt(v: Any) -> str:
++            return "—" if v is None else f"{float(v):.5g}"
++        rows.append(
++            "<tr>"
++            f"<td><code>{esc(planner)}</code></td>"
++            f"<td>{values['n_success']}</td>"
++            f"<td>{fmt(values['mean_objective_cost'])}</td>"
++            f"<td>{fmt(values['mean_suboptimality_to_direct_reference'])}</td>"
++            f"<td>{fmt(values['mean_total_wall_time_s'])}</td>"
++            f"<td>{fmt(values['mean_delta_J_fourbar_minus_gearbox'])}</td>"
++            "</tr>"
++        )
++    paired_json = html.escape(
++        json.dumps(summary["by_paired"], indent=2, sort_keys=True)
++    )
++    return f"""<!doctype html>
++<html lang="en">
++<head>
++<meta charset="utf-8"/>
++<title>V3.6 corrected free-space evidence</title>
++<style>
++body{{font-family:system-ui,sans-serif;max-width:1100px;margin:2rem auto;padding:0 1rem;color:#17212b}}
++.banner{{padding:.8rem 1rem;background:#fff4d9;border:1px solid #ecd187;border-radius:8px}}
++table{{border-collapse:collapse;width:100%;margin-top:1rem}}
++th,td{{padding:.45rem;border-bottom:1px solid #d8dee6;text-align:left}}
++code{{background:#eef2f6;padding:.1rem .25rem;border-radius:4px}}
++pre{{background:#f6f8fa;padding:1rem;overflow:auto}}
++</style>
++</head>
++<body>
++<h1>Sprint V3.6 — corrected free-space evidence</h1>
++<div class="banner">Bounded representation/optimality evidence only — not population inference.</div>
++<p>Implementation revision <code>{esc(manifest.get('implementation_revision'))}</code>;
++bank <code>{esc(manifest.get('bank_id'))}</code>;
++frozen seeds <code>{esc(manifest.get('stochastic_seeds'))}</code>.</p>
++<p>Paired mechanisms share the same resolved <code>start_q</code> and Cartesian
++start. All planners consume one frozen represented Cartesian goal set. Primary
++cross-family timing is total wall time.</p>
++<h2>Planner summary</h2>
++<table>
++<thead><tr><th>planner</th><th>n success</th><th>mean cost</th><th>mean subopt</th><th>mean total wall s</th><th>mean ΔJ F-G</th></tr></thead>
++<tbody>{''.join(rows)}</tbody>
++</table>
++<h2>Paired strata</h2>
++<pre>{paired_json}</pre>
++</body>
++</html>
++"""
++
++
++__all__ = [
++    "build_html_v2",
++    "build_readme_v2",
++    "summarize_v3_6_v2",
++]
+diff --git a/src/inequality_mechanisms/benchmarks/ompl_process_worker_v3_6.py b/src/inequality_mechanisms/benchmarks/ompl_process_worker_v3_6.py
+new file mode 100644
+index 0000000..dbcfa11
+--- /dev/null
++++ b/src/inequality_mechanisms/benchmarks/ompl_process_worker_v3_6.py
+@@ -0,0 +1,76 @@
++"""Fresh-process OMPL worker for corrected Sprint V3.6 evidence."""
++
++from __future__ import annotations
++
++import argparse
++import json
++from pathlib import Path
++
++from inequality_mechanisms.adapters.ompl import (
++    OmplPRMPlanner,
++    OmplRRTConnectPlanner,
++)
++from inequality_mechanisms.benchmarks.free_space_bank import build_bank_arms
++from inequality_mechanisms.benchmarks.free_space_bank_v2 import (
++    build_problem_v2,
++    goal_generator_v2,
++    load_free_space_bank_v2,
++    resolve_free_space_tasks_v2,
++)
++from inequality_mechanisms.core.serialize import planning_result_to_dict
++
++
++def run_request(request: dict) -> dict:
++    contract = load_free_space_bank_v2(Path(request["contract_path"]))
++    arms = build_bank_arms(contract.base_bank)
++    tasks = {
++        t.task_id: t for t in resolve_free_space_tasks_v2(contract, arms=arms)
++    }
++    task = tasks[str(request["task_id"])]
++    mech = str(request["mechanism"])
++    arm = arms[mech]
++    problem = build_problem_v2(arm, task)
++    generator = goal_generator_v2(arm, task)
++    seed = int(request["seed"])
++    solve_time_s = float(request["solve_time_s"])
++    max_candidates = contract.goal_representation.max_candidates
++
++    planner_name = str(request["planner"])
++    if planner_name == "ompl_prm":
++        planner = OmplPRMPlanner(
++            seed=seed,
++            goal_generator=generator,
++            max_goal_candidates=max_candidates,
++            solve_time_s=solve_time_s,
++        )
++    elif planner_name == "ompl_rrt_connect":
++        planner = OmplRRTConnectPlanner(
++            seed=seed,
++            goal_generator=generator,
++            max_goal_candidates=max_candidates,
++            solve_time_s=solve_time_s,
++        )
++    else:
++        raise ValueError(f"unsupported OMPL worker planner {planner_name!r}")
++
++    result = planner.solve(problem)
++    return {
++        "process_isolated": True,
++        "planner": planner_name,
++        "seed": seed,
++        "result": planning_result_to_dict(result),
++    }
++
++
++def main() -> None:
++    parser = argparse.ArgumentParser()
++    parser.add_argument("--request", type=Path, required=True)
++    parser.add_argument("--out", type=Path, required=True)
++    args = parser.parse_args()
++    request = json.loads(args.request.read_text(encoding="utf-8"))
++    payload = run_request(request)
++    args.out.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
++
++
++if __name__ == "__main__":
++    main()
+diff --git a/src/inequality_mechanisms/benchmarks/run_free_space_evidence_v2.py b/src/inequality_mechanisms/benchmarks/run_free_space_evidence_v2.py
+new file mode 100644
+index 0000000..b967f73
+--- /dev/null
++++ b/src/inequality_mechanisms/benchmarks/run_free_space_evidence_v2.py
+@@ -0,0 +1,782 @@
++"""Corrected Sprint V3.6 free-space evidence runner.
++
++This module preserves the v1 pilot and implements the v2 closeout contract:
++shared physical starts, one frozen represented goal set, a direct input-linear
++reference, lattice goal-set evaluation, and frozen stochastic repetitions.
++"""
++
++from __future__ import annotations
++
++import json
++import os
++import subprocess
++import sys
++import tempfile
++import time
++from collections import defaultdict
++from dataclasses import replace
++from pathlib import Path
++from typing import Any, Literal
++
++import numpy as np
++
++from inequality_mechanisms.adapters import GraphSearchPlanner
++from inequality_mechanisms.adapters.ompl import is_ompl_available
++from inequality_mechanisms.benchmarks.classification import (
++    TASK_ALREADY_SATISFIED,
++    TASK_INVALID_UNREPRESENTABLE,
++    classify_direct_attempt,
++)
++from inequality_mechanisms.benchmarks.free_space_bank import build_bank_arms
++from inequality_mechanisms.benchmarks.free_space_bank_v2 import (
++    FreeSpaceEvidenceContractV2,
++    ResolvedFreeSpaceTaskV2,
++    build_problem_v2,
++    goal_generator_v2,
++    load_free_space_bank_v2,
++    resolve_free_space_tasks_v2,
++)
++from inequality_mechanisms.benchmarks.free_space_strata import (
++    assign_size_stratum,
++    paired_stratum_from_classes,
++)
++from inequality_mechanisms.benchmarks.smoke_lattice_2r import build_paired_lattice_arms
++from inequality_mechanisms.benchmarks.smoke_sampling_2r import SamplingSmokeArm
++from inequality_mechanisms.core.goals import ExactOutputGoal, GoalSamplingRequest
++from inequality_mechanisms.core.local_motion import OutputLinearMotion
++from inequality_mechanisms.core.results import (
++    PlanningResult,
++    PlanningStatus,
++    ResultProvenance,
++    Trajectory,
++)
++from inequality_mechanisms.core.serialize import planning_result_from_dict
++from inequality_mechanisms.graphs.topology import LatticeConnectivity
++from inequality_mechanisms.planners.direct.input_linear import InputLinearDirectPlanner
++from inequality_mechanisms.planners.direct.output_linear import OutputLinearDirectPlanner
++from inequality_mechanisms.planners.roadmap import PRMPlanner
++from inequality_mechanisms.planners.tree import RRTConnectPlanner
++
++DeterministicPlanner = Literal[
++    "input_linear",
++    "output_linear",
++    "lattice_dijkstra_eight_integrated",
++]
++StochasticPlanner = Literal[
++    "prm",
++    "rrt_connect",
++    "ompl_prm",
++    "ompl_rrt_connect",
++]
++PlannerNameV2 = DeterministicPlanner | StochasticPlanner
++
++DETERMINISTIC_PLANNERS: tuple[DeterministicPlanner, ...] = (
++    "input_linear",
++    "output_linear",
++    "lattice_dijkstra_eight_integrated",
++)
++STOCHASTIC_PLANNERS: tuple[StochasticPlanner, ...] = (
++    "prm",
++    "rrt_connect",
++    "ompl_prm",
++    "ompl_rrt_connect",
++)
++
++
++def _goal_candidates(
++    arm: SamplingSmokeArm,
++    task: ResolvedFreeSpaceTaskV2,
++    contract: FreeSpaceEvidenceContractV2,
++) -> list[Any]:
++    problem = build_problem_v2(arm, task)
++    generator = goal_generator_v2(arm, task)
++    request = GoalSamplingRequest(
++        max_candidates=contract.goal_representation.max_candidates
++    )
++    return list(generator.generate(arm.robot, problem.goal, request))
++
++
++def _presearch(
++    arm: SamplingSmokeArm,
++    task: ResolvedFreeSpaceTaskV2,
++    contract: FreeSpaceEvidenceContractV2,
++) -> tuple[str, dict[str, Any], list[Any]]:
++    problem = build_problem_v2(arm, task)
++    start_valid = bool(problem.scene.state_is_valid(problem.start))
++    try:
++        _ = problem.goal.residual(problem.start)
++        goal_usable = True
++    except (NotImplementedError, ValueError, TypeError):
++        goal_usable = False
++    already = bool(goal_usable and problem.goal.satisfied(problem.start))
++    candidates = _goal_candidates(arm, task, contract) if goal_usable else []
++
++    direct_ok = already
++    direct_reference_cost: float | None = 0.0 if already else None
++    reference_candidate: Any | None = problem.start if already else None
++    reference_candidate_id: str | None = "exact_start" if already else None
++    direct_motion_checks = 0
++    if not already:
++        best: tuple[float, Any, str] | None = None
++        for cand in candidates:
++            motion = problem.local_motion.connect(problem.start, cand.state)
++            if motion is None:
++                continue
++            direct_motion_checks += 1
++            if not problem.scene.motion_is_valid(motion):
++                continue
++            cost = float(problem.objective.motion_cost(motion))
++            sample_id = str(cand.provenance.get("goal_sample_id", "unknown"))
++            if best is None or cost < best[0]:
++                best = (cost, cand.state, sample_id)
++        if best is not None:
++            direct_ok = True
++            direct_reference_cost = best[0]
++            reference_candidate = best[1]
++            reference_candidate_id = best[2]
++
++    task_class = classify_direct_attempt(
++        start_valid=start_valid,
++        goal_usable=goal_usable,
++        already_satisfied=already,
++        candidates_representable=bool(candidates) or already,
++        connector_succeeded=direct_ok,
++    )
++    tip_distance = float(np.linalg.norm(task.start_tip - task.goal_center))
++    size = assign_size_stratum(tip_distance, contract.base_bank.size_bins)
++
++    direct_u = None
++    direct_q = None
++    if reference_candidate is not None and reference_candidate is not problem.start:
++        direct_u = float(
++            np.linalg.norm(reference_candidate.u - problem.start.u)
++        )
++        direct_q = float(
++            np.linalg.norm(reference_candidate.q - problem.start.q)
++        )
++
++    descriptor = {
++        "task_id": task.task_id,
++        "mechanism": arm.name,
++        "task_class": task_class,
++        "size_stratum": size,
++        "tip_distance": tip_distance,
++        "goal_radius": float(task.goal_radius),
++        "goal_center": task.goal_center.tolist(),
++        "start_q": task.start_q.tolist(),
++        "start_tip": task.start_tip.tolist(),
++        "goal_representation": contract.goal_representation.kind,
++        "goal_sample_points": [x.tolist() for x in task.goal_points],
++        "goal_sample_point_ids": list(task.goal_point_ids),
++        "goal_candidates": len(candidates),
++        "direct_connector_policy": getattr(
++            problem.local_motion, "model_id", type(problem.local_motion).__name__
++        ),
++        "direct_connector_available": bool(direct_ok),
++        "direct_motion_checks": direct_motion_checks,
++        "direct_goal_set_reference_cost": direct_reference_cost,
++        "direct_reference_goal_sample_id": reference_candidate_id,
++        "direct_u_distance": direct_u,
++        "direct_q_distance": direct_q,
++    }
++    return task_class, descriptor, candidates
++
++
++def _short_circuit_result(
++    *,
++    problem: Any,
++    task_class: str,
++    planner_id: str,
++    status: PlanningStatus,
++    reason: str,
++) -> PlanningResult:
++    already = status is PlanningStatus.SUCCESS
++    return PlanningResult(
++        status=status,
++        trajectory=Trajectory(states=()) if already else None,
++        selected_goal_state=problem.start if already else None,
++        total_wall_time_s=0.0,
++        query_time_s=0.0,
++        objective_cost=0.0 if already else None,
++        path_length_u=0.0 if already else None,
++        path_length_q=0.0 if already else None,
++        path_length_x=0.0 if already else None,
++        task_class=task_class,
++        final_goal_residual=problem.goal.residual(problem.start),
++        planner_metrics={
++            "graph": {
++                "goal_set_short_circuit": reason,
++                "goal_set_candidate_count": 0,
++            }
++        },
++        provenance=ResultProvenance(
++            architecture_version=3,
++            planner_id=planner_id,
++        ),
++        state_validity_checks=1,
++        motion_validity_checks=0,
++    )
++
++
++def _solve_lattice_goal_set(
++    *,
++    arm: SamplingSmokeArm,
++    task: ResolvedFreeSpaceTaskV2,
++    problem: Any,
++    task_class: str,
++    candidates: list[Any],
++    lattice_arm: Any,
++) -> PlanningResult:
++    planner_id = "lattice_goal_set_dijkstra_eight_integrated"
++    if task_class == TASK_ALREADY_SATISFIED:
++        return _short_circuit_result(
++            problem=problem,
++            task_class=task_class,
++            planner_id=planner_id,
++            status=PlanningStatus.SUCCESS,
++            reason="already_satisfied",
++        )
++    if task_class == TASK_INVALID_UNREPRESENTABLE:
++        return _short_circuit_result(
++            problem=problem,
++            task_class=task_class,
++            planner_id=planner_id,
++            status=PlanningStatus.INVALID,
++            reason="invalid_unrepresentable",
++        )
++    if not candidates:
++        return _short_circuit_result(
++            problem=problem,
++            task_class=TASK_INVALID_UNREPRESENTABLE,
++            planner_id=planner_id,
++            status=PlanningStatus.INVALID,
++            reason="no_represented_goal_candidate",
++        )
++
++    attempts: list[dict[str, Any]] = []
++    attempt_results: list[PlanningResult] = []
++    successes: list[tuple[float, int, PlanningResult]] = []
++    wall_start = time.perf_counter()
++    for idx, cand in enumerate(candidates):
++        exact = replace(
++            problem,
++            goal=ExactOutputGoal(
++                q_goal=np.asarray(cand.state.q, dtype=np.float64).copy()
++            ),
++        )
++        planner = GraphSearchPlanner(
++            graph=lattice_arm.graph,
++            algorithm="dijkstra",
++            edge_cost_mode="integrated",
++            allow_query_overlay=True,
++        )
++        result = planner.solve(exact)
++        attempt_results.append(result)
++        attempts.append(
++            {
++                "candidate_index": idx,
++                "goal_sample_id": cand.provenance.get("goal_sample_id"),
++                "status": str(result.status),
++                "objective_cost": result.objective_cost,
++                "query_time_s": result.query_time_s,
++                "total_wall_time_s": result.total_wall_time_s,
++            }
++        )
++        if result.status is PlanningStatus.SUCCESS and result.objective_cost is not None:
++            successes.append((float(result.objective_cost), idx, result))
++
++    total_wall = time.perf_counter() - wall_start
++    query_total = float(
++        sum(float(r.query_time_s or 0.0) for r in attempt_results)
++    )
++    preprocessing_total = float(
++        sum(float(r.preprocessing_time_s or 0.0) for r in attempt_results)
++    )
++    state_checks = int(
++        sum(int(r.state_validity_checks or 0) for r in attempt_results)
++    )
++    motion_checks = int(
++        sum(int(r.motion_validity_checks or 0) for r in attempt_results)
++    )
++
++    if not successes:
++        return PlanningResult(
++            status=PlanningStatus.UNSOLVED,
++            trajectory=None,
++            selected_goal_state=None,
++            total_wall_time_s=total_wall,
++            preprocessing_time_s=preprocessing_total,
++            query_time_s=query_total,
++            objective_cost=None,
++            path_length_u=None,
++            path_length_q=None,
++            path_length_x=None,
++            task_class=task_class,
++            final_goal_residual=problem.goal.residual(problem.start),
++            planner_metrics={
++                "graph": {
++                    "goal_set_candidate_count": len(candidates),
++                    "goal_set_attempts": attempts,
++                    "goal_set_successes": 0,
++                }
++            },
++            provenance=ResultProvenance(
++                architecture_version=3,
++                planner_id=planner_id,
++            ),
++            state_validity_checks=state_checks,
++            motion_validity_checks=motion_checks,
++        )
++
++    _, selected_idx, chosen = min(successes, key=lambda item: item[0])
++    selected = chosen.selected_goal_state
++    graph_metrics = dict(chosen.planner_metrics.get("graph", {}))
++    graph_metrics.update(
++        {
++            "goal_set_candidate_count": len(candidates),
++            "goal_set_attempts": attempts,
++            "goal_set_successes": len(successes),
++            "selected_goal_candidate_index": selected_idx,
++            "selected_goal_sample_id": candidates[selected_idx].provenance.get(
++                "goal_sample_id"
++            ),
++        }
++    )
++    return PlanningResult(
++        status=PlanningStatus.SUCCESS,
++        trajectory=chosen.trajectory,
++        selected_goal_state=selected,
++        total_wall_time_s=total_wall,
++        setup_time_s=chosen.setup_time_s,
++        preprocessing_time_s=preprocessing_total,
++        query_time_s=query_total,
++        postprocessing_time_s=chosen.postprocessing_time_s,
++        objective_cost=chosen.objective_cost,
++        path_length_u=chosen.path_length_u,
++        path_length_q=chosen.path_length_q,
++        path_length_x=chosen.path_length_x,
++        task_class=task_class,
++        final_goal_residual=(
++            None if selected is None else problem.goal.residual(selected)
++        ),
++        planner_metrics={"graph": graph_metrics},
++        provenance=ResultProvenance(
++            architecture_version=3,
++            code_revision=chosen.provenance.code_revision,
++            planner_id=planner_id,
++            extras={
++                **dict(chosen.provenance.extras),
++                "represented_goal_set": True,
++            },
++        ),
++        state_validity_checks=state_checks,
++        motion_validity_checks=motion_checks,
++        collision_checks=chosen.collision_checks,
++    )
++
++
++def _solve_native(
++    planner_name: PlannerNameV2,
++    *,
++    arm: SamplingSmokeArm,
++    task: ResolvedFreeSpaceTaskV2,
++    contract: FreeSpaceEvidenceContractV2,
++    problem: Any,
++    task_class: str,
++    candidates: list[Any],
++    lattice_arm: Any | None,
++    seed: int | None,
++) -> PlanningResult:
++    generator = goal_generator_v2(arm, task)
++    max_candidates = contract.goal_representation.max_candidates
++    if planner_name == "input_linear":
++        return InputLinearDirectPlanner(
++            goal_generator=generator,
++            max_candidates=max_candidates,
++        ).solve(problem)
++    if planner_name == "output_linear":
++        out_problem = replace(
++            problem,
++            local_motion=OutputLinearMotion(robot=arm.robot, n_samples=64),
++        )
++        return OutputLinearDirectPlanner(
++            goal_generator=generator,
++            max_candidates=max_candidates,
++        ).solve(out_problem)
++    if planner_name == "lattice_dijkstra_eight_integrated":
++        assert lattice_arm is not None
++        return _solve_lattice_goal_set(
++            arm=arm,
++            task=task,
++            problem=problem,
++            task_class=task_class,
++            candidates=candidates,
++            lattice_arm=lattice_arm,
++        )
++    if seed is None:
++        raise ValueError(f"{planner_name} requires a frozen seed")
++    if planner_name == "prm":
++        return PRMPlanner(
++            seed=seed,
++            n_samples=80,
++            k_neighbors=10,
++            max_edge_u=1.25,
++            max_goal_candidates=max_candidates,
++            goal_generator=generator,
++        ).solve(problem)
++    if planner_name == "rrt_connect":
++        return RRTConnectPlanner(
++            seed=seed,
++            max_iterations=800,
++            step_u=0.35,
++            goal_bias=0.1,
++            max_goal_candidates=max_candidates,
++            goal_generator=generator,
++        ).solve(problem)
++    raise ValueError(f"{planner_name!r} is not an in-process native planner")
++
++
++def _solve_ompl_isolated(
++    *,
++    contract: FreeSpaceEvidenceContractV2,
++    task_id: str,
++    mechanism: str,
++    planner_name: str,
++    seed: int,
++    solve_time_s: float,
++) -> tuple[PlanningResult | None, str | None]:
++    if not is_ompl_available():
++        return None, "ompl_unavailable"
++    if not contract.ompl_process_isolation:
++        raise ValueError("corrected V3.6 contract requires OMPL process isolation")
++
++    request = {
++        "contract_path": str(contract.source_path),
++        "task_id": task_id,
++        "mechanism": mechanism,
++        "planner": planner_name,
++        "seed": int(seed),
++        "solve_time_s": float(solve_time_s),
++    }
++    with tempfile.TemporaryDirectory(prefix="v3_6_ompl_") as tmp:
++        tmp_path = Path(tmp)
++        req_path = tmp_path / "request.json"
++        out_path = tmp_path / "result.json"
++        req_path.write_text(json.dumps(request), encoding="utf-8")
++        cmd = [
++            sys.executable,
++            "-m",
++            "inequality_mechanisms.benchmarks.ompl_process_worker_v3_6",
++            "--request",
++            str(req_path),
++            "--out",
++            str(out_path),
++        ]
++        proc = subprocess.run(
++            cmd,
++            capture_output=True,
++            text=True,
++            timeout=max(15.0, float(solve_time_s) + 10.0),
++            env=os.environ.copy(),
++        )
++        if proc.returncode != 0:
++            raise RuntimeError(
++                "OMPL isolated worker failed "
++                f"({planner_name}, {task_id}, {mechanism}, seed={seed}): "
++                f"{proc.stderr.strip() or proc.stdout.strip()}"
++            )
++        payload = json.loads(out_path.read_text(encoding="utf-8"))
++    result = planning_result_from_dict(payload["result"])
++    return result, None
++
++
++def _result_row(
++    *,
++    contract: FreeSpaceEvidenceContractV2,
++    task: ResolvedFreeSpaceTaskV2,
++    mechanism: str,
++    planner_name: str,
++    descriptors: dict[str, Any],
++    paired_stratum: str,
++    result: PlanningResult | None,
++    seed: int | None,
++    repetition_index: int,
++    stochastic: bool,
++    process_isolated: bool,
++    skipped: str | None = None,
++) -> dict[str, Any]:
++    ref = descriptors.get("direct_goal_set_reference_cost")
++    cost = None if result is None else result.objective_cost
++    suboptimality = None
++    if cost is not None and ref is not None:
++        suboptimality = float(cost) - float(ref)
++    return {
++        "bank_id": contract.bank_id,
++        "task_id": task.task_id,
++        "mechanism": mechanism,
++        "planner": planner_name,
++        "seed": seed,
++        "repetition_index": repetition_index,
++        "stochastic": stochastic,
++        "process_isolated": process_isolated,
++        "paired_stratum": paired_stratum,
++        "size_stratum": descriptors["size_stratum"],
++        "task_class": descriptors["task_class"],
++        "planner_reported_task_class": (
++            None if result is None else result.task_class
++        ),
++        "tip_distance": descriptors["tip_distance"],
++        "presearch": descriptors,
++        "direct_goal_set_reference_cost": ref,
++        "suboptimality_to_direct_reference": suboptimality,
++        "skipped": skipped,
++        "status": None if result is None else str(result.status),
++        "objective_cost": cost,
++        "path_length_u": None if result is None else result.path_length_u,
++        "path_length_q": None if result is None else result.path_length_q,
++        "setup_time_s": None if result is None else result.setup_time_s,
++        "preprocessing_time_s": (
++            None if result is None else result.preprocessing_time_s
++        ),
++        "query_time_s": None if result is None else result.query_time_s,
++        "postprocessing_time_s": (
++            None if result is None else result.postprocessing_time_s
++        ),
++        "total_wall_time_s": (
++            None if result is None else result.total_wall_time_s
++        ),
++        "state_validity_checks": (
++            None if result is None else result.state_validity_checks
++        ),
++        "motion_validity_checks": (
++            None if result is None else result.motion_validity_checks
++        ),
++        "planner_metrics": (
++            None if result is None else dict(result.planner_metrics)
++        ),
++        "provenance_planner_id": (
++            None if result is None else result.provenance.planner_id
++        ),
++        "provenance_extras": (
++            None if result is None else dict(result.provenance.extras)
++        ),
++        "architecture_version": 3,
++    }
++
++
++def run_free_space_evidence_v2(
++    *,
++    contract: FreeSpaceEvidenceContractV2 | None = None,
++    deterministic_planners: tuple[DeterministicPlanner, ...] = (
++        DETERMINISTIC_PLANNERS
++    ),
++    stochastic_planners: tuple[StochasticPlanner, ...] = STOCHASTIC_PLANNERS,
++    seeds: tuple[int, ...] | None = None,
++    ompl_solve_time_s: float = 1.0,
++    lattice_shape: tuple[int, int] = (8, 8),
++    task_ids: tuple[str, ...] | None = None,
++) -> tuple[list[dict[str, Any]], dict[str, Any]]:
++    contract = contract if contract is not None else load_free_space_bank_v2()
++    seeds = contract.stochastic_seeds if seeds is None else tuple(seeds)
++    arms = build_bank_arms(contract.base_bank)
++    resolved_all = resolve_free_space_tasks_v2(contract, arms=arms)
++    if task_ids is not None:
++        wanted = set(task_ids)
++        resolved = tuple(t for t in resolved_all if t.task_id in wanted)
++        if not resolved:
++            raise ValueError("task_ids filtered to an empty task list")
++    else:
++        resolved = resolved_all
++
++    lattice_arms: dict[str, Any] = {}
++    if "lattice_dijkstra_eight_integrated" in deterministic_planners:
++        lattice_arms = build_paired_lattice_arms(
++            shape=lattice_shape,
++            connectivity=LatticeConnectivity.CHEBYSHEV_1,
++        )
++
++    class_by_key: dict[tuple[str, str], str] = {}
++    desc_by_key: dict[tuple[str, str], dict[str, Any]] = {}
++    cands_by_key: dict[tuple[str, str], list[Any]] = {}
++    for task in resolved:
++        shared_size: str | None = None
++        for mech in contract.base_bank.mechanisms:
++            arm = arms[mech]
++            task_class, desc, cands = _presearch(arm, task, contract)
++            class_by_key[(task.task_id, mech)] = task_class
++            desc_by_key[(task.task_id, mech)] = desc
++            cands_by_key[(task.task_id, mech)] = cands
++            if shared_size is None:
++                shared_size = str(desc["size_stratum"])
++            elif shared_size != str(desc["size_stratum"]):
++                raise RuntimeError(
++                    f"{task.task_id}: paired size stratum differs despite shared start"
++                )
++
++    paired_by_task: dict[str, str] = {}
++    for task in resolved:
++        paired_by_task[task.task_id] = paired_stratum_from_classes(
++            class_by_key[(task.task_id, "fourbar")],
++            class_by_key[(task.task_id, "gearbox")],
++        )
++        fb_q = [
++            tuple(np.round(c.state.q, decimals=12).tolist())
++            for c in cands_by_key[(task.task_id, "fourbar")]
++        ]
++        gb_q = [
++            tuple(np.round(c.state.q, decimals=12).tolist())
++            for c in cands_by_key[(task.task_id, "gearbox")]
++        ]
++        if fb_q != gb_q:
++            raise RuntimeError(
++                f"{task.task_id}: represented goal-state q ordering differs "
++                "between paired mechanisms"
++            )
++
++    rows: list[dict[str, Any]] = []
++    for task in resolved:
++        paired = paired_by_task[task.task_id]
++        for mech in contract.base_bank.mechanisms:
++            arm = arms[mech]
++            problem = build_problem_v2(arm, task)
++            task_class = class_by_key[(task.task_id, mech)]
++            desc = desc_by_key[(task.task_id, mech)]
++            cands = cands_by_key[(task.task_id, mech)]
++            lattice_arm = lattice_arms.get(mech)
++
++            for planner_name in deterministic_planners:
++                result = _solve_native(
++                    planner_name,
++                    arm=arm,
++                    task=task,
++                    contract=contract,
++                    problem=problem,
++                    task_class=task_class,
++                    candidates=cands,
++                    lattice_arm=lattice_arm,
++                    seed=None,
++                )
++                rows.append(
++                    _result_row(
++                        contract=contract,
++                        task=task,
++                        mechanism=mech,
++                        planner_name=planner_name,
++                        descriptors=desc,
++                        paired_stratum=paired,
++                        result=result,
++                        seed=None,
++                        repetition_index=0,
++                        stochastic=False,
++                        process_isolated=False,
++                    )
++                )
++
++            for repetition_index, seed in enumerate(seeds):
++                for planner_name in stochastic_planners:
++                    process_isolated = planner_name.startswith("ompl_")
++                    skipped = None
++                    if process_isolated:
++                        result, skipped = _solve_ompl_isolated(
++                            contract=contract,
++                            task_id=task.task_id,
++                            mechanism=mech,
++                            planner_name=planner_name,
++                            seed=seed,
++                            solve_time_s=ompl_solve_time_s,
++                        )
++                    else:
++                        result = _solve_native(
++                            planner_name,
++                            arm=arm,
++                            task=task,
++                            contract=contract,
++                            problem=problem,
++                            task_class=task_class,
++                            candidates=cands,
++                            lattice_arm=lattice_arm,
++                            seed=seed,
++                        )
++                    rows.append(
++                        _result_row(
++                            contract=contract,
++                            task=task,
++                            mechanism=mech,
++                            planner_name=planner_name,
++                            descriptors=desc,
++                            paired_stratum=paired,
++                            result=result,
++                            seed=seed,
++                            repetition_index=repetition_index,
++                            stochastic=True,
++                            process_isolated=process_isolated,
++                            skipped=skipped,
++                        )
++                    )
++
++    resolved_dict = {
++        "contract": {
++            "bank_id": contract.bank_id,
++            "reference_mechanism": contract.reference_mechanism,
++            "stochastic_seeds": list(seeds),
++        },
++        "tasks": [
++            {
++                "task_id": task.task_id,
++                "start_q": task.start_q.tolist(),
++                "start_tip": task.start_tip.tolist(),
++                "goal_center": task.goal_center.tolist(),
++                "goal_radius": task.goal_radius,
++                "goal_point_ids": list(task.goal_point_ids),
++                "goal_points": [x.tolist() for x in task.goal_points],
++            }
++            for task in resolved
++        ],
++    }
++    return rows, resolved_dict
++
++
++def evidence_manifest_v2(
++    rows: list[dict[str, Any]],
++    *,
++    contract: FreeSpaceEvidenceContractV2,
++    implementation_revision: str | None,
++    ompl_solve_time_s: float,
++) -> dict[str, Any]:
++    status_counts: dict[str, int] = defaultdict(int)
++    skip_counts: dict[str, int] = defaultdict(int)
++    for row in rows:
++        if row.get("skipped"):
++            skip_counts[str(row["skipped"])] += 1
++        else:
++            status_counts[str(row.get("status"))] += 1
++    return {
++        "snapshot_schema_version": 2,
++        "snapshot_id": "v3_6_free_space_v2",
++        "architecture_version": 3,
++        "bank_id": contract.bank_id,
++        "base_bank_id": contract.base_bank.bank_id,
++        "implementation_revision": implementation_revision,
++        "generated_at_utc": time.strftime(
++            "%Y-%m-%dT%H:%M:%SZ", time.gmtime()
++        ),
++        "stochastic_seeds": list(contract.stochastic_seeds),
++        "ompl_process_isolation": contract.ompl_process_isolation,
++        "ompl_solve_time_s": float(ompl_solve_time_s),
++        "ompl_available": bool(is_ompl_available()),
++        "n_rows": len(rows),
++        "status_counts": dict(status_counts),
++        "skip_counts": dict(skip_counts),
++        "scope_note": (
++            "Corrected bounded free-space representation/optimality evidence; "
++            "not population inference."
++        ),
++    }
++
++
++__all__ = [
++    "DETERMINISTIC_PLANNERS",
++    "STOCHASTIC_PLANNERS",
++    "evidence_manifest_v2",
++    "run_free_space_evidence_v2",
++]
+diff --git a/tests/v3/test_v3_6_free_space_evidence_v2.py b/tests/v3/test_v3_6_free_space_evidence_v2.py
+new file mode 100644
+index 0000000..6973323
+--- /dev/null
++++ b/tests/v3/test_v3_6_free_space_evidence_v2.py
+@@ -0,0 +1,151 @@
++"""Corrective Sprint V3.6 evidence-contract tests."""
++
++from __future__ import annotations
++
++import numpy as np
++import pytest
++
++from inequality_mechanisms.benchmarks.free_space_bank import build_bank_arms
++from inequality_mechanisms.benchmarks.free_space_bank_v2 import (
++    build_problem_v2,
++    goal_generator_v2,
++    load_free_space_bank_v2,
++    resolve_free_space_tasks_v2,
++    state_from_shared_q,
++)
++from inequality_mechanisms.benchmarks.run_free_space_evidence_v2 import (
++    run_free_space_evidence_v2,
++)
++from inequality_mechanisms.core.goals import GoalSamplingRequest
++
++
++def test_v2_contract_preserves_v1_and_resolves_shared_starts() -> None:
++    contract = load_free_space_bank_v2()
++    assert contract.bank_id == "free_space_planar2r_v2"
++    assert contract.base_bank.bank_id == "free_space_planar2r_v1"
++    arms = build_bank_arms(contract.base_bank)
++    tasks = resolve_free_space_tasks_v2(contract, arms=arms)
++    assert len(tasks) == len(contract.base_bank.tasks)
++
++    for task in tasks:
++        tips = []
++        for mech in contract.base_bank.mechanisms:
++            state = state_from_shared_q(arms[mech], task.start_q)
++            np.testing.assert_allclose(state.q, task.start_q, atol=1e-9)
++            tips.append(
++                np.asarray(
++                    arms[mech].robot.forward_kinematics(state).position,
++                    dtype=np.float64,
++                )
++            )
++        np.testing.assert_allclose(tips[0], tips[1], atol=contract.start_tip_tolerance)
++        np.testing.assert_allclose(tips[0], task.start_tip, atol=contract.start_tip_tolerance)
++
++
++def test_frozen_disk_points_are_deterministic_and_inside_predicate() -> None:
++    contract = load_free_space_bank_v2()
++    arms = build_bank_arms(contract.base_bank)
++    task = resolve_free_space_tasks_v2(contract, arms=arms)[3]
++    assert len(task.goal_points) == 9
++    for point in task.goal_points:
++        assert (
++            float(np.linalg.norm(point - task.goal_center))
++            <= task.goal_radius + 1e-12
++        )
++
++    arm = arms["fourbar"]
++    problem = build_problem_v2(arm, task)
++    generator = goal_generator_v2(arm, task)
++    request = GoalSamplingRequest(
++        max_candidates=contract.goal_representation.max_candidates
++    )
++    first = list(generator.generate(arm.robot, problem.goal, request))
++    second = list(generator.generate(arm.robot, problem.goal, request))
++    assert [c.provenance["goal_sample_id"] for c in first] == [
++        c.provenance["goal_sample_id"] for c in second
++    ]
++    assert all(problem.goal.satisfied(c.state) for c in first)
++
++
++def test_represented_goal_q_ordering_matches_across_mechanisms() -> None:
++    contract = load_free_space_bank_v2()
++    arms = build_bank_arms(contract.base_bank)
++    task = resolve_free_space_tasks_v2(contract, arms=arms)[3]
++    q_orders = []
++    for mech in contract.base_bank.mechanisms:
++        arm = arms[mech]
++        problem = build_problem_v2(arm, task)
++        generator = goal_generator_v2(arm, task)
++        request = GoalSamplingRequest(
++            max_candidates=contract.goal_representation.max_candidates
++        )
++        q_orders.append([
++            tuple(np.round(c.state.q, decimals=12).tolist())
++            for c in generator.generate(arm.robot, problem.goal, request)
++        ])
++    assert q_orders[0] == q_orders[1]
++
++
++def test_input_linear_matches_represented_goal_reference_on_small_pack() -> None:
++    rows, _ = run_free_space_evidence_v2(
++        deterministic_planners=("input_linear",),
++        stochastic_planners=(),
++        task_ids=("already_0", "near_0", "far_0"),
++    )
++    assert rows
++    for row in rows:
++        if row["status"] != "success":
++            continue
++        assert row["direct_goal_set_reference_cost"] is not None
++        assert row["suboptimality_to_direct_reference"] == pytest.approx(
++            0.0, abs=1e-9
++        )
++
++
++def test_lattice_short_circuits_already_and_invalid_without_skip() -> None:
++    rows, _ = run_free_space_evidence_v2(
++        deterministic_planners=("lattice_dijkstra_eight_integrated",),
++        stochastic_planners=(),
++        task_ids=("already_0", "invalid_far_tip_0"),
++    )
++    assert len(rows) == 4
++    assert all(row["skipped"] is None for row in rows)
++    already = [r for r in rows if r["task_id"] == "already_0"]
++    invalid = [r for r in rows if r["task_id"] == "invalid_far_tip_0"]
++    assert all(r["status"] == "success" for r in already)
++    assert all(r["objective_cost"] == pytest.approx(0.0) for r in already)
++    assert all(r["status"] == "invalid" for r in invalid)
++
++
++def test_paired_size_stratum_is_shared_after_start_correction() -> None:
++    rows, _ = run_free_space_evidence_v2(
++        deterministic_planners=("input_linear",),
++        stochastic_planners=(),
++        task_ids=("near_0", "far_0"),
++    )
++    by_task = {}
++    for row in rows:
++        by_task.setdefault(row["task_id"], []).append(row)
++    for task_rows in by_task.values():
++        assert len({r["size_stratum"] for r in task_rows}) == 1
++        starts = [r["presearch"]["start_tip"] for r in task_rows]
++        np.testing.assert_allclose(starts[0], starts[1], atol=1e-9)
++
++
++@pytest.mark.ompl
++def test_process_isolated_ompl_worker_path_when_available() -> None:
++    from inequality_mechanisms.adapters.ompl import is_ompl_available
++
++    if not is_ompl_available():
++        pytest.skip("OMPL Python bindings unavailable")
++    rows, _ = run_free_space_evidence_v2(
++        deterministic_planners=(),
++        stochastic_planners=("ompl_rrt_connect",),
++        seeds=(7,),
++        task_ids=("near_0",),
++        ompl_solve_time_s=0.5,
++    )
++    assert len(rows) == 2
++    assert all(r["process_isolated"] for r in rows)
++    assert all(r["seed"] == 7 for r in rows)
++    assert all(r["skipped"] is None for r in rows)
+
+diff --git a/docs/software/planning/ACTIVE_SPRINT.md b/docs/software/planning/ACTIVE_SPRINT.md
+--- a/docs/software/planning/ACTIVE_SPRINT.md
++++ b/docs/software/planning/ACTIVE_SPRINT.md
+@@ -1,11 +1,11 @@
+ # Active sprint
+ 
+-**Current focus:** [Sprint V3.6 — Free-Space Planner Evidence](sprints/v3/SPRINT_V3_6_FREE_SPACE_EVIDENCE.md).
++**Current focus:** [Sprint V3.6 — Free-Space Planner Evidence](sprints/v3/SPRINT_V3_6_FREE_SPACE_EVIDENCE.md), corrective v2 evidence contract.
+ 
+-**Code authorization:** V3-600–V3-605 only (frozen Cartesian bank, ADR-026/size strata, multi-planner runner, review artifact). No obstacles, MoveIt, production Monte Carlo, higher-DOF, or `V3-DEFER-001` closure.
++**Code authorization:** V3-600–V3-605 only (shared-start corrective bank, frozen represented Cartesian goal set, direct reference, multi-planner repetitions, review artifact). No obstacles, MoveIt, production Monte Carlo, higher-DOF, or `V3-DEFER-001` closure.
+ 
+ **Completed:** V2.0–V2.12 smoke/calibration (production held); V3.0–V3.5 (contracts, core, direct 2R, lattice/local-motion, basic PRM/RRTConnect, optional OMPL adapter + review snapshot).
+ 
+-**Frozen evidence:** [V2 evidence freeze](../experiments/reports/V2_EVIDENCE_FREEZE.md). V3.5 review snapshot: [`results/v3_review/v3_5_closeout/`](../../results/v3_review/v3_5_closeout/). V3.6 free-space evidence: [`results/v3_review/v3_6_free_space/`](../../results/v3_review/v3_6_free_space/).
++**Frozen evidence:** [V2 evidence freeze](../experiments/reports/V2_EVIDENCE_FREEZE.md). V3.5 review snapshot: [`results/v3_review/v3_5_closeout/`](../../results/v3_review/v3_5_closeout/). V3.6 v1 pilot (superseded for closeout): [`results/v3_review/v3_6_free_space/`](../../results/v3_review/v3_6_free_space/). Corrected v2 evidence is generated only after the implementation commit into `results/v3_review/v3_6_free_space_v2/`.
+ 
+ **Held:** Version 2 Cartesian production inference, Version 2.7 3R, new Monte Carlo campaigns, obstacles, MoveIt, higher-DOF, Sprint V3.7+, and deferred native planner breadth (`V3-DEFER-001`) until separately activated.
+
+diff --git a/docs/software/VERSION_MATRIX.md b/docs/software/VERSION_MATRIX.md
+--- a/docs/software/VERSION_MATRIX.md
++++ b/docs/software/VERSION_MATRIX.md
+@@ -12,6 +12,6 @@
+ | Start / goal | Graph nodes / V1 queries | Lattice attachment; Cartesian goal regions (B) | Exact start; goal as task predicate; attachment residual is diagnostic |
+ | Sampling modes | Uniform actuator lattice | Uniform-\(\mathcal U\) mapped to \(\mathcal Q\), plus uniform-\(\mathcal Q\) control | External task banks; planner sampling is backend-specific |
+ | Config/result schema | Version 1 | Separate Version 2 schema | Separate Version 3 problem/result schema |
+-| Status | Preserved research baseline | Frozen historical experiment lineage | Active free-space evidence (Sprint V3.6) |
++| Status | Preserved research baseline | Frozen historical experiment lineage | Active corrected free-space evidence contract (Sprint V3.6) |
+ 
+ ADR-001 remains authoritative for Version 1. Version 2 may use output-state identity only after the operating branch satisfies the accepted certification contract. Version 3 contracts are accepted under ADRs 021–026 and do not reinterpret frozen Version 2 evidence.

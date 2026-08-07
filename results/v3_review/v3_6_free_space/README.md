@@ -1,5 +1,12 @@
 # Version 3 review snapshot — V3.6 free-space evidence
 
+> **Pilot / superseded for V3.6 closeout.** This artifact is preserved exactly
+> because it exposed an experimental-design defect: `start_u_frac` was applied
+> independently to the four-bar and gearbox, so paired rows did not necessarily
+> share the same `q` or Cartesian start. The corrected contract is
+> `configs/v3/free_space_planar2r_v2.json` and its review output is
+> `results/v3_review/v3_6_free_space_v2/`.
+
 This directory is a **bounded free-space planner evidence package**, not a population study, Monte Carlo result, or obstacle campaign.
 
 - Code revision: `f1f3ab9a5edd259cc26deae514695f3c19cd45b3`
@@ -46,15 +53,15 @@ Native stochastic planners reuse V3.4 `SMOKE_SEED` (7). OMPL adapters declare `r
 
 Files:
 
-- `rows.json` — row-level evidence
+- `rows.json` — row-level pilot evidence
 - `manifest.json` — run metadata
-- `summary.json` — stratum / planner aggregates
-- `V3_6_FREE_SPACE_EVIDENCE.html` — print-ready summary
+- `summary.json` — pilot aggregates
+- `V3_6_FREE_SPACE_EVIDENCE.html` — print-ready pilot summary
 
-Regenerate with:
+Regenerate the pilot only for provenance:
 
 ```bash
 PYTHONPATH=src:. python scripts/run_v3_6_free_space_evidence.py
 ```
 
-Prefer the OMPL-enabled interpreter (e.g. `.conda-ompl`) when publishing OMPL rows.
+Do not use the v1 pooled means as the V3.6 closeout result.
