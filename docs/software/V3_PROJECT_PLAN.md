@@ -739,9 +739,10 @@ No V2 result is silently recomputed or reinterpreted under V3.
 
 ### V3-M4 — Native roadmap and tree planners
 
-- PRM, Lazy PRM, PRM*;
-- RRT, RRTConnect, RRT*;
-- common stochastic seed and repetition protocol.
+- delivered in Sprint V3.4: basic PRM, RRTConnect, and the common stochastic seed/repetition protocol;
+- PRM is currently build-per-task and therefore does not claim reusable multi-query execution;
+- deferred under `V3-DEFER-001`: Lazy PRM, PRM*, plain RRT, RRT*, weighted/bidirectional/any-angle lattice breadth, richer connectivity, and informed/batch native planners;
+- revisit deferred native breadth after OMPL parity and free-space evidence determine which implementations add independent scientific value.
 
 ### V3-M5 — OMPL adapter
 

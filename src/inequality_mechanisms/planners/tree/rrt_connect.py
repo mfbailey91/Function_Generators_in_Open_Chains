@@ -10,7 +10,6 @@ import numpy as np
 
 from inequality_mechanisms.benchmarks.classification import (
     TASK_ALREADY_SATISFIED,
-    TASK_DIRECT_CONNECTOR_UNAVAILABLE,
     TASK_INVALID_UNREPRESENTABLE,
     classify_direct_attempt,
 )
@@ -32,6 +31,7 @@ from inequality_mechanisms.planners.sampling_rng import (
 )
 from inequality_mechanisms.planners.sampling_space import (
     actuator_bounds,
+    direct_connector_available,
     path_cost_u,
     path_length_q,
     resolve_connector,
@@ -163,6 +163,14 @@ class RRTConnectPlanner:
                 "rewires": 0,
                 "seed": int(self.seed),
                 "repetition_index": int(self.repetition_index),
+                "direct_connector_policy": str(
+                    getattr(
+                        problem.local_motion,
+                        "model_id",
+                        type(problem.local_motion).__name__,
+                    )
+                ),
+                "direct_connector_available": None,
             }
         }
 
@@ -221,7 +229,15 @@ class RRTConnectPlanner:
                 state_checks=1,
             )
 
-        task_class = TASK_DIRECT_CONNECTOR_UNAVAILABLE
+        direct_succeeded, direct_checks = direct_connector_available(problem, goals)
+        base_metrics["tree"]["direct_connector_available"] = direct_succeeded
+        task_class = classify_direct_attempt(
+            start_valid=True,
+            goal_usable=True,
+            already_satisfied=False,
+            candidates_representable=True,
+            connector_succeeded=direct_succeeded,
+        )
         connector = resolve_connector(problem)
         assembly = dict(problem.start.assembly_state)
         lo, hi = actuator_bounds(problem.robot)
@@ -232,7 +248,7 @@ class RRTConnectPlanner:
 
         nn_ops = 0
         extensions = 0
-        motion_checks = 0
+        motion_checks = direct_checks
         state_checks = 1
 
         def nearest(tree: list[_TreeNode], target: PhysicalState) -> int:

@@ -1,8 +1,8 @@
 # Sprint V3.4 — Native Roadmap and Tree Planners
 
-**Status:** active — basic PRM and RRTConnect with frozen-seed reproducibility  
-**Code authorization:** V3-400–V3-405 only  
-**Depends on:** [Sprint V3.3](SPRINT_V3_3_LATTICE_LOCAL_MOTION.md) (completed); ADRs 021–026  
+**Status:** completed — basic PRM and RRTConnect with frozen-seed reproducibility
+**Code authorization:** none (handoff to V3.5)
+**Depends on:** [Sprint V3.3](SPRINT_V3_3_LATTICE_LOCAL_MOTION.md) (completed); ADRs 021–026
 **Reference:** [V3_PROJECT_PLAN.md](../../../V3_PROJECT_PLAN.md) §16 V3-M4 (narrowed)
 
 ## Sprint intent
@@ -38,7 +38,7 @@ Shared NumPy RNG helper; record seed and repetition index in result provenance/m
 
 ### V3-402 — Native PRM
 
-Basic PRM: sample in certified actuator box, connect with validated local motion, attach exact start and goal candidates, Dijkstra on the roadmap. Report preprocess vs query timing and `planner_metrics["roadmap"]`.
+Basic PRM: sample in certified actuator box, connect with validated local motion, attach exact start and goal candidates, Dijkstra on the roadmap. Report preprocess vs query timing and `planner_metrics["roadmap"]`. The V3.4 implementation rebuilds per task and therefore does not claim reusable multi-query execution.
 
 ### V3-403 — Native RRTConnect
 
@@ -61,4 +61,5 @@ Seed reproducibility, invalid/already-satisfied paths, motion rejection, exact-s
 5. Family metrics are namespaced under `roadmap` / `tree`.
 6. Free-space only; existing V3 suites remain green.
 7. No OMPL / obstacles / Monte Carlo / Lazy·PRM* / RRT* activated opportunistically.
-8. Hand off to V3.5 for the OMPL adapter.
+8. ADR-026 classification is computed from the declared direct connector before PRM/RRTConnect outcome; selecting a nonlocal planner does not force the task into `direct connector unavailable`.
+9. Hand off to V3.5 for the OMPL adapter; deferred native planner breadth is tracked as `V3-DEFER-001` in the software backlog.

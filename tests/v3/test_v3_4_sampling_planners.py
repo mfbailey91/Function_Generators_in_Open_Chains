@@ -9,7 +9,7 @@ from tests.graphs_v2._fixtures import fourbar_2d_branch
 from inequality_mechanisms.adapters import OperatingBranchRobotModel
 from inequality_mechanisms.benchmarks import (
     TASK_ALREADY_SATISFIED,
-    TASK_DIRECT_CONNECTOR_UNAVAILABLE,
+    TASK_DIRECT_LOCAL_FEASIBLE,
     TASK_INVALID_UNREPRESENTABLE,
 )
 from inequality_mechanisms.benchmarks.smoke_sampling_2r import (
@@ -134,7 +134,8 @@ def test_exact_start_preserved_and_namespaced_metrics() -> None:
     assert "roadmap" in prm.planner_metrics
     assert prm.preprocessing_time_s is not None
     assert prm.query_time_s is not None
-    assert prm.task_class == TASK_DIRECT_CONNECTOR_UNAVAILABLE
+    assert prm.task_class == TASK_DIRECT_LOCAL_FEASIBLE
+    assert prm.planner_metrics["roadmap"]["direct_connector_available"] is True
     assert prm.provenance.architecture_version == 3
     assert prm.provenance.extras["seed"] == 3
 
@@ -144,6 +145,7 @@ def test_exact_start_preserved_and_namespaced_metrics() -> None:
     assert rrt.trajectory.states[0].u == pytest.approx(problem.start.u)
     assert "tree" in rrt.planner_metrics
     assert rrt.planner_metrics["tree"]["rewires"] == 0
+    assert rrt.task_class == TASK_DIRECT_LOCAL_FEASIBLE
 
 
 def test_motion_rejection_via_tiny_max_edge() -> None:
@@ -156,12 +158,21 @@ def test_motion_rejection_via_tiny_max_edge() -> None:
     ).solve(problem)
     assert result.status is PlanningStatus.UNSOLVED
     assert result.planner_metrics["roadmap"]["accepted_edges"] == 0
+    # Task class describes the problem, not whether this nonlocal planner solved it.
+    assert result.task_class == TASK_DIRECT_LOCAL_FEASIBLE
+    assert result.planner_metrics["roadmap"]["direct_connector_available"] is True
 
 
 def test_make_generator_mixes_repetition() -> None:
     g0 = make_generator(5, repetition_index=0)
     g1 = make_generator(5, repetition_index=1)
     assert g0.integers(0, 1_000_000) != g1.integers(0, 1_000_000)
+
+
+def test_prm_build_per_task_does_not_claim_multi_query_reuse() -> None:
+    planner = PRMPlanner(seed=7)
+    assert planner.lifecycle.name == "BUILD_PER_TASK"
+    assert planner.capabilities.multi_query is False
 
 
 def test_sampling_smoke_pack() -> None:
@@ -176,7 +187,7 @@ def test_sampling_smoke_pack() -> None:
             assert result.status is PlanningStatus.SUCCESS
             assert result.task_class == TASK_ALREADY_SATISFIED
 
-        feasible = tasks[f"{mech}_nonlocal_feasible"]
+        feasible = tasks[f"{mech}_planning_feasible"]
         for planner_name in ("prm", "rrt_connect"):
             result = run_smoke_task(
                 arms[mech],
@@ -187,7 +198,7 @@ def test_sampling_smoke_pack() -> None:
             assert result.status is PlanningStatus.SUCCESS, (
                 f"{mech} {planner_name} failed: {result.planner_metrics}"
             )
-            assert result.task_class is not None
+            assert result.task_class == TASK_DIRECT_LOCAL_FEASIBLE
             assert result.provenance.architecture_version == 3
 
     rows = run_sampling_smoke_pack()

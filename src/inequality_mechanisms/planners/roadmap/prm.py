@@ -11,7 +11,6 @@ import numpy as np
 
 from inequality_mechanisms.benchmarks.classification import (
     TASK_ALREADY_SATISFIED,
-    TASK_DIRECT_CONNECTOR_UNAVAILABLE,
     TASK_INVALID_UNREPRESENTABLE,
     classify_direct_attempt,
 )
@@ -32,6 +31,7 @@ from inequality_mechanisms.planners.sampling_rng import (
     seed_provenance_extras,
 )
 from inequality_mechanisms.planners.sampling_space import (
+    direct_connector_available,
     path_cost_u,
     path_length_q,
     resolve_connector,
@@ -78,7 +78,7 @@ class PRMPlanner:
         return PlannerCapabilities(
             deterministic=False,
             reproducible_with_seed=True,
-            multi_query=True,
+            multi_query=False,
             optimizing=True,
             probabilistically_complete=None,
             asymptotically_optimal=None,
@@ -160,6 +160,14 @@ class PRMPlanner:
                 "expansions": 0,
                 "seed": int(self.seed),
                 "repetition_index": int(self.repetition_index),
+                "direct_connector_policy": str(
+                    getattr(
+                        problem.local_motion,
+                        "model_id",
+                        type(problem.local_motion).__name__,
+                    )
+                ),
+                "direct_connector_available": None,
             }
         }
 
@@ -219,8 +227,15 @@ class PRMPlanner:
                 state_checks=1,
             )
 
-        # Pre-search stratum inviting nonlocal planners (ADR-026).
-        task_class = TASK_DIRECT_CONNECTOR_UNAVAILABLE
+        direct_succeeded, direct_checks = direct_connector_available(problem, goals)
+        base_metrics["roadmap"]["direct_connector_available"] = direct_succeeded
+        task_class = classify_direct_attempt(
+            start_valid=True,
+            goal_usable=True,
+            already_satisfied=False,
+            candidates_representable=True,
+            connector_succeeded=direct_succeeded,
+        )
         connector = resolve_connector(problem)
         assembly = dict(problem.start.assembly_state)
 
@@ -240,7 +255,7 @@ class PRMPlanner:
         adj: list[list[tuple[int, float]]] = [[] for _ in range(len(vertices))]
         attempted = 0
         accepted = 0
-        motion_checks = 0
+        motion_checks = direct_checks
         for i, si in enumerate(vertices):
             dists = [
                 (j, float(np.linalg.norm(si.u - vertices[j].u)))

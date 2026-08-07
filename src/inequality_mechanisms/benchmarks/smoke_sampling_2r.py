@@ -66,7 +66,7 @@ class SamplingSmokeTask:
     start_u_frac: tuple[float, float]
     goal_center: NDArray[np.float64]
     goal_radius: float
-    kind: Literal["already_satisfied", "nonlocal_feasible"]
+    kind: Literal["already_satisfied", "planning_feasible"]
 
 
 def build_paired_arms(*, L1: float = 1.0, L2: float = 1.0) -> dict[MechanismName, SamplingSmokeArm]:
@@ -118,12 +118,12 @@ def smoke_task_catalog(
         )
         tasks.append(
             SamplingSmokeTask(
-                task_id=f"{mech}_nonlocal_feasible",
+                task_id=f"{mech}_planning_feasible",
                 mechanism=mech,
                 start_u_frac=(0.25, 0.28),
                 goal_center=tip_goal.copy(),
                 goal_radius=0.06,
-                kind="nonlocal_feasible",
+                kind="planning_feasible",
             )
         )
     return tuple(tasks)

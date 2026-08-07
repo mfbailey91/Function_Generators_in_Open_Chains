@@ -69,6 +69,29 @@ def try_connect(
     return bool(problem.scene.motion_is_valid(motion))
 
 
+def direct_connector_available(
+    problem: PlanningProblem,
+    goal_states: list[PhysicalState],
+) -> tuple[bool, int]:
+    """Evaluate the declared direct connector before nonlocal planning.
+
+    ADR-026 task classification is independent of the planner selected for the
+    query.  Sampling planners therefore test ``problem.local_motion`` directly
+    against the represented goal candidates before building a roadmap or tree.
+    The returned count is the number of continuous motions submitted to the
+    scene validity checker.
+    """
+    motion_checks = 0
+    for goal_state in goal_states:
+        motion = problem.local_motion.connect(problem.start, goal_state)
+        if motion is None:
+            continue
+        motion_checks += 1
+        if problem.scene.motion_is_valid(motion) and problem.goal.satisfied(goal_state):
+            return True, motion_checks
+    return False, motion_checks
+
+
 def select_goal_states(
     problem: PlanningProblem,
     *,

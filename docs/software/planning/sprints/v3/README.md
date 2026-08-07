@@ -8,8 +8,8 @@ Version 3 builds a planner-agnostic mechanism-aware motion-planning framework. V
 2. [Sprint V3.1 — Core Planning Problem and Result Model](SPRINT_V3_1_CORE_PROBLEM_RESULT_MODEL.md) (completed)
 3. [Sprint V3.2 — Direct 2R Cartesian Vertical Slice](SPRINT_V3_2_DIRECT_2R_VERTICAL_SLICE.md) (completed)
 4. [Sprint V3.3 — Lattice and Local-Motion Validation](SPRINT_V3_3_LATTICE_LOCAL_MOTION.md) (completed)
-5. [Sprint V3.4 — Native Roadmap and Tree Planners](SPRINT_V3_4_NATIVE_ROADMAP_TREE.md) (**active**)
-6. Sprint V3.5 — OMPL Adapter
+5. [Sprint V3.4 — Native Roadmap and Tree Planners](SPRINT_V3_4_NATIVE_ROADMAP_TREE.md) (completed)
+6. [Sprint V3.5 — OMPL Adapter](SPRINT_V3_5_OMPL_ADAPTER.md) (**active**)
 7. Sprint V3.6 — Free-Space Planner Evidence
 8. Sprint V3.7 — Scene and Obstacle Framework
 9. Sprint V3.8 — 3R Planar Pose
@@ -17,7 +17,7 @@ Version 3 builds a planner-agnostic mechanism-aware motion-planning framework. V
 11. Sprint V3.10 — 6R and MoveIt Application Adapter
 12. Sprint V3.11 — Production Mechanism Populations
 
-V3.4 is authorized for execution while ACTIVE_SPRINT points here. Later items are roadmap milestones and must receive their own sprint contracts before implementation.
+V3.5 is authorized for execution while ACTIVE_SPRINT points here. Later items are roadmap milestones and must receive their own sprint contracts before implementation. Native planner breadth omitted from the narrowed V3.3/V3.4 slices is tracked under `V3-DEFER-001` rather than silently treated as completed.
 
 ## Dependency map
 
@@ -28,7 +28,7 @@ V2 evidence freeze
               └── V3.2 direct 2R vertical slice
                     └── V3.3 lattice/local-motion validation
                           ├── V3.4 native roadmap/tree planners
-                          │     └── V3.5 OMPL adapter
+                          │     └── V3.5 OMPL adapter (active)
                           │           └── V3.6 free-space evidence
                           │                 └── V3.7 obstacle scenes
                           │                       └── higher-DOF roadmap
