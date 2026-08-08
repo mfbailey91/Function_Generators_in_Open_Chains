@@ -12,8 +12,8 @@ Version 3 builds a planner-agnostic mechanism-aware motion-planning framework. V
 6. [Sprint V3.5 — OMPL Adapter](SPRINT_V3_5_OMPL_ADAPTER.md) (completed)
 7. [Sprint V3.6 — 2R Free-Space Planner Evidence](SPRINT_V3_6_FREE_SPACE_EVIDENCE.md) (completed)
 8. [Sprint V3.6A — Dimensional-Generalization Refactor](SPRINT_V3_6A_DIMENSIONAL_GENERALIZATION_REFACTOR.md) (completed)
-9. [Sprint V3.6B — Planar 2R Mechanism and Planner Visual Audit](SPRINT_V3_6B_PLANAR2R_VISUAL_AUDIT.md) (drafted; not activated)
-10. [Sprint V3.7 — Planar 3R Free-Space Implementation](SPRINT_V3_7_3R_PLANAR_FREE_SPACE.md) (completed provisional / pre-gate; residual reconciliation drafted)
+9. [Sprint V3.6B — Planar 2R Mechanism and Planner Visual Audit](SPRINT_V3_6B_PLANAR2R_VISUAL_AUDIT.md) (completed)
+10. [Sprint V3.7 — Planar 3R Free-Space Implementation](SPRINT_V3_7_3R_PLANAR_FREE_SPACE.md) (completed provisional / pre-gate; residual reconciliation drafted / blocked)
 11. [Sprint V3.8 — 6R Spatial Free-Space Planning](SPRINT_V3_8_6R_SPATIAL_FREE_SPACE.md) (drafted; not activated)
 12. [Sprint V3.9 — Cross-DOF Free-Space Architecture Closeout](SPRINT_V3_9_CROSS_DOF_FREE_SPACE_CLOSEOUT.md) (drafted; not activated)
 13. [Sprint V3.10 — Scene and Collision Framework](SPRINT_V3_10_SCENE_COLLISION_FRAMEWORK.md) (drafted; not activated)
@@ -21,8 +21,8 @@ Version 3 builds a planner-agnostic mechanism-aware motion-planning framework. V
 15. [Sprint V3.12 — MoveIt Application Adapter](SPRINT_V3_12_MOVEIT_APPLICATION_ADAPTER.md) (drafted; not activated)
 16. [Sprint V3.13 — Production Mechanism Populations](SPRINT_V3_13_PRODUCTION_MECHANISM_POPULATIONS.md) (drafted; not activated)
 
-V3.6A is completed. No sprint carries code authorization until ACTIVE_SPRINT
-explicitly activates the next gate (V3.6B drafted). The post-V3.6 gate is:
+V3.6B is completed. No sprint carries code authorization until ACTIVE_SPRINT
+explicitly activates the next gate (residual V3.7 drafted / blocked). The post-V3.6 gate is:
 
 \[
 \boxed{
@@ -59,8 +59,8 @@ V2 evidence freeze
                           │           └── V3.6 2R free-space evidence (completed)
                           │                 ├── V3.7 provisional 3R free space (shipped ahead of gates)
                           │                 └── V3.6A dimensional refactor (completed)
-                          │                       └── V3.6B planar 2R visual audit (drafted)
-                          │                             └── V3.7 residual / architecture-final 3R
+                          │                       └── V3.6B planar 2R visual audit (completed)
+                          │                             └── V3.7 residual / architecture-final 3R (drafted / blocked)
                           │                                   └── V3.8 6R spatial free space
                           │                                         └── V3.9 cross-DOF closeout
                           │                                               └── V3.10 scene/collision framework

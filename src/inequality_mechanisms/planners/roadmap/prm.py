@@ -56,6 +56,9 @@ class PRMPlanner:
 
     Builds a roadmap per solve (``BUILD_PER_TASK``), attaches the exact start
     and goal candidates, then runs Dijkstra. Not Lazy-PRM and not PRM*.
+
+    Opt-in ``trace_sink`` records sample/edge/query/search events for audits
+    without changing ordinary planner metrics.
     """
 
     seed: int = 0
@@ -67,6 +70,7 @@ class PRMPlanner:
     repetition_index: int = 0
     code_revision: str | None = None
     lifecycle: PlannerLifecycle = PlannerLifecycle.BUILD_PER_TASK
+    trace_sink: Any | None = None
 
     @property
     def planner_id(self) -> str:
@@ -244,12 +248,25 @@ class PRMPlanner:
         t_pre = time.perf_counter()
         vertices: list[PhysicalState] = []
         state_checks = 1
-        for _ in range(self.n_samples):
+        sink = self.trace_sink
+        for sample_i in range(self.n_samples):
             sample = sample_state_uniform(
                 problem.robot, rng, assembly_state=assembly
             )
             state_checks += 1
-            if problem.scene.state_is_valid(sample):
+            accepted_sample = problem.scene.state_is_valid(sample)
+            if sink is not None:
+                sink.record(
+                    family="roadmap",
+                    phase="sample",
+                    event_type="sample_accept" if accepted_sample else "sample_reject",
+                    payload={
+                        "index": int(sample_i),
+                        "u": sample.u.tolist(),
+                        "accepted": bool(accepted_sample),
+                    },
+                )
+            if accepted_sample:
                 vertices.append(sample)
         base_metrics["roadmap"]["vertices"] = len(vertices)
 
@@ -276,6 +293,13 @@ class PRMPlanner:
                     accepted += 1
                     adj[i].append((j, dist))
                     adj[j].append((i, dist))
+                    if sink is not None:
+                        sink.record(
+                            family="roadmap",
+                            phase="edge",
+                            event_type="edge_accept",
+                            payload={"i": int(i), "j": int(j), "dist_u": float(dist)},
+                        )
         base_metrics["roadmap"]["attempted_edges"] = attempted
         base_metrics["roadmap"]["accepted_edges"] = accepted
         preprocess_s = time.perf_counter() - t_pre
@@ -308,6 +332,17 @@ class PRMPlanner:
                     adj[src].append((dst, dist))
                     adj[dst].append((src, dist))
                     attached += 1
+                    if sink is not None:
+                        sink.record(
+                            family="roadmap",
+                            phase="query",
+                            event_type="attach_edge",
+                            payload={
+                                "src": int(src),
+                                "dst": int(dst),
+                                "dist_u": float(dist),
+                            },
+                        )
             return attached
 
         sample_ids = list(range(start_idx))
@@ -317,6 +352,18 @@ class PRMPlanner:
         for gi in goal_indices:
             goal_links += _attach(gi, sample_ids + [start_idx])
         base_metrics["roadmap"]["goal_attached"] = goal_links > 0
+        if sink is not None:
+            sink.record(
+                family="roadmap",
+                phase="query",
+                event_type="query_attach",
+                payload={
+                    "start_idx": int(start_idx),
+                    "goal_indices": list(goal_indices),
+                    "start_links": int(start_links),
+                    "goal_links": int(goal_links),
+                },
+            )
 
         # Dijkstra from start to any goal.
         goal_set = set(goal_indices)
@@ -331,6 +378,13 @@ class PRMPlanner:
             if d > dist[u]:
                 continue
             expansions += 1
+            if sink is not None:
+                sink.record(
+                    family="roadmap",
+                    phase="search",
+                    event_type="dijkstra_expand",
+                    payload={"node": int(u), "order": int(expansions - 1)},
+                )
             if u in goal_set:
                 found_goal = u
                 break
@@ -370,6 +424,13 @@ class PRMPlanner:
         states = tuple(vertices[i] for i in node_ids)
         selected = states[-1]
         cost = path_cost_u(states)
+        if sink is not None:
+            sink.record(
+                family="roadmap",
+                phase="path",
+                event_type="final_path",
+                payload={"node_ids": list(node_ids), "cost_u": float(cost)},
+            )
         return _finish(
             status=PlanningStatus.SUCCESS,
             task_class=task_class,

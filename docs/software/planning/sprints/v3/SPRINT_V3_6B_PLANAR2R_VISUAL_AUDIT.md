@@ -1,10 +1,12 @@
 # Sprint V3.6B — Planar 2R Mechanism and Planner Visual Audit
 
-**Status:** drafted / not activated
+**Status:** completed
 **Reserved work packages:** V3-620–V3-629
-**Code authorization:** none until Sprint V3.6A closes and ACTIVE_SPRINT explicitly activates V3.6B
+**Code authorization:** none (sprint closed; residual V3.7 remains drafted / blocked)
 **Depends on:** corrected V3.6 closeout; Sprint V3.6A; ADR-021–026
 **Program:** [V3 pre-3R refactor and visual audit](../../V3_PRE_3R_REFACTOR_AND_VISUAL_AUDIT_PLAN.md)
+**Report:** [`results/v3_review/v3_6b_planar2r_visual_audit/`](../../../../results/v3_review/v3_6b_planar2r_visual_audit/)
+**Gate B review stub:** [`V3_6B_GATE_B_REVIEW_FINDINGS.md`](../../../architecture/notes/V3_6B_GATE_B_REVIEW_FINDINGS.md)
 
 ## Sprint intent
 

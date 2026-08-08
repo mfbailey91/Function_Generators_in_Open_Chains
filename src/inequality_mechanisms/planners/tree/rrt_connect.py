@@ -62,6 +62,9 @@ class RRTConnectPlanner:
 
     Not plain RRT and not RRT* (no rewiring). Exact start is the start-tree
     root; a selected goal candidate roots the goal tree.
+
+    Opt-in ``trace_sink`` records tree growth events for audits without
+    changing ordinary planner metrics.
     """
 
     seed: int = 0
@@ -73,6 +76,7 @@ class RRTConnectPlanner:
     repetition_index: int = 0
     code_revision: str | None = None
     lifecycle: PlannerLifecycle = PlannerLifecycle.SINGLE_QUERY
+    trace_sink: Any | None = None
 
     @property
     def planner_id(self) -> str:
@@ -244,9 +248,33 @@ class RRTConnectPlanner:
         assembly = dict(problem.start.assembly_state)
         lo, hi = actuator_bounds(problem.robot)
         goal_root = goals[0]
+        sink = self.trace_sink
 
         start_tree: list[_TreeNode] = [_TreeNode(state=problem.start, parent=None)]
         goal_tree: list[_TreeNode] = [_TreeNode(state=goal_root, parent=None)]
+        if sink is not None:
+            sink.record(
+                family="tree",
+                phase="insert",
+                event_type="vertex_insert",
+                payload={
+                    "tree": "start",
+                    "index": 0,
+                    "parent": None,
+                    "u": problem.start.u.tolist(),
+                },
+            )
+            sink.record(
+                family="tree",
+                phase="insert",
+                event_type="vertex_insert",
+                payload={
+                    "tree": "goal",
+                    "index": 0,
+                    "parent": None,
+                    "u": goal_root.u.tolist(),
+                },
+            )
 
         nn_ops = 0
         extensions = 0
@@ -283,7 +311,10 @@ class RRTConnectPlanner:
             return state
 
         def extend(
-            tree: list[_TreeNode], target: PhysicalState
+            tree: list[_TreeNode],
+            target: PhysicalState,
+            *,
+            tree_id: str,
         ) -> tuple[str, int | None]:
             """Return ('reached'|'advanced'|'trapped', new_index)."""
             nonlocal extensions, motion_checks
@@ -297,15 +328,32 @@ class RRTConnectPlanner:
             tree.append(_TreeNode(state=new_state, parent=ni))
             extensions += 1
             new_i = len(tree) - 1
+            if sink is not None:
+                sink.record(
+                    family="tree",
+                    phase="insert",
+                    event_type="vertex_insert",
+                    payload={
+                        "tree": tree_id,
+                        "index": int(new_i),
+                        "parent": int(ni),
+                        "u": new_state.u.tolist(),
+                    },
+                )
             if float(np.linalg.norm(new_state.u - target.u)) <= 1e-9:
                 return "reached", new_i
             return "advanced", new_i
 
-        def connect(tree: list[_TreeNode], target: PhysicalState) -> tuple[str, int | None]:
+        def connect(
+            tree: list[_TreeNode],
+            target: PhysicalState,
+            *,
+            tree_id: str,
+        ) -> tuple[str, int | None]:
             status = "advanced"
             last: int | None = None
             while status == "advanced":
-                status, last = extend(tree, target)
+                status, last = extend(tree, target, tree_id=tree_id)
             return status, last
 
         def reconstruct(tree: list[_TreeNode], idx: int) -> list[PhysicalState]:
@@ -337,23 +385,37 @@ class RRTConnectPlanner:
                     continue
 
             a_tree, b_tree = (start_tree, goal_tree) if not swapped else (goal_tree, start_tree)
-            status_a, new_a = extend(a_tree, sample)
+            a_id, b_id = ("start", "goal") if not swapped else ("goal", "start")
+            status_a, new_a = extend(a_tree, sample, tree_id=a_id)
             if status_a == "trapped" or new_a is None:
                 swapped = not swapped
                 continue
-            status_b, new_b = connect(b_tree, a_tree[new_a].state)
+            status_b, new_b = connect(b_tree, a_tree[new_a].state, tree_id=b_id)
             if status_b == "reached" and new_b is not None:
                 found = True
                 if not swapped:
                     start_meet, goal_meet = new_a, new_b
                 else:
                     start_meet, goal_meet = new_b, new_a
+                if sink is not None:
+                    sink.record(
+                        family="tree",
+                        phase="connect",
+                        event_type="trees_connected",
+                        payload={
+                            "start_meet": int(start_meet),
+                            "goal_meet": int(goal_meet),
+                            "iteration": int(iterations),
+                        },
+                    )
                 break
             swapped = not swapped
 
         base_metrics["tree"]["iterations"] = iterations
         base_metrics["tree"]["extensions"] = extensions
         base_metrics["tree"]["nn_ops"] = nn_ops
+        base_metrics["tree"]["start_tree_size"] = len(start_tree)
+        base_metrics["tree"]["goal_tree_size"] = len(goal_tree)
         query_s = time.perf_counter() - t_query
 
         if not found or start_meet is None or goal_meet is None:
@@ -399,6 +461,18 @@ class RRTConnectPlanner:
 
         selected = states[-1]
         cost = path_cost_u(states)
+        if sink is not None:
+            sink.record(
+                family="tree",
+                phase="path",
+                event_type="final_path",
+                payload={
+                    "n_waypoints": len(states),
+                    "cost_u": float(cost),
+                    "start_tree_size": len(start_tree),
+                    "goal_tree_size": len(goal_tree),
+                },
+            )
         return _finish(
             status=PlanningStatus.SUCCESS,
             task_class=task_class,

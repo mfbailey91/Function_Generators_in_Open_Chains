@@ -141,6 +141,7 @@ def solve_with_ompl_planner(
     max_goal_candidates: int,
     solve_time_s: float,
     extras_base: dict[str, Any] | None = None,
+    trace_sink: Any | None = None,
 ) -> PlanningResult:
     """Classify, set up OMPL, solve, and return a Version 3 ``PlanningResult``.
 
@@ -148,6 +149,9 @@ def solve_with_ompl_planner(
     ----------
     make_planner
         Callable ``si -> OMPL planner`` (e.g. ``lambda si: og.PRM(si)``).
+    trace_sink
+        Optional audit sink. Only a final ``PlannerData`` snapshot is emitted;
+        stepwise OMPL history is marked unavailable.
     """
     if not isinstance(problem.objective, ActuatorTravelObjective):
         raise ValueError(
@@ -375,6 +379,18 @@ def solve_with_ompl_planner(
     query_s = time.perf_counter() - t_query
     ompl_metrics["planner_data"] = planner_data_metrics(si, planner)
     ompl_metrics["ompl_status"] = str(status)
+    ompl_metrics["stepwise_history"] = "unavailable"
+    if trace_sink is not None:
+        trace_sink.record(
+            family="ompl",
+            phase="snapshot",
+            event_type="planner_data_final",
+            payload={
+                "planner_id": planner_id,
+                "planner_data": dict(ompl_metrics["planner_data"]),
+                "stepwise_history": "unavailable",
+            },
+        )
     has_solution, has_exact_solution, solution_difference = _solution_flags(pdef)
     ompl_metrics["ompl_solved"] = has_solution
     ompl_metrics["ompl_exact_solution"] = has_exact_solution

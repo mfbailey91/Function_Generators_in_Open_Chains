@@ -30,6 +30,7 @@ class OmplRRTConnectPlanner:
     repetition_index: int = 0
     code_revision: str | None = None
     lifecycle: PlannerLifecycle = PlannerLifecycle.SINGLE_QUERY
+    trace_sink: Any | None = None
 
     @property
     def planner_id(self) -> str:
@@ -80,4 +81,5 @@ class OmplRRTConnectPlanner:
             max_goal_candidates=self.max_goal_candidates,
             solve_time_s=self.solve_time_s,
             extras_base={"ompl_planner": "RRTConnect", "range_u": range_u},
+            trace_sink=self.trace_sink,
         )

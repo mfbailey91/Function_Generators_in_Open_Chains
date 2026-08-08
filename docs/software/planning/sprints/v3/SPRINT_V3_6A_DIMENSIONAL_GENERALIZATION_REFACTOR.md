@@ -102,5 +102,5 @@ Required static/behavior checks include:
 
 Completed. Migration ownership is recorded in
 [`V3_6A_DIMENSIONAL_GENERALIZATION_MIGRATION.md`](../../architecture/notes/V3_6A_DIMENSIONAL_GENERALIZATION_MIGRATION.md).
-ACTIVE_SPRINT marks V3.6A complete and leaves V3.6B drafted / not activated.
+ACTIVE_SPRINT marks V3.6A complete. V3.6B has since completed; residual V3.7 remains drafted / blocked.
 Frozen `results/v3_review/v3_6_*` and `v3_7_*` packages were not regenerated.

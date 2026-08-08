@@ -51,6 +51,9 @@ class GraphSearchPlanner:
     Exact starts/goals may lie on lattice nodes or attach through
     ``QueryOverlayGraph`` (ADR-023; no task-semantic start tolerance).
     Supports endpoint or integrated actuator edge-cost modes (Sprint V3.3).
+
+    Opt-in ``trace_sink`` / ``record_expanded`` are audit-only and do not
+    change status, path, cost, or ordinary planner metrics when unused.
     """
 
     graph: EmbeddedPlanningGraph
@@ -61,6 +64,9 @@ class GraphSearchPlanner:
     allow_query_overlay: bool = True
     edge_n_samples: int = 32
     code_revision: str | None = None
+    record_expanded: bool = False
+    trace_sink: Any | None = None
+    shared_edge_cost: Any | None = None
 
     @property
     def planner_id(self) -> str:
@@ -210,20 +216,68 @@ class GraphSearchPlanner:
             )
 
         assembly = dict(problem.start.assembly_state)
-        objective = resolve_lattice_search_objective(
-            search_graph,
-            goal_id,
-            edge_cost_mode=self.edge_cost_mode,
-            robot=problem.robot,
-            algorithm=self.algorithm,
-            scene=problem.scene,
-            n_samples=self.edge_n_samples,
-            assembly_state=assembly,
-        )
+        if self.shared_edge_cost is not None and self.edge_cost_mode == "integrated":
+            from inequality_mechanisms.search.v2_objectives import (
+                V2PlanningObjective,
+                input_euclidean_heuristic_v2,
+                zero_heuristic_v2,
+            )
+
+            heuristic = (
+                input_euclidean_heuristic_v2(search_graph, goal_id)
+                if self.algorithm == "astar"
+                else zero_heuristic_v2
+            )
+            objective = V2PlanningObjective(
+                edge_cost=self.shared_edge_cost,
+                heuristic=heuristic,
+                cost_name="actuator_travel_integrated",
+                heuristic_name="input_euclidean" if self.algorithm == "astar" else "zero",
+            )
+        else:
+            objective = resolve_lattice_search_objective(
+                search_graph,
+                goal_id,
+                edge_cost_mode=self.edge_cost_mode,
+                robot=problem.robot,
+                algorithm=self.algorithm,
+                scene=problem.scene,
+                n_samples=self.edge_n_samples,
+                assembly_state=assembly,
+            )
         backend = _solver_backend(self.algorithm)
+        want_expanded = bool(self.record_expanded or self.trace_sink is not None)
         t0 = time.perf_counter()
-        search = backend.solve(search_graph, start_id, goal_id, objective)
+        search = backend.solve(
+            search_graph,
+            start_id,
+            goal_id,
+            objective,
+            record_expanded=want_expanded,
+        )
         query_time = time.perf_counter() - t0
+
+        if self.trace_sink is not None:
+            for step, node_id in enumerate(search.expanded_nodes):
+                self.trace_sink.record(
+                    family="graph",
+                    phase="expand",
+                    event_type="record_expanded",
+                    payload={"node_id": int(node_id), "order": int(step)},
+                )
+            self.trace_sink.record(
+                family="graph",
+                phase="path",
+                event_type="search_summary",
+                payload={
+                    "found": bool(search.found),
+                    "n_expanded": int(search.n_expanded),
+                    "n_generated": int(search.n_generated),
+                    "n_stale": int(search.n_stale),
+                    "path_node_ids": list(search.path),
+                    "cost": None if not search.found else float(search.cost),
+                },
+            )
 
         if not search.found:
             return PlanningResult(
