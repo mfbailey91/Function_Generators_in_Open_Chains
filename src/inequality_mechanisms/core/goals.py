@@ -6,12 +6,19 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any, Protocol, runtime_checkable
 
+import math
 import numpy as np
 from numpy.typing import ArrayLike, NDArray
 
 from inequality_mechanisms.core.robot import RobotModel
 from inequality_mechanisms.core.state import PhysicalState, StateCandidate
 from inequality_mechanisms.kinematics.planar_2r import Planar2R
+from inequality_mechanisms.kinematics.planar_3r import (
+    Planar3R,
+    angular_distance,
+    planar_3r_elbow_family,
+    wrap_to_pi,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -213,4 +220,211 @@ class CartesianDiskGoalGenerator:
                 )
                 if len(out) >= request.max_candidates:
                     return tuple(out)
+        return tuple(out)
+
+
+@dataclass(frozen=True, slots=True)
+class PlanarPoseRegionGoal:
+    """Planar SE(2) region goal on tip position and heading (Sprint V3.7).
+
+    Parameters
+    ----------
+    center :
+        Disk center in Cartesian coordinates, shape ``(2,)``.
+    radius :
+        Nonnegative position tolerance radius.
+    phi_goal :
+        Target planar heading (radians).
+    orientation_tol :
+        Nonnegative wrapped orientation tolerance.
+    robot :
+        Robot providing planar tip pose through ``forward_kinematics``.
+    """
+
+    center: NDArray[np.float64]
+    radius: float
+    phi_goal: float
+    orientation_tol: float
+    robot: RobotModel
+
+    def __post_init__(self) -> None:
+        object.__setattr__(
+            self, "center", np.asarray(self.center, dtype=np.float64).copy()
+        )
+        if self.center.shape != (2,) or not np.all(np.isfinite(self.center)):
+            raise ValueError("center must be a finite vector with shape (2,)")
+        if not np.isfinite(self.radius) or self.radius < 0.0:
+            raise ValueError("radius must be finite and nonnegative")
+        if not np.isfinite(self.phi_goal):
+            raise ValueError("phi_goal must be finite")
+        if not np.isfinite(self.orientation_tol) or self.orientation_tol < 0.0:
+            raise ValueError("orientation_tol must be finite and nonnegative")
+        object.__setattr__(self, "phi_goal", wrap_to_pi(float(self.phi_goal)))
+
+    def _pose(
+        self, state: PhysicalState
+    ) -> tuple[NDArray[np.float64], float]:
+        pose = self.robot.forward_kinematics(state)
+        tip = np.asarray(pose.position, dtype=np.float64)
+        if tip.shape != (2,):
+            raise ValueError("PlanarPoseRegionGoal requires planar tip shape (2,)")
+        if pose.orientation is None:
+            raise ValueError("PlanarPoseRegionGoal requires planar orientation")
+        ori = np.asarray(pose.orientation, dtype=np.float64)
+        if ori.size < 1 or not np.isfinite(ori[0]):
+            raise ValueError("PlanarPoseRegionGoal orientation must be finite")
+        return tip, wrap_to_pi(float(ori[0]))
+
+    def satisfied(self, state: PhysicalState) -> bool:
+        """Return True when tip and heading lie in the SE(2) region."""
+        tip, phi = self._pose(state)
+        dist = float(np.linalg.norm(tip - self.center))
+        ang = angular_distance(phi, self.phi_goal)
+        return dist <= self.radius and ang <= self.orientation_tol
+
+    def residual(self, state: PhysicalState) -> GoalResidual:
+        """Return combined SE(2) residual with position/orientation extras."""
+        tip, phi = self._pose(state)
+        delta = tip - self.center
+        dist = float(np.linalg.norm(delta))
+        ang = angular_distance(phi, self.phi_goal)
+        pos_excess = max(0.0, dist - float(self.radius))
+        ori_excess = max(0.0, ang - float(self.orientation_tol))
+        primary = float(math.hypot(pos_excess, ori_excess))
+        return GoalResidual(
+            primary=primary,
+            components=np.asarray([dist, ang], dtype=np.float64),
+            extras={
+                "cartesian_distance": dist,
+                "signed_disk_residual": dist - float(self.radius),
+                "angular_distance": ang,
+                "signed_orientation_residual": ang - float(self.orientation_tol),
+                "phi": phi,
+                "phi_goal": float(self.phi_goal),
+            },
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class Planar3RPoseGoalGenerator:
+    """Generate physical candidates for an SE(2) pose-region goal via 3R IK."""
+
+    planar_fk: Planar3R
+    limit_tolerance: float = 1e-9
+
+    def generate(
+        self,
+        robot: RobotModel,
+        goal: GoalConstraint,
+        request: GoalSamplingRequest,
+    ) -> Sequence[StateCandidate]:
+        """Return representable IK lifts of the pose-region center/heading."""
+        if not isinstance(goal, PlanarPoseRegionGoal):
+            raise TypeError(
+                "Planar3RPoseGoalGenerator requires PlanarPoseRegionGoal, "
+                f"got {type(goal).__name__}"
+            )
+        out: list[StateCandidate] = []
+        seen: set[tuple[float, float, float]] = set()
+        for q in self.planar_fk.inverse_pose(goal.center, goal.phi_goal):
+            q_arr = np.asarray(q, dtype=np.float64)
+            key = tuple(np.round(q_arr, decimals=12).tolist())
+            if key in seen:
+                continue
+            family = planar_3r_elbow_family(q_arr)
+            for cand in robot.states_from_output(q_arr):
+                if not robot.state_within_limits(cand.state):
+                    continue
+                if not goal.satisfied(cand.state):
+                    continue
+                seen.add(key)
+                provenance = {
+                    **dict(cand.provenance),
+                    "ik_family": family,
+                    "goal_region": "planar_pose_region_center",
+                    "goal_sample_id": "se2_center",
+                    "goal_phi": float(goal.phi_goal),
+                }
+                out.append(
+                    StateCandidate(
+                        state=cand.state,
+                        residual=max(
+                            float(cand.residual),
+                            float(goal.residual(cand.state).primary),
+                        ),
+                        provenance=provenance,
+                    )
+                )
+                if len(out) >= request.max_candidates:
+                    return tuple(out)
+        return tuple(out)
+
+
+@dataclass(frozen=True, slots=True)
+class FrozenPlanar3RPositionGoalGenerator:
+    """Deterministic redundant position goal set: disk samples × frozen φ."""
+
+    planar_fk: Planar3R
+    goal_points: tuple[NDArray[np.float64], ...]
+    goal_point_ids: tuple[str, ...]
+    phi_samples: tuple[float, ...]
+    numerical_tolerance: float = 1e-9
+
+    def generate(
+        self,
+        robot: RobotModel,
+        goal: GoalConstraint,
+        request: GoalSamplingRequest,
+    ) -> Sequence[StateCandidate]:
+        """Return finite IK candidates for the frozen position representation."""
+        if not isinstance(goal, CartesianDiskGoal):
+            raise TypeError(
+                "FrozenPlanar3RPositionGoalGenerator requires CartesianDiskGoal"
+            )
+        if len(self.goal_points) != len(self.goal_point_ids):
+            raise ValueError("goal point ids must match goal points")
+
+        out: list[StateCandidate] = []
+        seen: set[tuple[float, float, float]] = set()
+        for point_index, (point_id, point) in enumerate(
+            zip(self.goal_point_ids, self.goal_points)
+        ):
+            for phi_index, phi in enumerate(self.phi_samples):
+                for q in self.planar_fk.inverse_position_at_heading(point, phi):
+                    q_arr = np.asarray(q, dtype=np.float64)
+                    key = tuple(np.round(q_arr, decimals=12).tolist())
+                    if key in seen:
+                        continue
+                    for cand in robot.states_from_output(q_arr):
+                        if not robot.state_within_limits(cand.state):
+                            continue
+                        tip = np.asarray(
+                            robot.forward_kinematics(cand.state).position,
+                            dtype=np.float64,
+                        )
+                        cart_dist = float(np.linalg.norm(tip - goal.center))
+                        if cart_dist > float(goal.radius) + self.numerical_tolerance:
+                            continue
+                        seen.add(key)
+                        provenance = {
+                            **dict(cand.provenance),
+                            "ik_family": planar_3r_elbow_family(q_arr),
+                            "goal_representation": (
+                                "frozen_disk_points_times_phi_grid_v1"
+                            ),
+                            "goal_sample_id": f"{point_id}__phi_{phi_index}",
+                            "goal_sample_index": int(point_index),
+                            "goal_phi_index": int(phi_index),
+                            "goal_sample_point": point.tolist(),
+                            "goal_phi": float(phi),
+                        }
+                        out.append(
+                            StateCandidate(
+                                state=cand.state,
+                                residual=max(float(cand.residual), cart_dist),
+                                provenance=provenance,
+                            )
+                        )
+                        if len(out) >= request.max_candidates:
+                            return tuple(out)
         return tuple(out)

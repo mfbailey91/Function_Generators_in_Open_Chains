@@ -890,17 +890,16 @@ Version 3 may begin broader planner experiments only when:
 
 Do not start obstacle implementation, MoveIt integration, or a new population campaign.
 
-Complete the corrected Sprint V3.6 2R free-space evidence contract first:
+Sprint V3.6 corrective 2R free-space evidence is closed
+([`results/v3_review/v3_6_free_space_v2/`](../../results/v3_review/v3_6_free_space_v2/)).
+ACTIVE_SPRINT now authorizes Sprint V3.7 **3R planar free-space planning**
+(V3-700–V3-706 only).
 
-- shared physical starts across paired mechanisms;
-- a shared represented Cartesian goal set;
-- direct actuator-space reference cost;
-- deterministic/stochastic planner evidence and paired effects;
-- a clean implementation revision followed by a separate evidence commit.
+After V3.7, activate Sprint V3.8 for **6R spatial free-space planning** and
+Sprint V3.9 for the cross-DOF architecture closeout.
 
-Then activate Sprint V3.7 for **3R planar free-space planning**, followed by Sprint V3.8 for **6R spatial free-space planning** and Sprint V3.9 for the cross-DOF architecture closeout.
-
-Collision and obstacle routing are explicitly held until that dimensional free-space gate passes.
+Collision and obstacle routing remain held until that dimensional free-space
+gate passes.
 
 ## 20. External planner documentation
 

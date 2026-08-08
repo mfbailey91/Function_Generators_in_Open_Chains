@@ -10,8 +10,8 @@ Version 3 builds a planner-agnostic mechanism-aware motion-planning framework. V
 4. [Sprint V3.3 — Lattice and Local-Motion Validation](SPRINT_V3_3_LATTICE_LOCAL_MOTION.md) (completed)
 5. [Sprint V3.4 — Native Roadmap and Tree Planners](SPRINT_V3_4_NATIVE_ROADMAP_TREE.md) (completed)
 6. [Sprint V3.5 — OMPL Adapter](SPRINT_V3_5_OMPL_ADAPTER.md) (completed)
-7. [Sprint V3.6 — 2R Free-Space Planner Evidence](SPRINT_V3_6_FREE_SPACE_EVIDENCE.md) (**active**)
-8. [Sprint V3.7 — 3R Planar Free-Space Planning](SPRINT_V3_7_3R_PLANAR_FREE_SPACE.md) (drafted; not activated)
+7. [Sprint V3.6 — 2R Free-Space Planner Evidence](SPRINT_V3_6_FREE_SPACE_EVIDENCE.md) (completed)
+8. [Sprint V3.7 — 3R Planar Free-Space Planning](SPRINT_V3_7_3R_PLANAR_FREE_SPACE.md) (**active**)
 9. [Sprint V3.8 — 6R Spatial Free-Space Planning](SPRINT_V3_8_6R_SPATIAL_FREE_SPACE.md) (drafted; not activated)
 10. [Sprint V3.9 — Cross-DOF Free-Space Architecture Closeout](SPRINT_V3_9_CROSS_DOF_FREE_SPACE_CLOSEOUT.md) (drafted; not activated)
 11. [Sprint V3.10 — Scene and Collision Framework](SPRINT_V3_10_SCENE_COLLISION_FRAMEWORK.md) (drafted; not activated)
@@ -19,7 +19,7 @@ Version 3 builds a planner-agnostic mechanism-aware motion-planning framework. V
 13. [Sprint V3.12 — MoveIt Application Adapter](SPRINT_V3_12_MOVEIT_APPLICATION_ADAPTER.md) (drafted; not activated)
 14. [Sprint V3.13 — Production Mechanism Populations](SPRINT_V3_13_PRODUCTION_MECHANISM_POPULATIONS.md) (drafted; not activated)
 
-V3.6 remains the only authorized sprint while ACTIVE_SPRINT points there. The dimensional free-space sequence is now a hard architecture gate: **2R → 3R → 6R → cross-DOF closeout → collision/obstacle work**. Later sprint documents are planning contracts only and carry no code authorization until explicitly activated.
+V3.7 is the only authorized sprint while ACTIVE_SPRINT points there (V3-700–V3-706). The dimensional free-space sequence remains a hard architecture gate: **2R → 3R → 6R → cross-DOF closeout → collision/obstacle work**. Later sprint documents are planning contracts only and carry no code authorization until explicitly activated.
 
 Native planner breadth omitted from the narrowed V3.3/V3.4 slices remains tracked under `V3-DEFER-001`. Spatial 4R/5R partial-task studies remain accepted but non-gating work under `V3-DEFER-002`; they are not required before the standard 6R free-space architecture test.
 
@@ -33,8 +33,8 @@ V2 evidence freeze
                     └── V3.3 lattice/local-motion validation
                           ├── V3.4 native roadmap/tree planners
                           │     └── V3.5 OMPL adapter
-                          │           └── V3.6 2R free-space evidence (active)
-                          │                 └── V3.7 3R planar free space
+                          │           └── V3.6 2R free-space evidence (completed)
+                          │                 └── V3.7 3R planar free space (active)
                           │                       └── V3.8 6R spatial free space
                           │                             └── V3.9 cross-DOF closeout
                           │                                   └── V3.10 scene/collision framework

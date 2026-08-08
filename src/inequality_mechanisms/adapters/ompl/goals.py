@@ -13,6 +13,7 @@ from inequality_mechanisms.core.goals import (
     ExactOutputGoal,
     GoalSamplingRequest,
     GoalStateGenerator,
+    PlanarPoseRegionGoal,
 )
 from inequality_mechanisms.core.problem import PlanningProblem
 from inequality_mechanisms.core.state import PhysicalState, StateCandidate
@@ -27,6 +28,14 @@ def _goal_descriptor(problem: PlanningProblem) -> dict[str, Any]:
             "type": "cartesian_disk",
             "center": goal.center.tolist(),
             "radius": float(goal.radius),
+        }
+    if isinstance(goal, PlanarPoseRegionGoal):
+        return {
+            "type": "planar_pose_region",
+            "center": goal.center.tolist(),
+            "radius": float(goal.radius),
+            "phi_goal": float(goal.phi_goal),
+            "orientation_tol": float(goal.orientation_tol),
         }
     return {"type": type(goal).__name__}
 

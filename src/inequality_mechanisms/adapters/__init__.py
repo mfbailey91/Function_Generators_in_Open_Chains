@@ -12,6 +12,9 @@ from inequality_mechanisms.adapters.operating_branch_robot import (
 from inequality_mechanisms.adapters.planar_2r_robot import (
     planar_2r_operating_branch_robot,
 )
+from inequality_mechanisms.adapters.planar_3r_robot import (
+    planar_3r_operating_branch_robot,
+)
 
 __all__ = [
     "GraphSearchPlanner",
@@ -19,5 +22,6 @@ __all__ = [
     "integrated_actuator_edge_cost",
     "path_actuator_length",
     "planar_2r_operating_branch_robot",
+    "planar_3r_operating_branch_robot",
     "resolve_lattice_search_objective",
 ]

@@ -10,7 +10,6 @@ import numpy as np
 from numpy.typing import ArrayLike, NDArray
 
 from inequality_mechanisms.core.state import PhysicalState, Pose, StateCandidate
-from inequality_mechanisms.kinematics.planar_2r import Planar2R
 from inequality_mechanisms.mechanisms.operating_branch import (
     BranchInverseError,
     OperatingBranch,
@@ -26,12 +25,13 @@ class OperatingBranchRobotModel:
     branch :
         Version 2 certified operating branch.
     planar_fk :
-        Optional planar 2R FK for ``forward_kinematics`` / Jacobian. When
-        omitted, FK raises ``NotImplementedError`` (lattice-only studies).
+        Optional planar FK exposing ``forward`` / ``jacobian``. When the object
+        also provides ``forward_pose``, orientation is attached to the returned
+        ``Pose``. When omitted, FK raises ``NotImplementedError``.
     """
 
     branch: OperatingBranch
-    planar_fk: Planar2R | None = None
+    planar_fk: Any | None = None
 
     @property
     def dof(self) -> int:
@@ -97,10 +97,20 @@ class OperatingBranchRobotModel:
             raise NotImplementedError(
                 "OperatingBranchRobotModel requires planar_fk for forward_kinematics"
             )
-        if state.q.shape != (2,):
-            raise ValueError("planar FK requires q shape (2,)")
+        expected = int(self.dof)
+        if state.q.shape != (expected,):
+            raise ValueError(
+                f"planar FK requires q shape ({expected},), got {state.q.shape}"
+            )
+        fk = self.planar_fk
+        if hasattr(fk, "forward_pose"):
+            position, orientation = fk.forward_pose(state.q)
+            return Pose(
+                position=np.asarray(position, dtype=np.float64),
+                orientation=np.asarray(orientation, dtype=np.float64),
+            )
         return Pose(
-            position=np.asarray(self.planar_fk.forward(state.q), dtype=np.float64)
+            position=np.asarray(fk.forward(state.q), dtype=np.float64)
         )
 
     def jacobian_q_to_x(self, state: PhysicalState) -> NDArray[np.float64]:
