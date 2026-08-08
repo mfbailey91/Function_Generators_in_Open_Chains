@@ -1,6 +1,6 @@
 # Version 3 Project Plan — Planner-Agnostic Mechanism-Aware Motion Planning
 
-**Status:** proposed architecture and execution plan
+**Status:** active architecture; roadmap amended to validate 2R→3R→6R free space before collision routing
 **Predecessor:** Version 2 / Experiment A and bounded Experiment B work
 **Primary decision:** freeze production scaling while the planning formulation is generalized
 **Initial mechanism scope:** certified monotonic transmission branches
@@ -418,7 +418,27 @@ Purpose:
 - introduce redundant position-only controls;
 - exercise multiple IK goal families and orientation tolerances.
 
-### 10.3 Spatial 4R and 5R
+### 10.3 Spatial 6R — free-space architecture test
+
+Task families:
+
+\[
+p\in\mathbb R^3,
+\qquad
+G\in SE(3).
+\]
+
+Purpose:
+
+- validate standard spatial serial-manipulator kinematics under the same \(U\rightarrow Q\rightarrow X\) contract;
+- exercise redundant spatial position goals and full-pose goal regions;
+- validate deterministic numerical IK / goal generation as a service separate from the task predicate;
+- compare direct, native sampling, and OMPL planners in six dimensions;
+- do this **before** URDF/MoveIt, world collision, or self-collision add new variables.
+
+A dense six-dimensional tensor lattice is not a required baseline. Planner capability and dimensional suitability are part of the architecture.
+
+### 10.4 Spatial 4R and 5R — deferred partial-task studies
 
 Use partial task constraints appropriate to available DOFs:
 
@@ -429,20 +449,17 @@ Use partial task constraints appropriate to available DOFs:
 
 Do not require an arbitrary six-dimensional pose from an underactuated arm.
 
-### 10.4 Spatial 6R
+These studies remain accepted roadmap work but are not a gate between 3R and the conventional 6R free-space test. Track them under `V3-DEFER-002` and activate them when partial-task/underactuation is itself the research question.
 
-Task:
+### 10.5 Collision and application progression
 
-\[
-G\in SE(3).
-\]
+Collision geometry is introduced only after 2R, 3R, and 6R free-space semantics have been reviewed together.
 
 Purpose:
 
-- full pose planning;
-- URDF and MoveIt application validation;
-- self-collision and spatial scenes;
-- standard industrial-manipulator comparisons.
+- add collision as one new validity layer rather than mixing it with unvalidated higher-dimensional kinematics;
+- create controlled direct-blocked routing tasks;
+- defer MoveIt/URDF application integration until native V3 collision/task semantics are stable.
 
 ## 11. Experiment ladder
 
@@ -478,29 +495,46 @@ Question:
 
 > Which Version 2 effects were mechanism effects, and which were lattice or local-motion artifacts?
 
-### V3-C — Basic obstacle routing
+### V3-C — 3R planar free-space semantics
 
-Only after V3-A and V3-B contracts pass, introduce several frozen scene classes rather than one ad hoc obstacle:
+Use the same free-space contracts on:
 
-- single blocking obstacle;
-- offset obstacle permitting two route families;
-- narrow passage;
-- obstacle near one IK family;
-- scene where direct interpolation remains valid.
+- redundant Cartesian position goals \((x,y)\);
+- full planar pose goals \((x,y,\phi)\in SE(2)\).
 
 Question:
 
-> How does the mechanism-induced metric affect routing when global exploration is genuinely required?
+> Do exact starts, represented/continuous goal sets, mechanism-aware cost, and planner adapters remain coherent when one additional DOF introduces redundancy and pose orientation?
 
-### V3-D — Higher-DOF progression
+### V3-D — 6R spatial free-space semantics
 
-Run 3R planar pose first, then 4R/5R partial tasks, then 6R full pose.
+Use an idealized spatial 6R serial manipulator with position and full-\(SE(3)\) goals, but no collision geometry or MoveIt.
 
-### V3-E — MoveIt application validation
+Question:
+
+> Does the V3 contract scale to a standard spatial manipulator when dimensionality and task geometry become realistic?
+
+### V3-E — Cross-DOF free-space architecture closeout
+
+Freeze 2R, 3R, and 6R evidence and audit contract invariants before adding collision checking.
+
+Question:
+
+> Which parts of the formulation are genuinely dimension-independent, and which require explicit planner/task capability boundaries?
+
+### V3-F — Collision framework and obstacle routing
+
+After V3-E passes, introduce frozen planar/spatial scene classes including direct-clear controls, blocking obstacles, alternate routes, narrow passages, IK-family obstruction, and selected spatial route alternatives.
+
+Question:
+
+> How does the mechanism-induced metric affect routing when collision geometry makes direct motion unavailable?
+
+### V3-G — MoveIt application validation
 
 Reproduce selected mechanism comparisons through standard planning scenes and multiple MoveIt pipelines.
 
-### V3-F — Production populations
+### V3-H — Production populations
 
 Return to Monte Carlo only after task, planner, scene, local-motion, metric, and benchmark contracts are stable.
 
@@ -761,31 +795,54 @@ No V2 result is silently recomputed or reinterpreted under V3.
 - common and family-specific metrics;
 - no population inference until representation sensitivity is understood.
 
-### V3-M7 — Scene and obstacle framework
+### V3-M7 — 3R planar free-space planning
 
-- planar collision geometry;
-- frozen scene classes;
-- motion validation and collision instrumentation;
-- routing studies across planner families.
+- planar 3R mechanism-aware robot;
+- position-only redundant goal sets;
+- full \(SE(2)\) pose regions;
+- deterministic represented goal generation;
+- free-space planner evidence.
 
-### V3-M8 — 3R planar pose
+### V3-M8 — 6R spatial free-space planning
 
-- full \(SE(2)\) goal regions;
-- redundant position-only controls;
-- orientation-aware metrics and heuristics.
+- idealized 6R spatial serial kinematics;
+- spatial position and full-\(SE(3)\) goals;
+- deterministic numerical IK / goal generation;
+- direct/native/OMPL free-space evidence;
+- no collision or MoveIt dependency.
 
-### V3-M9 — 4R/5R partial tasks
+### V3-M9 — Cross-DOF free-space architecture closeout
 
-- pointing, orientation cones, constrained-plane, and partial-pose goals.
+- freeze accepted 2R/3R/6R evidence;
+- audit state/task/local-motion/objective/planner invariants;
+- document dimension-specific capability boundaries;
+- authorize collision work only after free-space semantics are understood.
 
-### V3-M10 — 6R and MoveIt application adapter
+Spatial 4R/5R partial tasks are deferred under `V3-DEFER-002`; they remain accepted research work but are not a gate before 6R.
 
-- URDF/SRDF robot models;
-- spatial collision scenes;
-- full \(SE(3)\) pose goals;
-- OMPL, Pilz, CHOMP, and STOMP pipeline comparisons.
+### V3-M10 — Scene and collision framework
 
-### V3-M11 — Production mechanism populations
+- planar and spatial collision geometry;
+- world/self-collision validity;
+- continuous motion collision checks;
+- collision instrumentation and frozen scene descriptors.
+
+### V3-M11 — Obstacle routing evidence
+
+- frozen direct-clear and direct-blocked scene/task banks;
+- ADR-026 collision-aware direct-feasibility strata;
+- route-family diagnostics;
+- planner/mechanism effects under genuine nonlocal routing.
+
+### V3-M12 — MoveIt application adapter
+
+- URDF/SRDF-backed application models;
+- planning-scene bridge;
+- compatible goal/constraint translation;
+- OMPL, Pilz, CHOMP, and STOMP application comparisons;
+- explicit rejection when mechanism-aware semantics cannot be preserved.
+
+### V3-M13 — Production mechanism populations
 
 - freeze task, scene, planner, and mechanism banks;
 - planner-appropriate statistical designs;
@@ -803,11 +860,14 @@ No V2 result is silently recomputed or reinterpreted under V3.
 | Local-motion and edge-cost integration converge | graph/roadmap comparison |
 | 8-connected and richer-connectivity effects understood | lattice production claims |
 | Common result schema works across deterministic and stochastic planners | OMPL promotion |
-| Native/OMPL parity is understood | obstacle studies |
+| Native/OMPL parity is understood | 2R free-space evidence |
 | Task classification and benchmark strata accepted | aggregate performance claims |
-| Free-space semantics stable | obstacle routing |
-| 2R planner-family evidence reviewed | 3R implementation |
-| 3R task semantics stable | 4R–6R progression |
+| Corrected 2R free-space semantics stable | 3R implementation |
+| 3R position/pose semantics stable | 6R free-space implementation |
+| 6R spatial free-space semantics stable | cross-DOF closeout |
+| 2R/3R/6R cross-DOF free-space closeout accepted | collision framework |
+| Collision framework validated independently | obstacle-routing evidence |
+| Obstacle-routing semantics reviewed | MoveIt application adapter |
 | MoveIt adapter preserves mechanism-aware semantics | application-facing claims |
 | Planner-specific statistics accepted | any production Monte Carlo campaign |
 
@@ -828,15 +888,19 @@ Version 3 may begin broader planner experiments only when:
 
 ## 19. Immediate next action
 
-Do not start with obstacle implementation or a new population campaign.
+Do not start obstacle implementation, MoveIt integration, or a new population campaign.
 
-Begin with Sprint V3.0:
+Complete the corrected Sprint V3.6 2R free-space evidence contract first:
 
-- freeze the V2 evidence lineage;
-- inventory the current code and call sites;
-- accept the V3 interfaces and benchmark contract;
-- define adapter boundaries;
-- produce a migration map and golden compatibility test plan.
+- shared physical starts across paired mechanisms;
+- a shared represented Cartesian goal set;
+- direct actuator-space reference cost;
+- deterministic/stochastic planner evidence and paired effects;
+- a clean implementation revision followed by a separate evidence commit.
+
+Then activate Sprint V3.7 for **3R planar free-space planning**, followed by Sprint V3.8 for **6R spatial free-space planning** and Sprint V3.9 for the cross-DOF architecture closeout.
+
+Collision and obstacle routing are explicitly held until that dimensional free-space gate passes.
 
 ## 20. External planner documentation
 

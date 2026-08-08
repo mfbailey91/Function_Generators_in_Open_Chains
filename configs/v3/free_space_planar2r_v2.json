@@ -1,0 +1,38 @@
+{
+  "bank_id": "free_space_planar2r_v2",
+  "schema_version": 2,
+  "architecture_version": 3,
+  "description": "Corrective Sprint V3.6 contract layered over free_space_planar2r_v1. The v1 start_u_frac is an authoring reference on the four-bar only; the loaded task resolves one shared q/start tip for both mechanisms. The physical Cartesian disk remains the predicate while planners share one frozen finite disk representation. Not a population sample.",
+  "base_bank_path": "free_space_planar2r_v1.json",
+  "base_bank_id": "free_space_planar2r_v1",
+  "start_contract": {
+    "authoring_reference_mechanism": "fourbar",
+    "base_authoring_field": "start_u_frac",
+    "resolved_shared_coordinate": "q",
+    "cartesian_tip_tolerance": 1e-09
+  },
+  "goal_representation": {
+    "kind": "center_plus_near_boundary_octants_v1",
+    "include_center": true,
+    "boundary_angles_deg": [
+      0,
+      45,
+      90,
+      135,
+      180,
+      225,
+      270,
+      315
+    ],
+    "boundary_radius_fraction": 0.98,
+    "max_candidates": 32
+  },
+  "stochastic_repetitions": {
+    "seeds": [
+      7,
+      29,
+      61
+    ],
+    "ompl_process_isolation": true
+  }
+}

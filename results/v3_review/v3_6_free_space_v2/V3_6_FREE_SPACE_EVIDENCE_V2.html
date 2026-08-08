@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<title>V3.6 corrected free-space evidence</title>
+<style>
+body{font-family:system-ui,sans-serif;max-width:1100px;margin:2rem auto;padding:0 1rem;color:#17212b}
+.banner{padding:.8rem 1rem;background:#fff4d9;border:1px solid #ecd187;border-radius:8px}
+table{border-collapse:collapse;width:100%;margin-top:1rem}
+th,td{padding:.45rem;border-bottom:1px solid #d8dee6;text-align:left}
+code{background:#eef2f6;padding:.1rem .25rem;border-radius:4px}
+pre{background:#f6f8fa;padding:1rem;overflow:auto}
+</style>
+</head>
+<body>
+<h1>Sprint V3.6 — corrected free-space evidence</h1>
+<div class="banner">Bounded representation/optimality evidence only — not population inference.</div>
+<p>Implementation revision <code>a5a682cc59e88d042b38c432134a882e5b24bc28</code>;
+bank <code>free_space_planar2r_v2</code>;
+frozen seeds <code>[7, 29, 61]</code>.</p>
+<p>Paired mechanisms share the same resolved <code>start_q</code> and Cartesian
+start. All planners consume one frozen represented Cartesian goal set. Primary
+cross-family timing is total wall time.</p>
+<h2>Planner summary</h2>
+<table>
+<thead><tr><th>planner</th><th>n success</th><th>mean cost</th><th>mean subopt</th><th>mean total wall s</th><th>mean ΔJ F-G</th></tr></thead>
+<tbody><tr><td><code>input_linear</code></td><td>30</td><td>1.1915</td><td>0</td><td>0.027895</td><td>-0.24753</td></tr><tr><td><code>lattice_dijkstra_eight_integrated</code></td><td>30</td><td>1.2686</td><td>0.077099</td><td>27.986</td><td>-0.26164</td></tr><tr><td><code>ompl_prm</code></td><td>90</td><td>1.1915</td><td>-1.3693e-16</td><td>3.6988</td><td>-0.24753</td></tr><tr><td><code>ompl_rrt_connect</code></td><td>90</td><td>1.428</td><td>0.23647</td><td>0.026198</td><td>-0.24736</td></tr><tr><td><code>output_linear</code></td><td>30</td><td>1.1919</td><td>0.00036886</td><td>0.38113</td><td>-0.24679</td></tr><tr><td><code>prm</code></td><td>90</td><td>1.1917</td><td>0.00012117</td><td>0.78774</td><td>-0.24777</td></tr><tr><td><code>rrt_connect</code></td><td>90</td><td>1.4009</td><td>0.20939</td><td>0.01118</td><td>-0.26435</td></tr></tbody>
+</table>
+<h2>Paired strata</h2>
+<pre>{
+  &quot;both_direct&quot;: {
+    &quot;success&quot;: 450
+  },
+  &quot;paired_invalid&quot;: {
+    &quot;invalid&quot;: 60
+  }
+}</pre>
+</body>
+</html>

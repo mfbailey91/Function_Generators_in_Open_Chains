@@ -1,0 +1,915 @@
+diff --git a/docs/software/V3_PROJECT_PLAN.md b/docs/software/V3_PROJECT_PLAN.md
+--- a/docs/software/V3_PROJECT_PLAN.md
++++ b/docs/software/V3_PROJECT_PLAN.md
+@@ -1,6 +1,6 @@
+ # Version 3 Project Plan — Planner-Agnostic Mechanism-Aware Motion Planning
+ 
+-**Status:** proposed architecture and execution plan
++**Status:** active architecture; roadmap amended to validate 2R→3R→6R free space before collision routing
+ **Predecessor:** Version 2 / Experiment A and bounded Experiment B work
+ **Primary decision:** freeze production scaling while the planning formulation is generalized
+ **Initial mechanism scope:** certified monotonic transmission branches
+@@ -390,4 +390,24 @@
+-### 10.3 Spatial 4R and 5R
++### 10.3 Spatial 6R — free-space architecture test
++
++Task families:
++
++\[
++p\in\mathbb R^3,
++\qquad
++G\in SE(3).
++\]
++
++Purpose:
++
++- validate standard spatial serial-manipulator kinematics under the same \(U\rightarrow Q\rightarrow X\) contract;
++- exercise redundant spatial position goals and full-pose goal regions;
++- validate deterministic numerical IK / goal generation as a service separate from the task predicate;
++- compare direct, native sampling, and OMPL planners in six dimensions;
++- do this **before** URDF/MoveIt, world collision, or self-collision add new variables.
++
++A dense six-dimensional tensor lattice is not a required baseline. Planner capability and dimensional suitability are part of the architecture.
++
++### 10.4 Spatial 4R and 5R — deferred partial-task studies
+ 
+ Use partial task constraints appropriate to available DOFs:
+ 
+@@ -398,17 +418,14 @@
+ 
+ Do not require an arbitrary six-dimensional pose from an underactuated arm.
+ 
+-### 10.4 Spatial 6R
++These studies remain accepted roadmap work but are not a gate between 3R and the conventional 6R free-space test. Track them under `V3-DEFER-002` and activate them when partial-task/underactuation is itself the research question.
+ 
+-Task:
++### 10.5 Collision and application progression
+ 
+-\[
+-G\in SE(3).
+-\]
++Collision geometry is introduced only after 2R, 3R, and 6R free-space semantics have been reviewed together.
+ 
+ Purpose:
+ 
+-- full pose planning;
+-- URDF and MoveIt application validation;
+-- self-collision and spatial scenes;
+-- standard industrial-manipulator comparisons.
++- add collision as one new validity layer rather than mixing it with unvalidated higher-dimensional kinematics;
++- create controlled direct-blocked routing tasks;
++- defer MoveIt/URDF application integration until native V3 collision/task semantics are stable.
+@@ -452,25 +452,42 @@
+-### V3-C — Basic obstacle routing
++### V3-C — 3R planar free-space semantics
+ 
+-Only after V3-A and V3-B contracts pass, introduce several frozen scene classes rather than one ad hoc obstacle:
++Use the same free-space contracts on:
+ 
+-- single blocking obstacle;
+-- offset obstacle permitting two route families;
+-- narrow passage;
+-- obstacle near one IK family;
+-- scene where direct interpolation remains valid.
++- redundant Cartesian position goals \((x,y)\);
++- full planar pose goals \((x,y,\phi)\in SE(2)\).
+ 
+ Question:
+ 
+-> How does the mechanism-induced metric affect routing when global exploration is genuinely required?
++> Do exact starts, represented/continuous goal sets, mechanism-aware cost, and planner adapters remain coherent when one additional DOF introduces redundancy and pose orientation?
+ 
+-### V3-D — Higher-DOF progression
++### V3-D — 6R spatial free-space semantics
+ 
+-Run 3R planar pose first, then 4R/5R partial tasks, then 6R full pose.
++Use an idealized spatial 6R serial manipulator with position and full-\(SE(3)\) goals, but no collision geometry or MoveIt.
+ 
+-### V3-E — MoveIt application validation
++Question:
++
++> Does the V3 contract scale to a standard spatial manipulator when dimensionality and task geometry become realistic?
++
++### V3-E — Cross-DOF free-space architecture closeout
++
++Freeze 2R, 3R, and 6R evidence and audit contract invariants before adding collision checking.
++
++Question:
++
++> Which parts of the formulation are genuinely dimension-independent, and which require explicit planner/task capability boundaries?
++
++### V3-F — Collision framework and obstacle routing
++
++After V3-E passes, introduce frozen planar/spatial scene classes including direct-clear controls, blocking obstacles, alternate routes, narrow passages, IK-family obstruction, and selected spatial route alternatives.
++
++Question:
++
++> How does the mechanism-induced metric affect routing when collision geometry makes direct motion unavailable?
++
++### V3-G — MoveIt application validation
+ 
+ Reproduce selected mechanism comparisons through standard planning scenes and multiple MoveIt pipelines.
+ 
+-### V3-F — Production populations
++### V3-H — Production populations
+ 
+ Return to Monte Carlo only after task, planner, scene, local-motion, metric, and benchmark contracts are stable.
+@@ -715,28 +715,51 @@
+-### V3-M7 — Scene and obstacle framework
++### V3-M7 — 3R planar free-space planning
+ 
+-- planar collision geometry;
+-- frozen scene classes;
+-- motion validation and collision instrumentation;
+-- routing studies across planner families.
++- planar 3R mechanism-aware robot;
++- position-only redundant goal sets;
++- full \(SE(2)\) pose regions;
++- deterministic represented goal generation;
++- free-space planner evidence.
+ 
+-### V3-M8 — 3R planar pose
++### V3-M8 — 6R spatial free-space planning
+ 
+-- full \(SE(2)\) goal regions;
+-- redundant position-only controls;
+-- orientation-aware metrics and heuristics.
++- idealized 6R spatial serial kinematics;
++- spatial position and full-\(SE(3)\) goals;
++- deterministic numerical IK / goal generation;
++- direct/native/OMPL free-space evidence;
++- no collision or MoveIt dependency.
+ 
+-### V3-M9 — 4R/5R partial tasks
++### V3-M9 — Cross-DOF free-space architecture closeout
+ 
+-- pointing, orientation cones, constrained-plane, and partial-pose goals.
++- freeze accepted 2R/3R/6R evidence;
++- audit state/task/local-motion/objective/planner invariants;
++- document dimension-specific capability boundaries;
++- authorize collision work only after free-space semantics are understood.
+ 
+-### V3-M10 — 6R and MoveIt application adapter
++Spatial 4R/5R partial tasks are deferred under `V3-DEFER-002`; they remain accepted research work but are not a gate before 6R.
+ 
+-- URDF/SRDF robot models;
+-- spatial collision scenes;
+-- full \(SE(3)\) pose goals;
+-- OMPL, Pilz, CHOMP, and STOMP pipeline comparisons.
++### V3-M10 — Scene and collision framework
+ 
+-### V3-M11 — Production mechanism populations
++- planar and spatial collision geometry;
++- world/self-collision validity;
++- continuous motion collision checks;
++- collision instrumentation and frozen scene descriptors.
++
++### V3-M11 — Obstacle routing evidence
++
++- frozen direct-clear and direct-blocked scene/task banks;
++- ADR-026 collision-aware direct-feasibility strata;
++- route-family diagnostics;
++- planner/mechanism effects under genuine nonlocal routing.
++
++### V3-M12 — MoveIt application adapter
++
++- URDF/SRDF-backed application models;
++- planning-scene bridge;
++- compatible goal/constraint translation;
++- OMPL, Pilz, CHOMP, and STOMP application comparisons;
++- explicit rejection when mechanism-aware semantics cannot be preserved.
++
++### V3-M13 — Production mechanism populations
+ 
+ - freeze task, scene, planner, and mechanism banks;
+ - planner-appropriate statistical designs;
+@@ -769,7 +769,10 @@
+-| Native/OMPL parity is understood | obstacle studies |
++| Native/OMPL parity is understood | 2R free-space evidence |
+ | Task classification and benchmark strata accepted | aggregate performance claims |
+-| Free-space semantics stable | obstacle routing |
+-| 2R planner-family evidence reviewed | 3R implementation |
+-| 3R task semantics stable | 4R–6R progression |
++| Corrected 2R free-space semantics stable | 3R implementation |
++| 3R position/pose semantics stable | 6R free-space implementation |
++| 6R spatial free-space semantics stable | cross-DOF closeout |
++| 2R/3R/6R cross-DOF free-space closeout accepted | collision framework |
++| Collision framework validated independently | obstacle-routing evidence |
++| Obstacle-routing semantics reviewed | MoveIt application adapter |
+ | MoveIt adapter preserves mechanism-aware semantics | application-facing claims |
+ | Planner-specific statistics accepted | any production Monte Carlo campaign |
+@@ -796,11 +796,15 @@
+ ## 19. Immediate next action
+ 
+-Do not start with obstacle implementation or a new population campaign.
++Do not start obstacle implementation, MoveIt integration, or a new population campaign.
+ 
+-Begin with Sprint V3.0:
++Complete the corrected Sprint V3.6 2R free-space evidence contract first:
+ 
+-- freeze the V2 evidence lineage;
+-- inventory the current code and call sites;
+-- accept the V3 interfaces and benchmark contract;
+-- define adapter boundaries;
+-- produce a migration map and golden compatibility test plan.
++- shared physical starts across paired mechanisms;
++- a shared represented Cartesian goal set;
++- direct actuator-space reference cost;
++- deterministic/stochastic planner evidence and paired effects;
++- a clean implementation revision followed by a separate evidence commit.
++
++Then activate Sprint V3.7 for **3R planar free-space planning**, followed by Sprint V3.8 for **6R spatial free-space planning** and Sprint V3.9 for the cross-DOF architecture closeout.
++
++Collision and obstacle routing are explicitly held until that dimensional free-space gate passes.
+
+diff --git a/docs/software/planning/sprints/v3/README.md b/docs/software/planning/sprints/v3/README.md
+--- a/docs/software/planning/sprints/v3/README.md
++++ b/docs/software/planning/sprints/v3/README.md
+@@ -10,14 +10,18 @@
+ 4. [Sprint V3.3 — Lattice and Local-Motion Validation](SPRINT_V3_3_LATTICE_LOCAL_MOTION.md) (completed)
+ 5. [Sprint V3.4 — Native Roadmap and Tree Planners](SPRINT_V3_4_NATIVE_ROADMAP_TREE.md) (completed)
+ 6. [Sprint V3.5 — OMPL Adapter](SPRINT_V3_5_OMPL_ADAPTER.md) (completed)
+-7. [Sprint V3.6 — Free-Space Planner Evidence](SPRINT_V3_6_FREE_SPACE_EVIDENCE.md) (**active**)
+-8. Sprint V3.7 — Scene and Obstacle Framework
+-9. Sprint V3.8 — 3R Planar Pose
+-10. Sprint V3.9 — 4R/5R Partial Tasks
+-11. Sprint V3.10 — 6R and MoveIt Application Adapter
+-12. Sprint V3.11 — Production Mechanism Populations
++7. [Sprint V3.6 — 2R Free-Space Planner Evidence](SPRINT_V3_6_FREE_SPACE_EVIDENCE.md) (**active**)
++8. [Sprint V3.7 — 3R Planar Free-Space Planning](SPRINT_V3_7_3R_PLANAR_FREE_SPACE.md) (drafted; not activated)
++9. [Sprint V3.8 — 6R Spatial Free-Space Planning](SPRINT_V3_8_6R_SPATIAL_FREE_SPACE.md) (drafted; not activated)
++10. [Sprint V3.9 — Cross-DOF Free-Space Architecture Closeout](SPRINT_V3_9_CROSS_DOF_FREE_SPACE_CLOSEOUT.md) (drafted; not activated)
++11. [Sprint V3.10 — Scene and Collision Framework](SPRINT_V3_10_SCENE_COLLISION_FRAMEWORK.md) (drafted; not activated)
++12. [Sprint V3.11 — Obstacle Routing Evidence](SPRINT_V3_11_OBSTACLE_ROUTING_EVIDENCE.md) (drafted; not activated)
++13. [Sprint V3.12 — MoveIt Application Adapter](SPRINT_V3_12_MOVEIT_APPLICATION_ADAPTER.md) (drafted; not activated)
++14. [Sprint V3.13 — Production Mechanism Populations](SPRINT_V3_13_PRODUCTION_MECHANISM_POPULATIONS.md) (drafted; not activated)
+ 
+-V3.6 is authorized for execution while ACTIVE_SPRINT points here. Later items are roadmap milestones and must receive their own sprint contracts before implementation. Native planner breadth omitted from the narrowed V3.3/V3.4 slices is tracked under `V3-DEFER-001` rather than silently treated as completed.
++V3.6 remains the only authorized sprint while ACTIVE_SPRINT points there. The dimensional free-space sequence is now a hard architecture gate: **2R → 3R → 6R → cross-DOF closeout → collision/obstacle work**. Later sprint documents are planning contracts only and carry no code authorization until explicitly activated.
++
++Native planner breadth omitted from the narrowed V3.3/V3.4 slices remains tracked under `V3-DEFER-001`. Spatial 4R/5R partial-task studies remain accepted but non-gating work under `V3-DEFER-002`; they are not required before the standard 6R free-space architecture test.
+ 
+ ## Dependency map
+ 
+@@ -28,13 +32,31 @@
+               └── V3.2 direct 2R vertical slice
+                     └── V3.3 lattice/local-motion validation
+                           ├── V3.4 native roadmap/tree planners
+-                          │     └── V3.5 OMPL adapter (completed)
+-                          │           └── V3.6 free-space evidence (active)
+-                          │                 └── V3.7 obstacle scenes
+-                          │                       └── higher-DOF roadmap
+-                          └── representation ablations
+-                                └── historical Experiment A reinterpretation limits
++                          │     └── V3.5 OMPL adapter
++                          │           └── V3.6 2R free-space evidence (active)
++                          │                 └── V3.7 3R planar free space
++                          │                       └── V3.8 6R spatial free space
++                          │                             └── V3.9 cross-DOF closeout
++                          │                                   └── V3.10 scene/collision framework
++                          │                                         └── V3.11 obstacle routing evidence
++                          │                                               └── V3.12 MoveIt application adapter
++                          │                                                     └── V3.13 production populations
++                          └── representation ablations / deferred planner breadth
+ ```
++
++## Why obstacles move later
++
++The `PlanningScene` abstraction already exists, so the architecture does not need collision geometry in order to validate higher-dimensional planning. Adding obstacles before 3R and 6R free-space validation would mix new kinematics, goal representations, planner dimensionality, collision checking, and route topology in one debugging step.
++
++The revised sequence isolates those effects:
++
++1. prove the common V3 contracts in 2R free space;
++2. add planar redundancy and pose semantics at 3R;
++3. add spatial kinematics and full-pose semantics at 6R;
++4. close the free-space architecture across dimensions;
++5. only then introduce collision geometry and genuine routing.
++
++See [`V3_ROADMAP_DIMENSION_BEFORE_OBSTACLES.md`](../../../architecture/notes/V3_ROADMAP_DIMENSION_BEFORE_OBSTACLES.md).
+ 
+ ## Scope rule
+ 
+
+diff --git a/docs/software/planning/BACKLOG.md b/docs/software/planning/BACKLOG.md
+--- a/docs/software/planning/BACKLOG.md
++++ b/docs/software/planning/BACKLOG.md
+@@ -6,12 +6,13 @@
+ 
+ ## Current backlog
+ 
+-- **V3-DEFER-001 — Deferred native planner breadth:** the narrowed V3.3/V3.4 vertical slices delivered eight-connected Dijkstra/A*, basic PRM, and RRTConnect. Weighted/bidirectional/any-angle lattice search, richer-than-eight connectivity, Lazy PRM, PRM*, plain RRT, RRT*, and informed/batch native planners remain accepted roadmap work but are intentionally deferred. Revisit after the V3.5 OMPL adapter and V3.6 free-space parity evidence identify which native implementations add scientific value rather than duplicate external-library coverage. See [V3 project plan](../V3_PROJECT_PLAN.md) §16 and [Sprint V3.4](sprints/v3/SPRINT_V3_4_NATIVE_ROADMAP_TREE.md).
++- **V3-DEFER-001 — Deferred native planner breadth:** the narrowed V3.3/V3.4 vertical slices delivered eight-connected Dijkstra/A*, basic PRM, and RRTConnect. Weighted/bidirectional/any-angle lattice search, richer-than-eight connectivity, Lazy PRM, PRM*, plain RRT, RRT*, and informed/batch native planners remain accepted roadmap work but are intentionally deferred. Revisit after the V3.9 cross-DOF free-space closeout identifies which native implementations add scientific value rather than duplicate external-library coverage. See [V3 project plan](../V3_PROJECT_PLAN.md) §16 and [Sprint V3.4](sprints/v3/SPRINT_V3_4_NATIVE_ROADMAP_TREE.md).
++- **V3-DEFER-002 — Spatial 4R/5R partial-task studies:** position-plus-pointing, orientation-cone, constrained-plane, remote-center, and other partial-pose tasks remain scientifically valuable, but they are no longer a gate between 3R and the standard 6R free-space architecture test. Revisit after V3.9 or when a partial-task paper question requires them. Any activation must preserve exact physical starts and task predicates appropriate to the available DOFs rather than forcing arbitrary `SE(3)` goals.
+ - **V2 HTML run printout (evaluation tooling):** implemented beside the V2 runner (`v2_canvas.py`, `scripts/generate_v2_canvas.py`). Keep regenerable; do not treat as a substitute for V2.7.
+ - **Experiment B production promotion:** V2.12 smoke, V2B-005 calibration tooling, and regenerable HTML printouts are recorded, but population inference remains **held** under the V3 pivot. Do not activate production orchestration opportunistically. Protocol: [Experiment B](../experiments/protocols/EXPERIMENT_B_CARTESIAN_GOAL_REGION.md). Sprint: [V2.12](sprints/v2/SPRINT_V2_12_CARTESIAN_GOAL_REGION_PLANNING.md).
+ - **Experiment B exact-start control:** nearest-node start attachment is retained by the V2B-005 start-attachment decision (`retain_nearest_node_v1`) as a V2 formulation artifact; V3 removes `start_tolerance` as task semantics (ADR-023 accepted).
+ - **Experiment A task-set diagnostic:** deferred and low-confidence. Preserve as a separate Q-spanner diagnostic identity under V3; do not merge with Cartesian application estimands. See [project note](../architecture/notes/PROJECT_NOTE_EXPERIMENT_A_TASK_SET_EFFECT.md).
+-- **Sprint V2.7 (3R):** held until Version 3 contracts and the higher-DOF roadmap (V3.8+) are activated. See [sprints/v2/SPRINT_V2_7_3R_EXTENSION.md](sprints/v2/SPRINT_V2_7_3R_EXTENSION.md).
++- **Sprint V2.7 (3R):** remains a frozen Version 2 proposal and is not the implementation path for higher DOF. New 3R work belongs to Sprint V3.7 under the V3 physical-state/task/planner contracts. See [sprints/v2/SPRINT_V2_7_3R_EXTENSION.md](sprints/v2/SPRINT_V2_7_3R_EXTENSION.md).
+ 
+ ## Intake rules
+ 
+
+diff --git a/docs/software/planning/README.md b/docs/software/planning/README.md
+--- a/docs/software/planning/README.md
++++ b/docs/software/planning/README.md
+@@ -5,5 +5,6 @@
+ - [sprints/v3/](sprints/v3/) contains the Version 3 planner-agnostic architecture sequence (active).
+ - [sprints/v2/](sprints/v2/) preserves the completed Version 2 rearchitecture and frozen evidence lineage.
+ - [sprints/v1/](sprints/v1/) preserves the completed Version 1 execution record.
++- [V3 dimensional-roadmap note](../architecture/notes/V3_ROADMAP_DIMENSION_BEFORE_OBSTACLES.md) records the accepted 2R→3R→6R free-space gate before collision/obstacle work.
+ 
+ Sprint documents implement accepted architecture; they do not independently redefine it. Completed work should not remain in the active backlog.
+
+diff --git a/docs/software/architecture/notes/V3_ROADMAP_DIMENSION_BEFORE_OBSTACLES.md b/docs/software/architecture/notes/V3_ROADMAP_DIMENSION_BEFORE_OBSTACLES.md
+new file mode 100644
+--- /dev/null
++++ b/docs/software/architecture/notes/V3_ROADMAP_DIMENSION_BEFORE_OBSTACLES.md
+@@ -0,0 +1,122 @@
++# Project Note — Validate Dimension Before Obstacles
++
++**Status:** accepted roadmap rationale  
++**Applies to:** Version 3 after Sprint V3.6  
++**Related:** ADR-021–026; `V3_PROJECT_PLAN.md`; Sprint V3.6
++
++## Decision
++
++Do not introduce collision geometry or obstacle-routing experiments immediately after the 2R free-space benchmark.
++
++The Version 3 validation sequence is:
++
++\[
++\boxed{
++2R\ \text{free space}
++\rightarrow
++3R\ \text{planar free space}
++\rightarrow
++6R\ \text{spatial free space}
++\rightarrow
++\text{cross-DOF closeout}
++\rightarrow
++\text{collision/obstacles}
++}
++\]
++
++Spatial 4R/5R partial-task studies remain accepted follow-on work but are not a gate before 6R.
++
++## Why
++
++Version 3 separates
++
++\[
++\mathcal U \xrightarrow{g_m} \mathcal Q \xrightarrow{f} \mathcal X
++\]
++
++from planner representation, local motion, validity, objectives, and benchmark policy.
++
++The 2R study validates that separation in the simplest nontrivial case. The next architectural risk is dimensional/task generalization, not collision checking.
++
++If obstacles were added before higher-DOF free-space validation, a failed experiment could be caused by any combination of:
++
++- serial forward kinematics or Jacobians;
++- \(U\leftrightarrow Q\) state consistency;
++- goal-region or IK representation;
++- redundant-goal handling;
++- local-motion semantics;
++- nearest-neighbor or sampling behavior in higher dimension;
++- collision checking;
++- or actual obstacle topology.
++
++The revised sequence removes the collision variables while 3R and 6R are brought onto the common V3 contract.
++
++## Validation ladder
++
++### 2R planar position — Sprint V3.6
++
++Establish the controlled free-space baseline:
++
++- same physical start across mechanisms;
++- same represented Cartesian goal region;
++- direct actuator-space reference;
++- deterministic and stochastic planner parity;
++- paired mechanism effects and planner suboptimality.
++
++### 3R planar — Sprint V3.7
++
++Introduce two new semantics while retaining visualization and analytical tractability:
++
++1. position-only goals \((x,y)\), which are redundant for a 3R arm;
++2. full planar pose goals \((x,y,\phi)\in SE(2)\).
++
++This is the first explicit test of a goal manifold / redundant IK family under the V3 planner-independent contract.
++
++### 6R spatial — Sprint V3.8
++
++Move to a standard spatial serial manipulator without URDF, self-collision, or world obstacles.
++
++Use:
++
++- exact physical starts;
++- spatial position regions;
++- full \(SE(3)\) pose regions;
++- deterministic/frozen numerical IK candidate generation;
++- direct and sampling-based planners appropriate to six dimensions.
++
++A dense tensor lattice is not a required 6R baseline.
++
++### Cross-DOF closeout — Sprint V3.9
++
++No new collision features.
++
++Freeze evidence showing that the same contracts survive:
++
++- 2R planar position;
++- 3R planar position and pose;
++- 6R spatial position and pose.
++
++This is an architecture-validation milestone, not a claim that raw timings or planner events are directly comparable across dimensions.
++
++## What obstacles add later
++
++After the cross-DOF gate, collision work becomes one new variable rather than several.
++
++Sprint V3.10 adds collision-scene capability. Sprint V3.11 then asks the genuinely different question:
++
++> When the direct connector is blocked and nonlocal routing is actually required, how does the mechanism-induced actuator metric affect route choice, feasibility, and planner effort?
++
++## 4R/5R status
++
++Underactuated and partial-task spatial robots remain valuable because they stress task predicates that do not occupy all six dimensions of \(SE(3)\). They are deferred under `V3-DEFER-002`, not abandoned.
++
++They should be activated when the research question is specifically about:
++
++- pointing;
++- orientation cones;
++- constrained planes;
++- remote-center constraints;
++- partial poses;
++- or underactuated task manifolds.
++
++They are not required to prove that the V3 architecture scales from planar to a conventional 6R spatial manipulator.
+diff --git a/docs/software/planning/sprints/v3/SPRINT_V3_7_3R_PLANAR_FREE_SPACE.md b/docs/software/planning/sprints/v3/SPRINT_V3_7_3R_PLANAR_FREE_SPACE.md
+new file mode 100644
+--- /dev/null
++++ b/docs/software/planning/sprints/v3/SPRINT_V3_7_3R_PLANAR_FREE_SPACE.md
+@@ -0,0 +1,67 @@
++# Sprint V3.7 — 3R Planar Free-Space Planning
++
++**Status:** drafted / not activated  
++**Reserved work packages:** V3-700–V3-706  
++**Code authorization:** none until Sprint V3.6 closes and ACTIVE_SPRINT explicitly activates V3.7  
++**Depends on:** corrected Sprint V3.6 2R free-space evidence; ADR-021–026
++
++## Sprint intent
++
++Extend the validated free-space formulation from planar 2R position planning to planar 3R while changing as little else as possible.
++
++Required task families:
++
++1. **position-only:** Cartesian disk goals in \((x,y)\), leaving one redundant degree of freedom;
++2. **full planar pose:** bounded regions in \((x,y,\phi)\in SE(2)\).
++
++The purpose is to validate redundant goal sets, multiple IK families, exact physical starts, mechanism-aware actuator cost, and planner-family behavior in one additional dimension before collision geometry is introduced.
++
++## Non-goals
++
++- obstacles, self-collision, or world collision;
++- 4R/5R partial spatial tasks;
++- 6R spatial kinematics;
++- MoveIt or URDF integration;
++- production Monte Carlo;
++- reopening full-cycle/noninjective mechanisms.
++
++## Work packages
++
++### V3-700 — 3R task semantics
++
++Freeze position-only and \(SE(2)\) pose predicates, orientation wrapping/tolerance, exact-start semantics, and represented-goal reporting.
++
++### V3-701 — Planar 3R robot and mechanism composition
++
++Add a generic planar 3R serial `RobotModel` using three certified scalar transmission modules. Preserve \(\mathcal U\rightarrow\mathcal Q\rightarrow\mathcal X\) and build paired nonlinear-transmission / span-matched gearbox arms over one shared \(Q\) domain.
++
++### V3-702 — Goal generation and redundancy
++
++Implement deterministic goal generation for full pose and for position-only redundant goals using a frozen representation policy over the free orientation coordinate. Keep the physical predicate separate from the represented goal set.
++
++### V3-703 — Planner adapters in 3D state space
++
++Run delivered direct, native roadmap/tree, and OMPL planners without planner-specific task semantics. A small 3D lattice may remain diagnostic (26-connected Chebyshev-radius-one) where practical; it is not a production requirement.
++
++### V3-704 — Frozen 3R free-space task bank
++
++Create a small external bank with shared physical starts, both task families, task-size descriptors, and represented redundancy/IK provenance.
++
++### V3-705 — 3R evidence artifact
++
++Report common status, direct represented-goal reference cost, planner suboptimality, total wall time and phase timings, represented goal coverage, and paired mechanism \(\Delta J\). Keep position-only and full-pose estimands separate.
++
++### V3-706 — Tests and closeout
++
++FK/Jacobian consistency, shared starts, pose-angle residuals, redundant goal determinism, direct-reference bounds, and native/OMPL task-class parity.
++
++## Exit criteria
++
++1. One `PlanningProblem` contract supports both 3R position-only and full \(SE(2)\) pose goals.
++2. Exact starts remain shared in \(Q\)/Cartesian state across paired mechanisms.
++3. Position-only goals exercise a documented redundant represented goal set rather than one arbitrary orientation.
++4. Full-pose goals preserve orientation tolerance/wrapping semantics.
++5. Delivered planners consume the same goal representation or an explicitly declared continuous goal interface.
++6. Direct represented-goal reference costs exist for planner-suboptimality interpretation.
++7. No collision geometry is required for the sprint to pass.
++8. V3.8 remains blocked until both task families are reproducible and reviewed.
+
+diff --git a/docs/software/planning/sprints/v3/SPRINT_V3_8_6R_SPATIAL_FREE_SPACE.md b/docs/software/planning/sprints/v3/SPRINT_V3_8_6R_SPATIAL_FREE_SPACE.md
+new file mode 100644
+--- /dev/null
++++ b/docs/software/planning/sprints/v3/SPRINT_V3_8_6R_SPATIAL_FREE_SPACE.md
+@@ -0,0 +1,70 @@
++# Sprint V3.8 — 6R Spatial Free-Space Planning
++
++**Status:** drafted / not activated  
++**Reserved work packages:** V3-800–V3-807  
++**Code authorization:** none until Sprint V3.7 closes and ACTIVE_SPRINT explicitly activates V3.8  
++**Depends on:** V3.7 3R planar free-space closeout; ADR-021–026
++
++## Sprint intent
++
++Build an idealized 6R serial manipulator directly in the V3 kinematics layer and demonstrate free-space spatial planning with the same physical-state, goal, local-motion, objective, classification, and planner interfaces already used in 2R/3R.
++
++This sprint deliberately separates **spatial kinematics** from **MoveIt/URDF/collision integration**.
++
++Required task families:
++
++1. spatial position region, \(p\in\mathbb R^3\);
++2. full pose region, \(G\in SE(3)\).
++
++## Non-goals
++
++- world obstacles or self-collision;
++- URDF/SRDF or MoveIt;
++- forcing a six-dimensional tensor lattice;
++- 4R/5R partial tasks;
++- production populations;
++- dynamics or torque-limited planning.
++
++## Work packages
++
++### V3-800 — Spatial serial-kinematics contract
++
++Add a generic fixed-screw 6R serial model, preferably product-of-exponentials. Preserve the distinction between actuator coordinates \(u\), generalized output coordinates \(q\), and spatial pose \(G\).
++
++### V3-801 — 6R paired mechanism arms
++
++Compose six certified scalar transmission modules into paired mechanism-aware robots over a bounded monotonic \(Q\) domain.
++
++### V3-802 — Spatial goal predicates
++
++Implement position-sphere and \(SE(3)\) pose-region residuals with explicit translation/orientation tolerances and frame conventions.
++
++### V3-803 — Numerical IK / goal generation
++
++Introduce deterministic multi-start numerical IK as a goal-generation service, not task semantics. Freeze starts/seeds, deduplicate solutions, and record provenance. Stored benchmark targets are spatial task descriptors rather than planner-visible hidden target \(q\) values.
++
++### V3-804 — Higher-dimensional planner subset
++
++Use direct input-linear reference, native RRTConnect/PRM where scientifically useful, and OMPL RRTConnect/PRM. A dense lattice is diagnostic-only and not an exit criterion.
++
++### V3-805 — Frozen 6R free-space bank
++
++Create shared starts and spatial position/full-pose goals with represented-goal coverage, IK diagnostics, direct reference cost, and size descriptors.
++
++### V3-806 — 6R review artifact
++
++Report feasibility, goal coverage, planner status, suboptimality to direct reference, total wall time, validity calls, and paired mechanism effects. Keep position and full-pose results separate.
++
++### V3-807 — Tests and closeout
++
++POE/FK hand cases, Jacobian finite differences, state consistency, shared starts, orientation residuals, IK determinism, goal satisfaction, and planner-adapter round trips.
++
++## Exit criteria
++
++1. The core V3 `PlanningProblem` requires no 6R-specific fields.
++2. Spatial `PhysicalState` remains authoritative under \(U\rightarrow Q\).
++3. Position and full-pose tasks require no collision or MoveIt dependency.
++4. Numerical IK is reproducible and separate from the goal predicate.
++5. At least direct reference, one native sampling planner, and one OMPL planner solve the same bounded spatial problems.
++6. No six-dimensional tensor-lattice requirement is introduced for historical continuity.
++7. V3.9 remains blocked until 6R free-space evidence is reviewable.
+
+diff --git a/docs/software/planning/sprints/v3/SPRINT_V3_9_CROSS_DOF_FREE_SPACE_CLOSEOUT.md b/docs/software/planning/sprints/v3/SPRINT_V3_9_CROSS_DOF_FREE_SPACE_CLOSEOUT.md
+new file mode 100644
+--- /dev/null
++++ b/docs/software/planning/sprints/v3/SPRINT_V3_9_CROSS_DOF_FREE_SPACE_CLOSEOUT.md
+@@ -0,0 +1,54 @@
++# Sprint V3.9 — Cross-DOF Free-Space Architecture Closeout
++
++**Status:** drafted / not activated  
++**Reserved work packages:** V3-900–V3-905  
++**Code authorization:** none until Sprint V3.8 closes and ACTIVE_SPRINT explicitly activates V3.9  
++**Depends on:** corrected V3.6 2R evidence, V3.7 3R evidence, V3.8 6R evidence
++
++## Sprint intent
++
++Freeze the free-space architecture evidence for 2R planar position, 3R planar position/full pose, and 6R spatial position/full pose. Add minimal new planning code. Verify invariants across dimensions and create the hard gate that authorizes collision work.
++
++## Non-goals
++
++- obstacles or collision geometry;
++- new planner algorithms;
++- MoveIt;
++- raw performance pooling across 2R/3R/6R;
++- production inference;
++- 4R/5R implementation.
++
++## Work packages
++
++### V3-900 — Freeze evidence revisions
++
++Record immutable implementation/evidence revisions for accepted 2R, 3R, and 6R packages.
++
++### V3-901 — Contract conformance matrix
++
++Audit physical state, robot model, goal predicate/generator, local motion, objective, scene, planner, and result/provenance for every DOF/task family. Dimension-specific exceptions must be explicit capability boundaries.
++
++### V3-902 — Reproducibility audit
++
++Verify exact starts, goal-representation metadata, stochastic seed/process rules, serialization, and rerun commands.
++
++### V3-903 — Scaling diagnostics
++
++Report feasibility/task-class consistency, represented-goal coverage, direct-reference suboptimality, total wall time, validity-call growth, and within-family planner diagnostics without claiming one cross-DOF effort estimand.
++
++### V3-904 — Free-space architecture report
++
++Show what remained invariant from 2R→3R→6R and what changed because of dimensionality/task geometry.
++
++### V3-905 — Obstacle-entry gate
++
++Authorize V3.10 only if remaining free-space failures are attributable to documented planner/task limits rather than unresolved state/goal/local-motion defects.
++
++## Exit criteria
++
++1. One documented V3 contract has been demonstrated at 2R, 3R, and 6R.
++2. Exact-start semantics and mechanism-aware \(U\)-cost survive all dimensions.
++3. Goal predicates remain separate from IK/goal generation.
++4. Free-space planner failures are understood before collision checking is introduced.
++5. Incompatible planner events and task estimands are not pooled.
++6. Collision work remains blocked until this closeout is accepted.
+
+diff --git a/docs/software/planning/sprints/v3/SPRINT_V3_10_SCENE_COLLISION_FRAMEWORK.md b/docs/software/planning/sprints/v3/SPRINT_V3_10_SCENE_COLLISION_FRAMEWORK.md
+new file mode 100644
+--- /dev/null
++++ b/docs/software/planning/sprints/v3/SPRINT_V3_10_SCENE_COLLISION_FRAMEWORK.md
+@@ -0,0 +1,61 @@
++# Sprint V3.10 — Scene and Collision Framework
++
++**Status:** drafted / not activated  
++**Reserved work packages:** V3-1000–V3-1007  
++**Code authorization:** none until Sprint V3.9 closes and ACTIVE_SPRINT explicitly activates V3.10  
++**Depends on:** V3.9 cross-DOF free-space architecture closeout
++
++## Sprint intent
++
++Implement reusable collision-scene capability **without yet making mechanism-performance claims from obstacle routing**. Collision remains a `PlanningScene` concern; planners ask only whether states and continuous motions are valid.
++
++## Non-goals
++
++- obstacle-routing performance conclusions;
++- MoveIt;
++- production populations;
++- dynamic obstacles or contact planning;
++- mechanism-specific collision rules hidden in planners.
++
++## Work packages
++
++### V3-1000 — Collision-scene contract
++
++Freeze frames, geometry ownership, state/motion collision semantics, tolerances, and instrumentation.
++
++### V3-1001 — Planar robot geometry
++
++Add simple link geometry for 2R/3R and deterministic obstacle primitives for visual debugging.
++
++### V3-1002 — Spatial robot geometry
++
++Add a minimal 6R spatial collision representation behind an adapter boundary compatible with a later mature collision backend.
++
++### V3-1003 — World collision checks
++
++Implement state collision checks with collision-pair provenance and counters.
++
++### V3-1004 — Continuous motion collision validation
++
++Validate local motions under an accepted interpolation/adaptive policy. Endpoint-only collision checks are insufficient.
++
++### V3-1005 — Self-collision contract
++
++Add self-collision pairs/exclusions where required and instrument them separately from world collision.
++
++### V3-1006 — Frozen scene descriptors and visualization
++
++Create named scene classes and visual diagnostics showing robot, obstacles, local motions, collision samples, and first invalid state.
++
++### V3-1007 — Tests and framework closeout
++
++Hand-worked collisions, grazing/tolerance cases, continuous-edge collisions, deterministic counters, and 2R/3R/6R scene smoke.
++
++## Exit criteria
++
++1. Existing planners require no planner-specific collision branches.
++2. `PlanningScene.state_is_valid` and `motion_is_valid` remain the sole common validity interface.
++3. Interior collision can invalidate a motion with valid endpoints.
++4. Collision checks remain separate from planner-family exploration events.
++5. Planar and spatial scene smoke is deterministic and visualizable.
++6. No routing-performance claim is made until V3.11.
+
+diff --git a/docs/software/planning/sprints/v3/SPRINT_V3_11_OBSTACLE_ROUTING_EVIDENCE.md b/docs/software/planning/sprints/v3/SPRINT_V3_11_OBSTACLE_ROUTING_EVIDENCE.md
+new file mode 100644
+--- /dev/null
++++ b/docs/software/planning/sprints/v3/SPRINT_V3_11_OBSTACLE_ROUTING_EVIDENCE.md
+@@ -0,0 +1,60 @@
++# Sprint V3.11 — Obstacle Routing Evidence
++
++**Status:** drafted / not activated  
++**Reserved work packages:** V3-1100–V3-1106  
++**Code authorization:** none until Sprint V3.10 closes and ACTIVE_SPRINT explicitly activates V3.11  
++**Depends on:** V3.10 scene/collision framework; accepted 2R/3R/6R free-space baselines
++
++## Sprint intent
++
++Introduce obstacle topology as a controlled factor after the dimensional free-space architecture is closed. `direct connector unavailable` now becomes a scientifically important ADR-026 stratum rather than something to manufacture in free space.
++
++## Scene classes
++
++At minimum include frozen variants of:
++
++- direct path still clear (negative control);
++- one blocking obstacle;
++- offset obstacle with two route families;
++- narrow passage;
++- obstacle near one IK/goal family;
++- spatial scene with alternative approach/orientation routes.
++
++## Work packages
++
++### V3-1100 — Obstacle task/scene bank
++
++Freeze shared physical starts, task goals, scene geometry, and route-class metadata.
++
++### V3-1101 — Collision-aware preclassification
++
++Record per-mechanism direct-connector collision status, first blocking constraint, represented-goal coverage, and paired direct-feasibility strata.
++
++### V3-1102 — Planner portfolio
++
++Run an agreed subset of lattice/roadmap/tree/OMPL planners appropriate to each dimension. Do not expand native planner breadth merely to fill a table.
++
++### V3-1103 — Route diagnostics
++
++Record route-family labels where robustly definable, clearance, selected goal family, actuator cost, output/Cartesian path lengths, and collision-check counts.
++
++### V3-1104 — Paired mechanism effects
++
++Compare nonlinear transmission against matched gearbox on identical start, goal, and scene. Report absolute and paired effects within task/scene strata.
++
++### V3-1105 — Stochastic repetitions
++
++Freeze seed sets/process-isolation rules and separate first-solution from optimizing behavior where relevant.
++
++### V3-1106 — Evidence report
++
++Answer separately whether the mechanism changes direct feasibility, route selection, actuator cost along comparable routes, and planner effort after controlling task/route class.
++
++## Exit criteria
++
++1. At least one bank contains genuine collision-caused `direct connector unavailable` tasks.
++2. Negative-control scenes reproduce free-space behavior.
++3. Route/task strata are declared before aggregate planner effects.
++4. Mechanism effects are not conflated with different starts/goals/scenes.
++5. Collision and planner-specific exploration metrics remain separate.
++6. Results are reviewed before MoveIt integration.
+
+diff --git a/docs/software/planning/sprints/v3/SPRINT_V3_12_MOVEIT_APPLICATION_ADAPTER.md b/docs/software/planning/sprints/v3/SPRINT_V3_12_MOVEIT_APPLICATION_ADAPTER.md
+new file mode 100644
+--- /dev/null
++++ b/docs/software/planning/sprints/v3/SPRINT_V3_12_MOVEIT_APPLICATION_ADAPTER.md
+@@ -0,0 +1,59 @@
++# Sprint V3.12 — MoveIt Application Adapter
++
++**Status:** drafted / not activated  
++**Reserved work packages:** V3-1200–V3-1207  
++**Code authorization:** none until Sprint V3.11 closes and ACTIVE_SPRINT explicitly activates V3.12  
++**Depends on:** V3.8 6R spatial model, V3.10 collision contract, V3.11 obstacle-routing evidence
++
++## Sprint intent
++
++Add MoveIt as an **application integration layer**, not as the source of truth for Version 3. Initial scope is the certified monotonic regime where \(q\) uniquely identifies the actuator-side realization.
++
++## Non-goals
++
++- representing globally noninjective hidden mechanism state inside ordinary URDF joint identity;
++- replacing V3 objectives with default MoveIt joint distance;
++- making MoveIt mandatory for core tests;
++- production populations.
++
++## Work packages
++
++### V3-1200 — Compatibility boundary
++
++Define which `PlanningProblem`s can be losslessly exported and which must be rejected.
++
++### V3-1201 — URDF/SRDF robot adapter
++
++Map selected standard 6R application models while retaining V3 mechanism metadata outside ordinary joint identity.
++
++### V3-1202 — Planning-scene bridge
++
++Translate world/self-collision scenes and verify collision-status parity on frozen states/motions.
++
++### V3-1203 — Goal/constraint bridge
++
++Translate compatible position, orientation, full-pose, and path constraints with explicit frames/tolerances.
++
++### V3-1204 — Objective/result bridge
++
++Recover trajectories into authoritative V3 `PhysicalState`s and reevaluate mechanism-aware actuator cost. Do not misrepresent a pipeline as optimizing the V3 objective when it does not.
++
++### V3-1205 — Pipeline subset
++
++Exercise selected OMPL, Pilz, CHOMP, and/or STOMP pipelines as application references; metrics remain namespaced.
++
++### V3-1206 — Parity tasks
++
++Reproduce selected free-space and obstacle tasks already solved by the native/direct-OMPL V3 stack.
++
++### V3-1207 — Tests and closeout
++
++Frame/tolerance parity, collision parity, state round trips, objective reevaluation, unsupported-problem rejection, and review artifact.
++
++## Exit criteria
++
++1. MoveIt remains optional and outside the core dependency set.
++2. Unsupported mechanism-state semantics are rejected rather than projected away.
++3. Returned trajectories reconstruct as valid V3 physical states.
++4. Scene/task tolerances are auditable across the adapter.
++5. Application-facing results are not confused with native objective guarantees.
+
+diff --git a/docs/software/planning/sprints/v3/SPRINT_V3_13_PRODUCTION_MECHANISM_POPULATIONS.md b/docs/software/planning/sprints/v3/SPRINT_V3_13_PRODUCTION_MECHANISM_POPULATIONS.md
+new file mode 100644
+--- /dev/null
++++ b/docs/software/planning/sprints/v3/SPRINT_V3_13_PRODUCTION_MECHANISM_POPULATIONS.md
+@@ -0,0 +1,53 @@
++# Sprint V3.13 — Production Mechanism Populations
++
++**Status:** drafted / not activated  
++**Reserved work packages:** V3-1300–V3-1307  
++**Code authorization:** none until application/benchmark gates explicitly authorize production inference
++
++## Sprint intent
++
++Return to scaled mechanism/task populations only after Version 3 has separated mechanism geometry, dimensional/task family, planner representation, local motion, goal representation, collision scene, and stochastic repetition policy.
++
++This is the first sprint in the revised roadmap permitted to make population-level statistical claims.
++
++## Work packages
++
++### V3-1300 — Estimand freeze
++
++Define exactly which mechanism, task, scene, and planner populations each reported effect represents.
++
++### V3-1301 — Frozen mechanism banks
++
++Version mechanism populations and matching rules, including gearbox and identity/null controls where relevant.
++
++### V3-1302 — Frozen task/scene banks
++
++Freeze application-task distributions separately by DOF/task family and scene class.
++
++### V3-1303 — Planner statistical designs
++
++Use deterministic paired designs where appropriate and repeated stochastic designs with declared seed/process protocols.
++
++### V3-1304 — Resolution/resource calibration
++
++Calibrate numerical resolution, memory, wall-time budgets, and failure/retry policies without tuning on production outcomes.
++
++### V3-1305 — Production runner
++
++Immutable configs, sharding, restart/failure accounting, provenance, and review artifacts.
++
++### V3-1306 — Statistical analysis
++
++Paired absolute/relative effects, uncertainty intervals, mechanism-descriptor correlations, task/scene strata, and multiple-comparison discipline where required.
++
++### V3-1307 — Evidence freeze
++
++Publish immutable data, configs, code revision, environment, report, and reproduction commands.
++
++## Exit criteria
++
++1. Every effect has an explicit estimand and frozen sampling population.
++2. Planner-specific events are never pooled as one universal effort metric.
++3. Invalid/unreachable/direct/global strata are not silently mixed.
++4. Stochastic repetitions are statistically and operationally reproducible.
++5. Production evidence is immutable and independently reviewable.
