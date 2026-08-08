@@ -1,9 +1,10 @@
 # Sprint V3.6 — Free-Space Planner Evidence
 
-**Status:** active — corrective free-space evidence contract after v1 pilot review
-**Code authorization:** V3-600–V3-605 only
+**Status:** completed — corrected v2 free-space evidence closed out
+**Code authorization:** none
 **Depends on:** [Sprint V3.5](SPRINT_V3_5_OMPL_ADAPTER.md) (completed); accepted ADRs 021–026
 **Reference:** [V3_PROJECT_PLAN.md](../../../V3_PROJECT_PLAN.md) §16 V3-M6
+**Closeout artifact:** [`results/v3_review/v3_6_free_space_v2/`](../../../../results/v3_review/v3_6_free_space_v2/) (implementation revision `a5a682c`). The v1 pilot at [`results/v3_review/v3_6_free_space/`](../../../../results/v3_review/v3_6_free_space/) is retained as superseded provenance and is **not** closeout evidence.
 
 ## Sprint intent
 
@@ -18,7 +19,8 @@ The scientific role of V3.6 is the free-space representation/optimality baseline
 
 Under the current monotonic branch, convex actuator bounds, input-linear local
 motion, and no obstacles, direct feasibility is expected for valid represented
-goal states. Genuine routing necessity enters in V3.7.
+goal states. Collision-forced routing is deferred to Sprint V3.10+; the next
+dimensional free-space step is Sprint V3.7 (3R planar).
 
 ## Entry conditions
 
@@ -28,8 +30,9 @@ goal states. Genuine routing necessity enters in V3.7.
 
 ## Non-goals
 
-- Obstacles / collision scenes (V3.7);
-- MoveIt, higher-DOF, production Monte Carlo;
+- Obstacles / collision scenes (V3.10+);
+- 3R / 6R kinematics (V3.7 / V3.8);
+- MoveIt, production Monte Carlo;
 - Closing `V3-DEFER-001` native breadth (Lazy-PRM, PRM*, RRT*, …);
 - Reinterpreting frozen V2 evidence;
 - Claiming bank means equal population estimands;
@@ -151,8 +154,17 @@ worker path, and V1–V3.5 regressions.
 8. Review summaries report per-planner paired mechanism effects and suboptimality rather than only pooled planner means.
 9. The generated manifest points to the clean implementation commit that contains the corrected V3.6 runner and bank.
 10. No population inference or obstacle work is activated.
-11. Hand off to V3.7 only after the corrected free-space semantics are reviewed.
+11. Hand off to V3.7 (3R planar free space) only after the corrected free-space semantics are reviewed.
+
+## Closeout record
+
+Exit criteria 1–10 are satisfied by the corrected v2 bank, runner, tests, and
+tracked review package under `results/v3_review/v3_6_free_space_v2/` (manifest
+implementation revision `a5a682c`). Criterion 11 is satisfied by this handoff:
+ACTIVE_SPRINT activates Sprint V3.7 for V3-700–V3-706 only.
 
 ## Deferred work
 
-`V3-DEFER-001` remains open. Obstacle framework is Sprint V3.7.
+`V3-DEFER-001` remains open. Obstacle / scene framework is Sprint V3.10
+(after the V3.9 cross-DOF free-space closeout). Spatial 4R/5R partial tasks
+remain under `V3-DEFER-002`.

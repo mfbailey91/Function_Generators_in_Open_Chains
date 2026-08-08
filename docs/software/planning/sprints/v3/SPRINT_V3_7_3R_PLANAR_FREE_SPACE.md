@@ -1,9 +1,9 @@
 # Sprint V3.7 — 3R Planar Free-Space Planning
 
-**Status:** drafted / not activated  
+**Status:** active — planar 3R free-space extension after V3.6 closeout  
 **Reserved work packages:** V3-700–V3-706  
-**Code authorization:** none until Sprint V3.6 closes and ACTIVE_SPRINT explicitly activates V3.7  
-**Depends on:** corrected Sprint V3.6 2R free-space evidence; ADR-021–026
+**Code authorization:** V3-700–V3-706 only  
+**Depends on:** corrected Sprint V3.6 2R free-space evidence ([`results/v3_review/v3_6_free_space_v2/`](../../../../results/v3_review/v3_6_free_space_v2/)); ADR-021–026
 
 ## Sprint intent
 
