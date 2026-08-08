@@ -10,5 +10,6 @@ one experiment runner (see `docs/software/planning/sprints/v3/README.md`).
 | --- | --- | --- |
 | [`free_space_planar2r_v1.json`](free_space_planar2r_v1.json) | V3.6 pilot | Original bounded bank. Preserved as provenance; its normalized actuator starts produce different physical starts across mechanisms. |
 | [`free_space_planar2r_v2.json`](free_space_planar2r_v2.json) | V3.6 corrective | Corrected evidence contract. Resolves each authoring start through a reference arm into one shared `q` / Cartesian start, freezes a finite Cartesian-disk goal representation, and declares stochastic repetition seeds. |
+| [`free_space_planar3r_v1.json`](free_space_planar3r_v1.json) | V3.7 | Planar 3R free-space bank. Author `start_u_frac` on the four-bar reference; loaders resolve one shared `q` / tip / heading for paired arms. Includes position-only (frozen φ grid × disk samples) and full-pose SE(2) tasks. |
 
-`v1` is not rewritten. The corrected V3.6 closeout candidate is `v2`.
+`v1` is not rewritten. The corrected V3.6 closeout candidate is `v2`. V3.7 adds a separate 3R bank rather than extending the 2R JSON.

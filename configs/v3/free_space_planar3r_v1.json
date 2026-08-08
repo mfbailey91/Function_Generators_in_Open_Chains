@@ -1,0 +1,359 @@
+{
+  "bank_id": "free_space_planar3r_v1",
+  "schema_version": 1,
+  "architecture_version": 3,
+  "description": "Bounded planar 3R free-space bank for Sprint V3.7. Author start_u_frac on the four-bar reference; loaders resolve one shared q/tip/pose start for paired mechanisms. Position-only tasks use a frozen phi grid plus disk samples; full-pose tasks use SE(2) regions with wrapped orientation tolerance. Not a population sample.",
+  "robot": {
+    "L1": 1.0,
+    "L2": 1.0,
+    "L3": 1.0
+  },
+  "mechanisms": [
+    "fourbar",
+    "gearbox"
+  ],
+  "start_contract": {
+    "authoring_reference_mechanism": "fourbar",
+    "base_authoring_field": "start_u_frac",
+    "resolved_shared_coordinate": "q",
+    "cartesian_tip_tolerance": 1e-09,
+    "pose_heading_tolerance": 1e-09
+  },
+  "size_strata_bins_tip_distance": {
+    "short": [
+      0.0,
+      0.25
+    ],
+    "medium": [
+      0.25,
+      0.45
+    ],
+    "long": [
+      0.45,
+      null
+    ]
+  },
+  "position_only_representation": {
+    "kind": "frozen_disk_points_times_phi_grid_v1",
+    "include_center": true,
+    "boundary_angles_deg": [
+      0,
+      45,
+      90,
+      135,
+      180,
+      225,
+      270,
+      315
+    ],
+    "boundary_radius_fraction": 0.98,
+    "phi_samples_rad": [
+      -2.4,
+      -2.0,
+      -1.6,
+      -1.2,
+      -0.8,
+      -0.4,
+      0.0
+    ],
+    "max_candidates": 64
+  },
+  "full_pose_representation": {
+    "kind": "frozen_se2_center_ik_v1",
+    "max_candidates": 8
+  },
+  "stochastic_repetitions": {
+    "seeds": [
+      7,
+      29,
+      61
+    ],
+    "ompl_process_isolation": true
+  },
+  "tasks": [
+    {
+      "task_id": "pos_already_0",
+      "task_family": "position_only",
+      "start_u_frac": [
+        0.25,
+        0.28,
+        0.3
+      ],
+      "goal_center": [
+        -1.138642816553649,
+        0.3105879926511318
+      ],
+      "goal_radius": 0.08,
+      "notes": "start tip inside disk"
+    },
+    {
+      "task_id": "pos_already_1",
+      "task_family": "position_only",
+      "start_u_frac": [
+        0.4,
+        0.55,
+        0.35
+      ],
+      "goal_center": [
+        -0.5493535287289706,
+        -0.3354072764839987
+      ],
+      "goal_radius": 0.08,
+      "notes": "start tip inside disk"
+    },
+    {
+      "task_id": "pos_already_2",
+      "task_family": "position_only",
+      "start_u_frac": [
+        0.2,
+        0.35,
+        0.45
+      ],
+      "goal_center": [
+        -0.770332436279945,
+        0.1998749745218178
+      ],
+      "goal_radius": 0.08,
+      "notes": "start tip inside disk"
+    },
+    {
+      "task_id": "pos_near_0",
+      "task_family": "position_only",
+      "start_u_frac": [
+        0.25,
+        0.28,
+        0.3
+      ],
+      "goal_center": [
+        -0.9386428165536491,
+        0.3105879926511318
+      ],
+      "goal_radius": 0.06,
+      "notes": ""
+    },
+    {
+      "task_id": "pos_near_1",
+      "task_family": "position_only",
+      "start_u_frac": [
+        0.25,
+        0.28,
+        0.3
+      ],
+      "goal_center": [
+        -1.138642816553649,
+        0.5105879926511319
+      ],
+      "goal_radius": 0.06,
+      "notes": ""
+    },
+    {
+      "task_id": "pos_near_2",
+      "task_family": "position_only",
+      "start_u_frac": [
+        0.4,
+        0.55,
+        0.35
+      ],
+      "goal_center": [
+        -0.7293535287289705,
+        -0.3354072764839987
+      ],
+      "goal_radius": 0.06,
+      "notes": ""
+    },
+    {
+      "task_id": "pos_med_0",
+      "task_family": "position_only",
+      "start_u_frac": [
+        0.25,
+        0.28,
+        0.3
+      ],
+      "goal_center": [
+        -1.138642816553649,
+        -0.03941200734886818
+      ],
+      "goal_radius": 0.07,
+      "notes": ""
+    },
+    {
+      "task_id": "pos_med_1",
+      "task_family": "position_only",
+      "start_u_frac": [
+        0.2,
+        0.35,
+        0.45
+      ],
+      "goal_center": [
+        -0.420332436279945,
+        0.1998749745218178
+      ],
+      "goal_radius": 0.07,
+      "notes": ""
+    },
+    {
+      "task_id": "pos_far_0",
+      "task_family": "position_only",
+      "start_u_frac": [
+        0.25,
+        0.28,
+        0.3
+      ],
+      "goal_center": [
+        -0.7497340869010478,
+        0.6994967223037329
+      ],
+      "goal_radius": 0.08,
+      "notes": ""
+    },
+    {
+      "task_id": "pos_far_1",
+      "task_family": "position_only",
+      "start_u_frac": [
+        0.5,
+        0.5,
+        0.5
+      ],
+      "goal_center": [
+        -0.8965470823512071,
+        -0.23953032076775255
+      ],
+      "goal_radius": 0.08,
+      "notes": ""
+    },
+    {
+      "task_id": "pos_invalid_0",
+      "task_family": "position_only",
+      "start_u_frac": [
+        0.25,
+        0.28,
+        0.3
+      ],
+      "goal_center": [
+        1.361357183446351,
+        2.810587992651132
+      ],
+      "goal_radius": 0.05,
+      "notes": "unreachable tip"
+    },
+    {
+      "task_id": "pose_already_0",
+      "task_family": "full_pose",
+      "start_u_frac": [
+        0.25,
+        0.28,
+        0.3
+      ],
+      "goal_center": [
+        -1.138642816553649,
+        0.3105879926511318
+      ],
+      "goal_radius": 0.05,
+      "goal_phi": -1.912305767293061,
+      "orientation_tol": 0.12,
+      "notes": "start pose in region"
+    },
+    {
+      "task_id": "pose_already_1",
+      "task_family": "full_pose",
+      "start_u_frac": [
+        0.4,
+        0.55,
+        0.35
+      ],
+      "goal_center": [
+        -0.5493535287289706,
+        -0.3354072764839987
+      ],
+      "goal_radius": 0.05,
+      "goal_phi": -1.100669397172295,
+      "orientation_tol": 0.12,
+      "notes": "start pose in region"
+    },
+    {
+      "task_id": "pose_near_0",
+      "task_family": "full_pose",
+      "start_u_frac": [
+        0.25,
+        0.28,
+        0.3
+      ],
+      "goal_center": [
+        -0.9586428165536491,
+        0.3105879926511318
+      ],
+      "goal_radius": 0.05,
+      "goal_phi": -1.912305767293061,
+      "orientation_tol": 0.12,
+      "notes": ""
+    },
+    {
+      "task_id": "pose_near_1",
+      "task_family": "full_pose",
+      "start_u_frac": [
+        0.4,
+        0.55,
+        0.35
+      ],
+      "goal_center": [
+        -0.5493535287289706,
+        -0.1854072764839987
+      ],
+      "goal_radius": 0.05,
+      "goal_phi": -1.300669397172295,
+      "orientation_tol": 0.15,
+      "notes": ""
+    },
+    {
+      "task_id": "pose_med_0",
+      "task_family": "full_pose",
+      "start_u_frac": [
+        0.2,
+        0.35,
+        0.45
+      ],
+      "goal_center": [
+        -0.770332436279945,
+        -0.1001250254781822
+      ],
+      "goal_radius": 0.06,
+      "goal_phi": -1.4630771639420854,
+      "orientation_tol": 0.15,
+      "notes": ""
+    },
+    {
+      "task_id": "pose_far_0",
+      "task_family": "full_pose",
+      "start_u_frac": [
+        0.25,
+        0.28,
+        0.3
+      ],
+      "goal_center": [
+        -0.913642816553649,
+        0.7002994243541292
+      ],
+      "goal_radius": 0.06,
+      "goal_phi": -2.0,
+      "orientation_tol": 0.15,
+      "notes": ""
+    },
+    {
+      "task_id": "pose_invalid_0",
+      "task_family": "full_pose",
+      "start_u_frac": [
+        0.25,
+        0.28,
+        0.3
+      ],
+      "goal_center": [
+        -3.138642816553649,
+        2.310587992651132
+      ],
+      "goal_radius": 0.05,
+      "goal_phi": -1.912305767293061,
+      "orientation_tol": 0.1,
+      "notes": "unreachable pose"
+    }
+  ]
+}
