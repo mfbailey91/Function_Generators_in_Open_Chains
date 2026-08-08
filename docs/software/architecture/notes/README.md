@@ -8,4 +8,5 @@ Design notes preserve useful explorations and deferred alternatives. Promote a n
 - [V2 to V3 pivot](PROJECT_NOTE_V2_TO_V3_PIVOT.md) (rationale; not an evidence claim)
 - [V3 code inventory](V3_CODE_INVENTORY.md) (Sprint V3.0)
 - [V3 migration map](V3_MIGRATION_MAP.md) (Sprint V3.0)
+- [V3.6A dimensional-generalization migration](V3_6A_DIMENSIONAL_GENERALIZATION_MIGRATION.md) (Sprint V3.6A)
 - [S4-12 lifted output-state](S4-12-lifted-output-state.md)

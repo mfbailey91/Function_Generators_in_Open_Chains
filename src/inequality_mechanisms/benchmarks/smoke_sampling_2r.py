@@ -12,10 +12,8 @@ from inequality_mechanisms.adapters.planar_2r_robot import (
     planar_2r_operating_branch_robot,
 )
 from inequality_mechanisms.core.constraints import ConstraintSet
-from inequality_mechanisms.core.goals import (
-    CartesianDiskGoal,
-    CartesianDiskGoalGenerator,
-)
+from inequality_mechanisms.core.goals import CartesianDiskGoal
+from inequality_mechanisms.kinematics.planar_2r_goals import CartesianDiskGoalGenerator
 from inequality_mechanisms.core.local_motion import InputLinearMotion
 from inequality_mechanisms.core.objectives import ActuatorTravelObjective
 from inequality_mechanisms.core.problem import PlanningProblem

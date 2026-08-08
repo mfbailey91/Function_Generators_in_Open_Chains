@@ -19,11 +19,13 @@ from inequality_mechanisms.benchmarks.planar_3r_arms import (
 from inequality_mechanisms.core.constraints import ConstraintSet
 from inequality_mechanisms.core.goals import (
     CartesianDiskGoal,
-    FrozenPlanar3RPositionGoalGenerator,
     GoalConstraint,
     GoalStateGenerator,
-    Planar3RPoseGoalGenerator,
     PlanarPoseRegionGoal,
+)
+from inequality_mechanisms.kinematics.planar_3r_goals import (
+    FrozenPlanar3RPositionGoalGenerator,
+    Planar3RPoseGoalGenerator,
 )
 from inequality_mechanisms.core.local_motion import InputLinearMotion
 from inequality_mechanisms.core.objectives import ActuatorTravelObjective

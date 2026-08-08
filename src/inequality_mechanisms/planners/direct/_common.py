@@ -24,12 +24,7 @@ from inequality_mechanisms.core.results import (
     Trajectory,
 )
 from inequality_mechanisms.core.state import PhysicalState
-
-
-def _polyline_length(samples: np.ndarray) -> float:
-    if samples.shape[0] < 2:
-        return 0.0
-    return float(np.sum(np.linalg.norm(np.diff(samples, axis=0), axis=1)))
+from inequality_mechanisms.core.trajectory_metrics import path_metrics_from_motion_samples
 
 
 def path_lengths_from_motion(
@@ -38,21 +33,14 @@ def path_lengths_from_motion(
     robot: Any,
 ) -> tuple[float, float, float | None]:
     """Return ``(length_u, length_q, length_x)`` from connector samples."""
-    sample_u = np.asarray(motion.parameters["sample_u"], dtype=np.float64)
-    sample_q = np.asarray(motion.parameters["sample_q"], dtype=np.float64)
-    length_u = float(motion.parameters["actuator_path_length"])
-    length_q = _polyline_length(sample_q)
-    length_x: float | None
-    try:
-        tips = []
-        assembly = motion.start.assembly_state
-        for u_row, q_row in zip(sample_u, sample_q):
-            state = PhysicalState(u=u_row, q=q_row, assembly_state=assembly)
-            tips.append(np.asarray(robot.forward_kinematics(state).position))
-        length_x = _polyline_length(np.asarray(tips, dtype=np.float64))
-    except (NotImplementedError, ValueError):
-        length_x = None
-    return length_u, length_q, length_x
+    metrics = path_metrics_from_motion_samples(
+        sample_u=np.asarray(motion.parameters["sample_u"], dtype=np.float64),
+        sample_q=np.asarray(motion.parameters["sample_q"], dtype=np.float64),
+        actuator_path_length=float(motion.parameters["actuator_path_length"]),
+        robot=robot,
+        assembly_state=motion.start.assembly_state,
+    )
+    return metrics.length_u, metrics.length_q, metrics.length_x
 
 
 def _goal_usable(problem: PlanningProblem) -> bool:

@@ -16,7 +16,7 @@ from inequality_mechanisms.benchmarks.free_space_bank import (
     state_from_u_frac,
 )
 from inequality_mechanisms.benchmarks.smoke_sampling_2r import SamplingSmokeArm
-from inequality_mechanisms.core.goals import CartesianDiskGoalGenerator
+from inequality_mechanisms.kinematics.planar_2r_goals import CartesianDiskGoalGenerator
 from inequality_mechanisms.core.problem import PlanningProblem
 from inequality_mechanisms.core.state import PhysicalState
 from inequality_mechanisms.planners.sampling_space import (

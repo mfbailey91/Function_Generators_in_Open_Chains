@@ -15,6 +15,7 @@ def planar_2r_operating_branch_robot(
     L1: float = 1.0,
     L2: float = 1.0,
     planar_fk: Planar2R | None = None,
+    kinematic_model: Planar2R | None = None,
 ) -> OperatingBranchRobotModel:
     """Wrap a certified 2R operating branch with planar tip FK.
 
@@ -23,9 +24,17 @@ def planar_2r_operating_branch_robot(
     branch :
         Certified monotonic operating branch (transmission map).
     L1, L2 :
-        Link lengths when ``planar_fk`` is omitted.
+        Link lengths when a kinematic model is omitted.
     planar_fk :
+        Compatibility alias for ``kinematic_model``.
+    kinematic_model :
         Optional shared ``Planar2R`` instance (e.g. paired smoke studies).
     """
-    fk = planar_fk if planar_fk is not None else Planar2R(L1=L1, L2=L2)
-    return OperatingBranchRobotModel(branch=branch, planar_fk=fk)
+    if planar_fk is not None and kinematic_model is not None:
+        raise ValueError("pass only one of planar_fk or kinematic_model")
+    fk = (
+        kinematic_model
+        if kinematic_model is not None
+        else planar_fk if planar_fk is not None else Planar2R(L1=L1, L2=L2)
+    )
+    return OperatingBranchRobotModel(branch=branch, kinematic_model=fk)

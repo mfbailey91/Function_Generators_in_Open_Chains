@@ -34,10 +34,10 @@ from inequality_mechanisms.core.goals import (
     CartesianDiskGoal,
     GoalConstraint,
     GoalSamplingRequest,
-    planar_2r_ik_family,
 )
 from inequality_mechanisms.core.state import PhysicalState, StateCandidate
 from inequality_mechanisms.kinematics.planar_2r import Planar2R
+from inequality_mechanisms.kinematics.planar_2r_goals import planar_2r_ik_family
 
 DEFAULT_BANK_V2_PATH = (
     Path(__file__).resolve().parents[3]

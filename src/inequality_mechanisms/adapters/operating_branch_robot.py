@@ -9,6 +9,7 @@ from typing import Any
 import numpy as np
 from numpy.typing import ArrayLike, NDArray
 
+from inequality_mechanisms.core.input_domain import InputDomain
 from inequality_mechanisms.core.state import PhysicalState, Pose, StateCandidate
 from inequality_mechanisms.mechanisms.operating_branch import (
     BranchInverseError,
@@ -24,19 +25,48 @@ class OperatingBranchRobotModel:
     ----------
     branch :
         Version 2 certified operating branch.
-    planar_fk :
-        Optional planar FK exposing ``forward`` / ``jacobian``. When the object
-        also provides ``forward_pose``, orientation is attached to the returned
-        ``Pose``. When omitted, FK raises ``NotImplementedError``.
+    kinematic_model :
+        Optional ``KinematicModel`` exposing ``forward`` / ``jacobian`` and
+        ``dof``. When the object also provides ``forward_pose``, orientation is
+        attached to the returned ``Pose``. When omitted, FK raises
+        ``NotImplementedError``.
     """
 
     branch: OperatingBranch
-    planar_fk: Any | None = None
+    kinematic_model: Any | None = None
+
+    def __post_init__(self) -> None:
+        if self.kinematic_model is None:
+            return
+        model_dof = int(self.kinematic_model.dof)
+        branch_dof = int(self.branch.mechanism.output_dim)
+        if model_dof != branch_dof:
+            raise ValueError(
+                "kinematic_model.dof must match branch output_dim: "
+                f"got model_dof={model_dof}, output_dim={branch_dof}"
+            )
+
+    @property
+    def planar_fk(self) -> Any | None:
+        """Compatibility alias for ``kinematic_model``."""
+        return self.kinematic_model
 
     @property
     def dof(self) -> int:
         """Output degrees of freedom."""
         return int(self.branch.mechanism.output_dim)
+
+    @property
+    def input_domain(self) -> InputDomain:
+        """Certified actuator box from the operating-branch certificate."""
+        cert = self.branch.certificate
+        lo = np.asarray(cert.input_lower, dtype=np.float64)
+        hi = np.asarray(cert.input_upper, dtype=np.float64)
+        return InputDomain(
+            lower=lo,
+            upper=hi,
+            periodic=tuple(False for _ in range(lo.shape[0])),
+        )
 
     def _canonical_assembly(self) -> dict[str, Any]:
         return {
@@ -92,49 +122,48 @@ class OperatingBranchRobotModel:
         return float(np.linalg.norm(state.q - q_fwd)) <= float(tolerance)
 
     def forward_kinematics(self, state: PhysicalState) -> Pose:
-        """Return planar tip pose when FK is configured."""
-        if self.planar_fk is None:
+        """Return tip pose when a kinematic model is configured."""
+        if self.kinematic_model is None:
             raise NotImplementedError(
-                "OperatingBranchRobotModel requires planar_fk for forward_kinematics"
+                "OperatingBranchRobotModel requires kinematic_model "
+                "for forward_kinematics"
             )
         expected = int(self.dof)
         if state.q.shape != (expected,):
             raise ValueError(
-                f"planar FK requires q shape ({expected},), got {state.q.shape}"
+                f"FK requires q shape ({expected},), got {state.q.shape}"
             )
-        fk = self.planar_fk
+        fk = self.kinematic_model
         if hasattr(fk, "forward_pose"):
             position, orientation = fk.forward_pose(state.q)
             return Pose(
                 position=np.asarray(position, dtype=np.float64),
                 orientation=np.asarray(orientation, dtype=np.float64),
             )
-        return Pose(
-            position=np.asarray(fk.forward(state.q), dtype=np.float64)
-        )
+        return Pose(position=np.asarray(fk.forward(state.q), dtype=np.float64))
 
     def jacobian_q_to_x(self, state: PhysicalState) -> NDArray[np.float64]:
-        """Return planar FK Jacobian when configured."""
-        if self.planar_fk is None:
+        """Return tip Jacobian when a kinematic model is configured."""
+        if self.kinematic_model is None:
             raise NotImplementedError(
-                "OperatingBranchRobotModel requires planar_fk for jacobian_q_to_x"
+                "OperatingBranchRobotModel requires kinematic_model "
+                "for jacobian_q_to_x"
             )
-        return np.asarray(self.planar_fk.jacobian(state.q), dtype=np.float64)
+        return np.asarray(self.kinematic_model.jacobian(state.q), dtype=np.float64)
 
     def state_within_limits(self, state: PhysicalState) -> bool:
         """Return True when ``u`` and ``q`` lie in the certified branch ranges."""
+        domain = self.input_domain
         cert = self.branch.certificate
         u = state.u
         q = state.q
-        u_lo = np.asarray(cert.input_lower, dtype=np.float64)
-        u_hi = np.asarray(cert.input_upper, dtype=np.float64)
         q_lo = np.asarray(cert.output_lower, dtype=np.float64)
         q_hi = np.asarray(cert.output_upper, dtype=np.float64)
-        if u.shape != u_lo.shape or q.shape != q_lo.shape:
+        if u.shape != domain.lower.shape or q.shape != q_lo.shape:
             return False
         return bool(
-            np.all(u >= u_lo - 1e-9)
-            and np.all(u <= u_hi + 1e-9)
+            np.all(u >= domain.lower - 1e-9)
+            and np.all(u <= domain.upper + 1e-9)
             and np.all(q >= q_lo - 1e-9)
             and np.all(q <= q_hi + 1e-9)
         )

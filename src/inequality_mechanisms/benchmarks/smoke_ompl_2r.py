@@ -16,7 +16,7 @@ from inequality_mechanisms.benchmarks.smoke_sampling_2r import (
     run_smoke_task,
     smoke_task_catalog,
 )
-from inequality_mechanisms.core.goals import CartesianDiskGoalGenerator
+from inequality_mechanisms.kinematics.planar_2r_goals import CartesianDiskGoalGenerator
 from inequality_mechanisms.core.results import PlanningResult, PlanningStatus
 
 OmplPlannerName = Literal["ompl_prm", "ompl_rrt_connect"]

@@ -1,10 +1,11 @@
 # Sprint V3.6A — Dimensional-Generalization Refactor
 
-**Status:** active — pre-3R architecture-debt gate after provisional V3.7
+**Status:** completed — dimensional-generalization refactor closed (V3-610–V3-617)
 **Reserved work packages:** V3-610–V3-617
-**Code authorization:** V3-610–V3-617 only (see ACTIVE_SPRINT)
+**Code authorization:** none (sprint closed; V3.6B remains drafted / not activated)
 **Depends on:** Sprint V3.6 closeout; ADR-021–026
 **Program:** [V3 pre-3R refactor and visual audit](../../V3_PRE_3R_REFACTOR_AND_VISUAL_AUDIT_PLAN.md)
+**Migration note:** [V3_6A_DIMENSIONAL_GENERALIZATION_MIGRATION.md](../../architecture/notes/V3_6A_DIMENSIONAL_GENERALIZATION_MIGRATION.md)
 
 ## Sprint intent
 
@@ -96,3 +97,10 @@ Required static/behavior checks include:
    tests without planner-specific task forks.
 5. No frozen evidence artifact changes.
 6. Sprint V3.6B remains blocked until the refactor is reviewed and green.
+
+## Closeout
+
+Completed. Migration ownership is recorded in
+[`V3_6A_DIMENSIONAL_GENERALIZATION_MIGRATION.md`](../../architecture/notes/V3_6A_DIMENSIONAL_GENERALIZATION_MIGRATION.md).
+ACTIVE_SPRINT marks V3.6A complete and leaves V3.6B drafted / not activated.
+Frozen `results/v3_review/v3_6_*` and `v3_7_*` packages were not regenerated.

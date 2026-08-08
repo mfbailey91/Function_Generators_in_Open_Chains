@@ -32,6 +32,11 @@ class Planar2R:
         if not np.isfinite(self.L2) or self.L2 <= 0.0:
             raise ValueError(f"L2 must be finite and positive, got {self.L2}")
 
+    @property
+    def dof(self) -> int:
+        """Planar 2R joint dimension."""
+        return 2
+
     def forward(self, q: ArrayLike) -> NDArray[np.floating]:
         """Return end-effector position ``(x, y)`` for joint angles ``q``.
 

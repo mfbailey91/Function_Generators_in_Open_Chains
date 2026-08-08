@@ -29,10 +29,7 @@ from inequality_mechanisms.benchmarks.smoke_sampling_2r import (
     SMOKE_SEED,
     SamplingSmokeArm,
 )
-from inequality_mechanisms.core.goals import (
-    CartesianDiskGoalGenerator,
-    ExactOutputGoal,
-)
+from inequality_mechanisms.core.goals import ExactOutputGoal
 from inequality_mechanisms.core.local_motion import (
     InputLinearMotion,
     OutputLinearMotion,
@@ -40,6 +37,7 @@ from inequality_mechanisms.core.local_motion import (
 from inequality_mechanisms.core.problem import PlanningProblem
 from inequality_mechanisms.core.results import PlanningResult, PlanningStatus
 from inequality_mechanisms.graphs.topology import LatticeConnectivity
+from inequality_mechanisms.kinematics.planar_2r_goals import CartesianDiskGoalGenerator
 from inequality_mechanisms.planners.direct.input_linear import InputLinearDirectPlanner
 from inequality_mechanisms.planners.direct.output_linear import OutputLinearDirectPlanner
 from inequality_mechanisms.planners.roadmap import PRMPlanner
