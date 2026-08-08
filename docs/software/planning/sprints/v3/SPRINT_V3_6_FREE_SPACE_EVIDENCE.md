@@ -19,8 +19,7 @@ The scientific role of V3.6 is the free-space representation/optimality baseline
 
 Under the current monotonic branch, convex actuator bounds, input-linear local
 motion, and no obstacles, direct feasibility is expected for valid represented
-goal states. Collision-forced routing is deferred to Sprint V3.10+; the next
-dimensional free-space step is Sprint V3.7 (3R planar).
+goal states. Collision geometry enters in V3.10 and genuine obstacle-routing evidence enters in V3.11. The next dimensional free-space *architecture* step after V3.6 is Sprint V3.6A (then V3.6B); provisional planar 3R evidence already exists but is not architecture-final until those gates close.
 
 ## Entry conditions
 
@@ -30,8 +29,8 @@ dimensional free-space step is Sprint V3.7 (3R planar).
 
 ## Non-goals
 
-- Obstacles / collision scenes (V3.10+);
-- 3R / 6R kinematics (V3.7 / V3.8);
+- Obstacles / collision scenes (V3.10–V3.11);
+- 3R / 6R kinematics as V3.6 deliverables (provisional V3.7 already shipped separately; architecture-final 3R follows V3.6A/V3.6B);
 - MoveIt, production Monte Carlo;
 - Closing `V3-DEFER-001` native breadth (Lazy-PRM, PRM*, RRT*, …);
 - Reinterpreting frozen V2 evidence;
@@ -154,17 +153,18 @@ worker path, and V1–V3.5 regressions.
 8. Review summaries report per-planner paired mechanism effects and suboptimality rather than only pooled planner means.
 9. The generated manifest points to the clean implementation commit that contains the corrected V3.6 runner and bank.
 10. No population inference or obstacle work is activated.
-11. Hand off to V3.7 (3R planar free space) only after the corrected free-space semantics are reviewed.
+11. Hand off to V3.6A after the corrected free-space semantics are reviewed. Provisional V3.7 may exist, but architecture-final 3R and V3.8 remain blocked until V3.6A and V3.6B also close.
 
 ## Closeout record
 
 Exit criteria 1–10 are satisfied by the corrected v2 bank, runner, tests, and
 tracked review package under `results/v3_review/v3_6_free_space_v2/` (manifest
-implementation revision `a5a682c`). Criterion 11 is satisfied by this handoff:
-ACTIVE_SPRINT activates Sprint V3.7 for V3-700–V3-706 only.
+implementation revision `a5a682c`). Criterion 11 is satisfied by the subsequent
+ACTIVE_SPRINT handoff to Sprint V3.6A (V3-610–V3-617). A provisional V3.7
+implementation and evidence package already shipped ahead of V3.6A/V3.6B and is
+retained under `results/v3_review/v3_7_3r_free_space/` without rewriting this
+V3.6 closeout.
 
 ## Deferred work
 
-`V3-DEFER-001` remains open. Obstacle / scene framework is Sprint V3.10
-(after the V3.9 cross-DOF free-space closeout). Spatial 4R/5R partial tasks
-remain under `V3-DEFER-002`.
+`V3-DEFER-001` remains open. The dimensional-generalization refactor is Sprint V3.6A, the planar 2R visual audit is Sprint V3.6B, the collision framework is Sprint V3.10, and obstacle-routing evidence is Sprint V3.11.
