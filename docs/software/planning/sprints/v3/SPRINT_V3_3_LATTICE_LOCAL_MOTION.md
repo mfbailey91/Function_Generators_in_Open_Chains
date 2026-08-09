@@ -22,7 +22,7 @@ Validate Version 3 lattice search against continuous local-motion and integrated
 - Cartesian disk / goal-set search on the lattice (`ExactOutputGoal` + overlay only);
 - `planners/lattice/` package rename;
 - PRM/RRT/OMPL (V3.4–V3.5);
-- obstacle scenes (V3.7);
+- obstacle scenes (V3.10–V3.11);
 - population Monte Carlo / production inference;
 - reinterpreting frozen Experiment A or Experiment B packages.
 

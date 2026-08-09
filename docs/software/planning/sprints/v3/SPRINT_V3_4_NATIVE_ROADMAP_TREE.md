@@ -21,7 +21,7 @@ Deliver the first Version 3 sampling-based planners on the shared `PlanningProbl
 - BIT*/FMT* and other informed/batch planners;
 - OMPL adapter (V3.5);
 - free-space evidence bank / population strata (V3.6);
-- obstacle scenes (V3.7);
+- obstacle scenes (V3.10–V3.11);
 - amortized multi-query population claims;
 - moving `GraphSearchPlanner` into `planners/lattice/`;
 - production Monte Carlo / Experiment A reinterpretation.

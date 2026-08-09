@@ -3,16 +3,12 @@
 from inequality_mechanisms.core.constraints import ConstraintSet
 from inequality_mechanisms.core.goals import (
     CartesianDiskGoal,
-    CartesianDiskGoalGenerator,
     ExactOutputGoal,
-    FrozenPlanar3RPositionGoalGenerator,
     GoalConstraint,
     GoalResidual,
     GoalSamplingRequest,
     GoalStateGenerator,
-    Planar3RPoseGoalGenerator,
     PlanarPoseRegionGoal,
-    planar_2r_ik_family,
 )
 from inequality_mechanisms.core.local_motion import (
     EndpointDeclaredMotion,
@@ -50,6 +46,14 @@ from inequality_mechanisms.core.serialize import (
     planning_result_to_dict,
 )
 from inequality_mechanisms.core.state import PhysicalState, Pose, StateCandidate
+from inequality_mechanisms.kinematics.planar_2r_goals import (
+    CartesianDiskGoalGenerator,
+    planar_2r_ik_family,
+)
+from inequality_mechanisms.kinematics.planar_3r_goals import (
+    FrozenPlanar3RPositionGoalGenerator,
+    Planar3RPoseGoalGenerator,
+)
 
 __all__ = [
     "ActuatorTravelObjective",

@@ -47,6 +47,11 @@ class Planar3R:
             if not np.isfinite(value) or value <= 0.0:
                 raise ValueError(f"{name} must be finite and positive, got {value}")
 
+    @property
+    def dof(self) -> int:
+        """Planar 3R joint dimension."""
+        return 3
+
     def forward(self, q: ArrayLike) -> NDArray[np.float64]:
         """Return tip position ``(x, y)``."""
         q1, q2, q3 = _as_q3(q)

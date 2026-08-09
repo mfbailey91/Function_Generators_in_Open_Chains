@@ -11,15 +11,38 @@ Version 3 builds a planner-agnostic mechanism-aware motion-planning framework. V
 5. [Sprint V3.4 — Native Roadmap and Tree Planners](SPRINT_V3_4_NATIVE_ROADMAP_TREE.md) (completed)
 6. [Sprint V3.5 — OMPL Adapter](SPRINT_V3_5_OMPL_ADAPTER.md) (completed)
 7. [Sprint V3.6 — 2R Free-Space Planner Evidence](SPRINT_V3_6_FREE_SPACE_EVIDENCE.md) (completed)
-8. [Sprint V3.7 — 3R Planar Free-Space Planning](SPRINT_V3_7_3R_PLANAR_FREE_SPACE.md) (**active**)
-9. [Sprint V3.8 — 6R Spatial Free-Space Planning](SPRINT_V3_8_6R_SPATIAL_FREE_SPACE.md) (drafted; not activated)
-10. [Sprint V3.9 — Cross-DOF Free-Space Architecture Closeout](SPRINT_V3_9_CROSS_DOF_FREE_SPACE_CLOSEOUT.md) (drafted; not activated)
-11. [Sprint V3.10 — Scene and Collision Framework](SPRINT_V3_10_SCENE_COLLISION_FRAMEWORK.md) (drafted; not activated)
-12. [Sprint V3.11 — Obstacle Routing Evidence](SPRINT_V3_11_OBSTACLE_ROUTING_EVIDENCE.md) (drafted; not activated)
-13. [Sprint V3.12 — MoveIt Application Adapter](SPRINT_V3_12_MOVEIT_APPLICATION_ADAPTER.md) (drafted; not activated)
-14. [Sprint V3.13 — Production Mechanism Populations](SPRINT_V3_13_PRODUCTION_MECHANISM_POPULATIONS.md) (drafted; not activated)
+8. [Sprint V3.6A — Dimensional-Generalization Refactor](SPRINT_V3_6A_DIMENSIONAL_GENERALIZATION_REFACTOR.md) (completed)
+9. [Sprint V3.6B — Planar 2R Mechanism and Planner Visual Audit](SPRINT_V3_6B_PLANAR2R_VISUAL_AUDIT.md) (completed)
+10. [Sprint V3.7 — Planar 3R Free-Space Implementation](SPRINT_V3_7_3R_PLANAR_FREE_SPACE.md) (completed provisional / pre-gate; residual reconciliation drafted / blocked)
+11. [Sprint V3.8 — 6R Spatial Free-Space Planning](SPRINT_V3_8_6R_SPATIAL_FREE_SPACE.md) (drafted; not activated)
+12. [Sprint V3.9 — Cross-DOF Free-Space Architecture Closeout](SPRINT_V3_9_CROSS_DOF_FREE_SPACE_CLOSEOUT.md) (drafted; not activated)
+13. [Sprint V3.10 — Scene and Collision Framework](SPRINT_V3_10_SCENE_COLLISION_FRAMEWORK.md) (drafted; not activated)
+14. [Sprint V3.11 — Obstacle Routing Evidence](SPRINT_V3_11_OBSTACLE_ROUTING_EVIDENCE.md) (drafted; not activated)
+15. [Sprint V3.12 — MoveIt Application Adapter](SPRINT_V3_12_MOVEIT_APPLICATION_ADAPTER.md) (drafted; not activated)
+16. [Sprint V3.13 — Production Mechanism Populations](SPRINT_V3_13_PRODUCTION_MECHANISM_POPULATIONS.md) (drafted; not activated)
 
-V3.7 is the only authorized sprint while ACTIVE_SPRINT points there (V3-700–V3-706). The dimensional free-space sequence remains a hard architecture gate: **2R → 3R → 6R → cross-DOF closeout → collision/obstacle work**. Later sprint documents are planning contracts only and carry no code authorization until explicitly activated.
+V3.6B is completed. No sprint carries code authorization until ACTIVE_SPRINT
+explicitly activates the next gate (residual V3.7 drafted / blocked). The post-V3.6 gate is:
+
+\[
+\boxed{
+2R\ \text{evidence}
+\rightarrow
+\text{dimension refactor}
+\rightarrow
+\text{2R visual audit}
+\rightarrow
+3R\ \text{(architecture-final)}
+\rightarrow
+6R
+\rightarrow
+\text{cross-DOF closeout}
+\rightarrow
+\text{collision/obstacles}
+}
+\]
+
+Provisional planar 3R evidence already exists under [`results/v3_review/v3_7_3r_free_space/`](../../../../results/v3_review/v3_7_3r_free_space/) and is retained, but 3R is not treated as architecture-final until V3.6A and V3.6B close and residual V3.7 reconciliation is reviewed. Later sprint documents are planning contracts only and carry no code authorization until explicitly activated.
 
 Native planner breadth omitted from the narrowed V3.3/V3.4 slices remains tracked under `V3-DEFER-001`. Spatial 4R/5R partial-task studies remain accepted but non-gating work under `V3-DEFER-002`; they are not required before the standard 6R free-space architecture test.
 
@@ -34,32 +57,42 @@ V2 evidence freeze
                           ├── V3.4 native roadmap/tree planners
                           │     └── V3.5 OMPL adapter
                           │           └── V3.6 2R free-space evidence (completed)
-                          │                 └── V3.7 3R planar free space (active)
-                          │                       └── V3.8 6R spatial free space
-                          │                             └── V3.9 cross-DOF closeout
-                          │                                   └── V3.10 scene/collision framework
-                          │                                         └── V3.11 obstacle routing evidence
-                          │                                               └── V3.12 MoveIt application adapter
-                          │                                                     └── V3.13 production populations
+                          │                 ├── V3.7 provisional 3R free space (shipped ahead of gates)
+                          │                 └── V3.6A dimensional refactor (completed)
+                          │                       └── V3.6B planar 2R visual audit (completed)
+                          │                             └── V3.7 residual / architecture-final 3R (drafted / blocked)
+                          │                                   └── V3.8 6R spatial free space
+                          │                                         └── V3.9 cross-DOF closeout
+                          │                                               └── V3.10 scene/collision framework
+                          │                                                     └── V3.11 obstacle routing evidence
+                          │                                                           └── V3.12 MoveIt application adapter
+                          │                                                                 └── V3.13 production populations
                           └── representation ablations / deferred planner breadth
 ```
 
+## Why the pre-3R gates exist
+
+The V3 interfaces are largely dimension-independent, but delivered implementations still contain concrete planar-2R and operating-branch dependencies. V3.6A removes those dependencies. V3.6B then uses the visually inspectable 2R case to audit the actual \(\mathcal U\rightarrow\mathcal Q\rightarrow\mathcal X\) mappings, edge metrics, planner traces, and result assembly in a trial-scoped HTML artifact.
+
+These gates were intended before first 3R activation. Because provisional 3R already shipped, they now run as architecture-debt gates before treating 3R as final and before V3.8. See [`V3_PRE_3R_REFACTOR_AND_VISUAL_AUDIT_PLAN.md`](../../V3_PRE_3R_REFACTOR_AND_VISUAL_AUDIT_PLAN.md).
+
 ## Why obstacles move later
 
-The `PlanningScene` abstraction already exists, so the architecture does not need collision geometry in order to validate higher-dimensional planning. Adding obstacles before 3R and 6R free-space validation would mix new kinematics, goal representations, planner dimensionality, collision checking, and route topology in one debugging step.
+The `PlanningScene` abstraction already exists, so the architecture does not need collision geometry in order to validate higher-dimensional planning. Adding obstacles before architecture-final 3R and 6R free-space validation would mix new kinematics, goal representations, planner dimensionality, collision checking, and route topology in one debugging step.
 
 The revised sequence isolates those effects:
 
 1. prove the common V3 contracts in 2R free space;
-2. add planar redundancy and pose semantics at 3R;
-3. add spatial kinematics and full-pose semantics at 6R;
-4. close the free-space architecture across dimensions;
-5. only then introduce collision geometry and genuine routing.
+2. remove concrete dimensionality seams and visually audit the 2R implementation;
+3. reconcile planar redundancy and pose semantics at 3R on the refactored architecture;
+4. add spatial kinematics and full-pose semantics at 6R;
+5. close the free-space architecture across dimensions;
+6. only then introduce collision geometry and genuine routing.
 
 See [`V3_ROADMAP_DIMENSION_BEFORE_OBSTACLES.md`](../../../architecture/notes/V3_ROADMAP_DIMENSION_BEFORE_OBSTACLES.md).
 
 ## Scope rule
 
-The graph, task bank, local motion, objective, and planner may not be fused into one experiment runner.
+The graph, task bank, local motion, objective, planner, trace collector, and report renderer may not be fused into one experiment runner.
 
-The V3 master contract is [`V3_PROJECT_PLAN.md`](../../../V3_PROJECT_PLAN.md).
+The V3 master contract is [`V3_PROJECT_PLAN.md`](../../../V3_PROJECT_PLAN.md). The scoped pre-3R amendment is [`V3_PRE_3R_REFACTOR_AND_VISUAL_AUDIT_PLAN.md`](../../V3_PRE_3R_REFACTOR_AND_VISUAL_AUDIT_PLAN.md); it governs the V3.6→architecture-final-V3.7 handoff until its sequence is folded into a later master-plan revision.

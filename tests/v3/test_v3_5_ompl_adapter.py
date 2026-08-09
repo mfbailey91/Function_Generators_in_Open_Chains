@@ -28,7 +28,7 @@ from inequality_mechanisms.benchmarks.smoke_sampling_2r import (
     build_problem,
     smoke_task_catalog,
 )
-from inequality_mechanisms.core.goals import CartesianDiskGoalGenerator
+from inequality_mechanisms.kinematics.planar_2r_goals import CartesianDiskGoalGenerator
 from inequality_mechanisms.core.local_motion import OutputLinearMotion
 from inequality_mechanisms.core.objectives import ActuatorTravelObjective
 from inequality_mechanisms.core.results import PlanningStatus

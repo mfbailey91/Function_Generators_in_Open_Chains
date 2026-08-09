@@ -1,4 +1,7 @@
-"""Version 3 goal predicates and candidate generation (ADR-021, ADR-023)."""
+"""Version 3 goal predicates (ADR-021, ADR-023).
+
+Kinematics-specific goal generators live under ``kinematics.*_goals``.
+"""
 
 from __future__ import annotations
 
@@ -8,17 +11,11 @@ from typing import Any, Protocol, runtime_checkable
 
 import math
 import numpy as np
-from numpy.typing import ArrayLike, NDArray
+from numpy.typing import NDArray
 
 from inequality_mechanisms.core.robot import RobotModel
 from inequality_mechanisms.core.state import PhysicalState, StateCandidate
-from inequality_mechanisms.kinematics.planar_2r import Planar2R
-from inequality_mechanisms.kinematics.planar_3r import (
-    Planar3R,
-    angular_distance,
-    planar_3r_elbow_family,
-    wrap_to_pi,
-)
+from inequality_mechanisms.kinematics.planar_3r import angular_distance, wrap_to_pi
 
 
 @dataclass(frozen=True, slots=True)
@@ -108,17 +105,7 @@ class ExactOutputGoal:
 
 @dataclass(frozen=True, slots=True)
 class CartesianDiskGoal:
-    """Planar Cartesian disk goal ``||f(q) - x_g||_2 <= r`` (ADR-023).
-
-    Parameters
-    ----------
-    center :
-        Disk center in Cartesian coordinates, shape ``(2,)``.
-    radius :
-        Nonnegative disk radius.
-    robot :
-        Robot providing ``forward_kinematics`` for tip position.
-    """
+    """Planar Cartesian disk goal ``||f(q) - x_g||_2 <= r`` (ADR-023)."""
 
     center: NDArray[np.float64]
     radius: float
@@ -160,86 +147,9 @@ class CartesianDiskGoal:
         )
 
 
-def planar_2r_ik_family(q: ArrayLike, *, tolerance: float = 1e-9) -> str:
-    """Return ``elbow_up`` / ``elbow_down`` / ``singular`` for planar 2R ``q``."""
-    q_arr = np.asarray(q, dtype=np.float64)
-    if q_arr.shape != (2,):
-        raise ValueError("q must have shape (2,)")
-    s = float(np.sin(q_arr[1]))
-    if abs(s) <= tolerance:
-        return "singular"
-    return "elbow_up" if s > 0.0 else "elbow_down"
-
-
-@dataclass(frozen=True, slots=True)
-class CartesianDiskGoalGenerator:
-    """Generate physical candidates at the disk center via planar 2R IK.
-
-    Candidates are filtered through ``robot.states_from_output`` and
-    ``robot.state_within_limits``. Optional boundary sampling is deferred.
-    """
-
-    planar_fk: Planar2R
-    limit_tolerance: float = 1e-9
-
-    def generate(
-        self,
-        robot: RobotModel,
-        goal: GoalConstraint,
-        request: GoalSamplingRequest,
-    ) -> Sequence[StateCandidate]:
-        """Return representable IK lifts of the disk center."""
-        if not isinstance(goal, CartesianDiskGoal):
-            raise TypeError(
-                "CartesianDiskGoalGenerator requires CartesianDiskGoal, "
-                f"got {type(goal).__name__}"
-            )
-        qs = self.planar_fk.inverse(goal.center)
-        out: list[StateCandidate] = []
-        for q in qs:
-            q_arr = np.asarray(q, dtype=np.float64)
-            family = planar_2r_ik_family(q_arr)
-            for cand in robot.states_from_output(q_arr):
-                if not robot.state_within_limits(cand.state):
-                    continue
-                tip = np.asarray(
-                    robot.forward_kinematics(cand.state).position, dtype=np.float64
-                )
-                cart_res = float(np.linalg.norm(tip - goal.center))
-                provenance = {
-                    **dict(cand.provenance),
-                    "ik_family": family,
-                    "goal_region": "cartesian_disk_center",
-                }
-                out.append(
-                    StateCandidate(
-                        state=cand.state,
-                        residual=max(float(cand.residual), cart_res),
-                        provenance=provenance,
-                    )
-                )
-                if len(out) >= request.max_candidates:
-                    return tuple(out)
-        return tuple(out)
-
-
 @dataclass(frozen=True, slots=True)
 class PlanarPoseRegionGoal:
-    """Planar SE(2) region goal on tip position and heading (Sprint V3.7).
-
-    Parameters
-    ----------
-    center :
-        Disk center in Cartesian coordinates, shape ``(2,)``.
-    radius :
-        Nonnegative position tolerance radius.
-    phi_goal :
-        Target planar heading (radians).
-    orientation_tol :
-        Nonnegative wrapped orientation tolerance.
-    robot :
-        Robot providing planar tip pose through ``forward_kinematics``.
-    """
+    """Planar SE(2) region goal on tip position and heading (Sprint V3.7)."""
 
     center: NDArray[np.float64]
     radius: float
@@ -303,128 +213,3 @@ class PlanarPoseRegionGoal:
                 "phi_goal": float(self.phi_goal),
             },
         )
-
-
-@dataclass(frozen=True, slots=True)
-class Planar3RPoseGoalGenerator:
-    """Generate physical candidates for an SE(2) pose-region goal via 3R IK."""
-
-    planar_fk: Planar3R
-    limit_tolerance: float = 1e-9
-
-    def generate(
-        self,
-        robot: RobotModel,
-        goal: GoalConstraint,
-        request: GoalSamplingRequest,
-    ) -> Sequence[StateCandidate]:
-        """Return representable IK lifts of the pose-region center/heading."""
-        if not isinstance(goal, PlanarPoseRegionGoal):
-            raise TypeError(
-                "Planar3RPoseGoalGenerator requires PlanarPoseRegionGoal, "
-                f"got {type(goal).__name__}"
-            )
-        out: list[StateCandidate] = []
-        seen: set[tuple[float, float, float]] = set()
-        for q in self.planar_fk.inverse_pose(goal.center, goal.phi_goal):
-            q_arr = np.asarray(q, dtype=np.float64)
-            key = tuple(np.round(q_arr, decimals=12).tolist())
-            if key in seen:
-                continue
-            family = planar_3r_elbow_family(q_arr)
-            for cand in robot.states_from_output(q_arr):
-                if not robot.state_within_limits(cand.state):
-                    continue
-                if not goal.satisfied(cand.state):
-                    continue
-                seen.add(key)
-                provenance = {
-                    **dict(cand.provenance),
-                    "ik_family": family,
-                    "goal_region": "planar_pose_region_center",
-                    "goal_sample_id": "se2_center",
-                    "goal_phi": float(goal.phi_goal),
-                }
-                out.append(
-                    StateCandidate(
-                        state=cand.state,
-                        residual=max(
-                            float(cand.residual),
-                            float(goal.residual(cand.state).primary),
-                        ),
-                        provenance=provenance,
-                    )
-                )
-                if len(out) >= request.max_candidates:
-                    return tuple(out)
-        return tuple(out)
-
-
-@dataclass(frozen=True, slots=True)
-class FrozenPlanar3RPositionGoalGenerator:
-    """Deterministic redundant position goal set: disk samples × frozen φ."""
-
-    planar_fk: Planar3R
-    goal_points: tuple[NDArray[np.float64], ...]
-    goal_point_ids: tuple[str, ...]
-    phi_samples: tuple[float, ...]
-    numerical_tolerance: float = 1e-9
-
-    def generate(
-        self,
-        robot: RobotModel,
-        goal: GoalConstraint,
-        request: GoalSamplingRequest,
-    ) -> Sequence[StateCandidate]:
-        """Return finite IK candidates for the frozen position representation."""
-        if not isinstance(goal, CartesianDiskGoal):
-            raise TypeError(
-                "FrozenPlanar3RPositionGoalGenerator requires CartesianDiskGoal"
-            )
-        if len(self.goal_points) != len(self.goal_point_ids):
-            raise ValueError("goal point ids must match goal points")
-
-        out: list[StateCandidate] = []
-        seen: set[tuple[float, float, float]] = set()
-        for point_index, (point_id, point) in enumerate(
-            zip(self.goal_point_ids, self.goal_points)
-        ):
-            for phi_index, phi in enumerate(self.phi_samples):
-                for q in self.planar_fk.inverse_position_at_heading(point, phi):
-                    q_arr = np.asarray(q, dtype=np.float64)
-                    key = tuple(np.round(q_arr, decimals=12).tolist())
-                    if key in seen:
-                        continue
-                    for cand in robot.states_from_output(q_arr):
-                        if not robot.state_within_limits(cand.state):
-                            continue
-                        tip = np.asarray(
-                            robot.forward_kinematics(cand.state).position,
-                            dtype=np.float64,
-                        )
-                        cart_dist = float(np.linalg.norm(tip - goal.center))
-                        if cart_dist > float(goal.radius) + self.numerical_tolerance:
-                            continue
-                        seen.add(key)
-                        provenance = {
-                            **dict(cand.provenance),
-                            "ik_family": planar_3r_elbow_family(q_arr),
-                            "goal_representation": (
-                                "frozen_disk_points_times_phi_grid_v1"
-                            ),
-                            "goal_sample_id": f"{point_id}__phi_{phi_index}",
-                            "goal_sample_index": int(point_index),
-                            "goal_phi_index": int(phi_index),
-                            "goal_sample_point": point.tolist(),
-                            "goal_phi": float(phi),
-                        }
-                        out.append(
-                            StateCandidate(
-                                state=cand.state,
-                                residual=max(float(cand.residual), cart_dist),
-                                provenance=provenance,
-                            )
-                        )
-                        if len(out) >= request.max_candidates:
-                            return tuple(out)
-        return tuple(out)

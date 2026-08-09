@@ -29,7 +29,7 @@ from inequality_mechanisms.benchmarks.run_free_space_evidence import (
     evidence_manifest,
     run_free_space_evidence,
 )
-from inequality_mechanisms.core.goals import CartesianDiskGoalGenerator
+from inequality_mechanisms.kinematics.planar_2r_goals import CartesianDiskGoalGenerator
 
 
 REQUIRED_ROW_KEYS = {

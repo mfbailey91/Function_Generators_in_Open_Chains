@@ -19,7 +19,7 @@ Deliver the first Version 3 application vertical slice: planar 2R, exact start, 
 
 - eight-connected lattice implementation (V3.3);
 - PRM/RRT/OMPL (V3.4–V3.5);
-- obstacle scenes (V3.7);
+- obstacle scenes (V3.10–V3.11);
 - 3R or higher DOF;
 - population Monte Carlo / production inference;
 - reinterpreting Experiment A or frozen Experiment B packages as V3 application results.

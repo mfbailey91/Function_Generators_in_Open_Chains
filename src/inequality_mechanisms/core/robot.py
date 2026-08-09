@@ -7,6 +7,7 @@ from typing import Any, Protocol, runtime_checkable
 
 from numpy.typing import ArrayLike
 
+from inequality_mechanisms.core.input_domain import InputDomain
 from inequality_mechanisms.core.state import PhysicalState, Pose, StateCandidate
 
 
@@ -17,6 +18,10 @@ class RobotModel(Protocol):
     @property
     def dof(self) -> int:
         """Number of output degrees of freedom."""
+
+    @property
+    def input_domain(self) -> InputDomain:
+        """Robot-owned actuator sampling domain."""
 
     def state_from_input(
         self,

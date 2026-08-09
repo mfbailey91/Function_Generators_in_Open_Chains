@@ -23,13 +23,12 @@ from inequality_mechanisms.core.state import PhysicalState
 
 
 def actuator_bounds(robot: RobotModel) -> tuple[NDArray[np.float64], NDArray[np.float64]]:
-    """Return certified input lower/upper bounds when available."""
-    branch = getattr(robot, "branch", None)
-    if branch is None:
-        raise ValueError("sampling planners require a robot with a certified branch")
-    cert = branch.certificate
-    lo = np.asarray(cert.input_lower, dtype=np.float64)
-    hi = np.asarray(cert.input_upper, dtype=np.float64)
+    """Return robot-owned input lower/upper bounds."""
+    domain = getattr(robot, "input_domain", None)
+    if domain is None:
+        raise ValueError("sampling planners require a robot with input_domain")
+    lo = np.asarray(domain.lower, dtype=np.float64)
+    hi = np.asarray(domain.upper, dtype=np.float64)
     return lo, hi
 
 
@@ -39,7 +38,7 @@ def sample_state_uniform(
     *,
     assembly_state: dict[str, Any] | None = None,
 ) -> PhysicalState:
-    """Draw one uniform sample in the certified actuator box."""
+    """Draw one uniform sample in the robot input domain."""
     lo, hi = actuator_bounds(robot)
     u = rng.uniform(lo, hi)
     return robot.state_from_input(u, assembly_state=assembly_state)
@@ -115,19 +114,25 @@ def select_goal_states(
 
 def path_cost_u(states: tuple[PhysicalState, ...]) -> float:
     """Sum endpoint Euclidean actuator displacements along ``states``."""
-    if len(states) < 2:
-        return 0.0
-    total = 0.0
-    for a, b in zip(states[:-1], states[1:]):
-        total += float(np.linalg.norm(b.u - a.u))
-    return float(total)
+    from inequality_mechanisms.core.trajectory_metrics import path_metrics_from_states
+
+    return path_metrics_from_states(states).length_u
 
 
 def path_length_q(states: tuple[PhysicalState, ...]) -> float:
     """Sum endpoint Euclidean output displacements along ``states``."""
-    if len(states) < 2:
-        return 0.0
-    total = 0.0
-    for a, b in zip(states[:-1], states[1:]):
-        total += float(np.linalg.norm(b.q - a.q))
-    return float(total)
+    from inequality_mechanisms.core.trajectory_metrics import path_metrics_from_states
+
+    return path_metrics_from_states(states).length_q
+
+
+def path_length_x(
+    states: tuple[PhysicalState, ...],
+    *,
+    robot: RobotModel | None = None,
+) -> float | None:
+    """Sum tip displacements when ``robot`` FK is available."""
+    from inequality_mechanisms.core.trajectory_metrics import path_metrics_from_states
+
+    return path_metrics_from_states(states, robot=robot).length_x
+
