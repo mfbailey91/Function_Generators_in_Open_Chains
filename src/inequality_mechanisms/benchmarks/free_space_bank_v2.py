@@ -147,6 +147,7 @@ class FrozenCartesianDiskGoalGenerator:
                         **dict(cand.provenance),
                         "ik_family": planar_2r_ik_family(q_arr),
                         "goal_representation": "frozen_cartesian_disk_points_v1",
+                        "candidate_generator_id": "frozen_cartesian_disk_points_v1",
                         "goal_sample_id": point_id,
                         "goal_sample_index": int(point_index),
                         "goal_sample_point": point.tolist(),

@@ -30,6 +30,10 @@ from inequality_mechanisms.benchmarks.classification import (
     TASK_INVALID_UNREPRESENTABLE,
     classify_direct_attempt,
 )
+from inequality_mechanisms.core.goal_residuals import (
+    GoalResidualReport,
+    build_goal_residual_report,
+)
 from inequality_mechanisms.core.goals import GoalStateGenerator
 from inequality_mechanisms.core.local_motion import InputLinearMotion
 from inequality_mechanisms.core.objectives import ActuatorTravelObjective
@@ -40,7 +44,7 @@ from inequality_mechanisms.core.results import (
     ResultProvenance,
     Trajectory,
 )
-from inequality_mechanisms.core.state import PhysicalState
+from inequality_mechanisms.core.state import PhysicalState, StateCandidate
 from inequality_mechanisms.planners.sampling_rng import (
     SeededRun,
     make_generator,
@@ -49,7 +53,9 @@ from inequality_mechanisms.planners.sampling_rng import (
 from inequality_mechanisms.planners.sampling_space import (
     actuator_bounds,
     direct_connector_available,
+    match_selected_candidate,
     path_length_q,
+    path_length_x,
 )
 
 
@@ -225,16 +231,28 @@ def solve_with_ompl_planner(
         length_u: float | None,
         length_q: float | None,
         length_x: float | None = None,
-        residual: Any = None,
+        residual_state: PhysicalState | None = None,
+        candidate: StateCandidate | None = None,
         query_s: float | None = None,
         state_checks: int | None = None,
         motion_checks: int | None = None,
     ) -> PlanningResult:
         total = time.perf_counter() - t0
+        report: GoalResidualReport | None = None
+        residual = None
+        state_for_residual = residual_state if residual_state is not None else selected
+        if state_for_residual is not None and goal_usable:
+            report = build_goal_residual_report(
+                problem.goal,
+                state_for_residual,
+                candidate=candidate,
+            )
+            residual = report.physical
         return PlanningResult(
             status=status,
             trajectory=trajectory,
             selected_goal_state=selected,
+            selected_goal_candidate=candidate,
             total_wall_time_s=total,
             query_time_s=query_s if query_s is not None else total,
             objective_cost=cost,
@@ -243,6 +261,7 @@ def solve_with_ompl_planner(
             path_length_x=length_x,
             task_class=task_class,
             final_goal_residual=residual,
+            goal_residuals=report,
             planner_metrics={"ompl": dict(ompl_metrics)},
             provenance=ResultProvenance(
                 architecture_version=3,
@@ -269,7 +288,7 @@ def solve_with_ompl_planner(
             cost=None,
             length_u=None,
             length_q=None,
-            residual=problem.goal.residual(problem.start) if goal_usable else None,
+            residual_state=problem.start if goal_usable else None,
             state_checks=1,
         )
 
@@ -282,7 +301,6 @@ def solve_with_ompl_planner(
             cost=0.0,
             length_u=0.0,
             length_q=0.0,
-            residual=problem.goal.residual(problem.start),
             query_s=0.0,
             state_checks=1,
         )
@@ -326,7 +344,7 @@ def solve_with_ompl_planner(
             cost=None,
             length_u=None,
             length_q=None,
-            residual=problem.goal.residual(problem.start),
+            residual_state=problem.start,
             state_checks=1,
         )
 
@@ -344,11 +362,12 @@ def solve_with_ompl_planner(
             cost=None,
             length_u=None,
             length_q=None,
-            residual=problem.goal.residual(problem.start),
+            residual_state=problem.start,
             state_checks=presearch_state_checks,
         )
 
-    direct_succeeded, direct_checks = direct_connector_available(problem, candidates)
+    goal_states = [c.state for c in candidates]
+    direct_succeeded, direct_checks = direct_connector_available(problem, goal_states)
     ompl_metrics["direct_connector_available"] = direct_succeeded
     task_class = classify_direct_attempt(
         start_valid=True,
@@ -408,7 +427,7 @@ def solve_with_ompl_planner(
             cost=None,
             length_u=None,
             length_q=None,
-            residual=problem.goal.residual(problem.start),
+            residual_state=problem.start,
             query_s=query_s,
             state_checks=presearch_state_checks + counters.state_checks,
             motion_checks=direct_checks + counters.motion_checks,
@@ -434,7 +453,7 @@ def solve_with_ompl_planner(
             cost=None,
             length_u=None,
             length_q=None,
-            residual=problem.goal.residual(problem.start),
+            residual_state=problem.start,
             query_s=query_s,
             state_checks=presearch_state_checks + counters.state_checks,
             motion_checks=direct_checks + counters.motion_checks,
@@ -459,23 +478,26 @@ def solve_with_ompl_planner(
             cost=None,
             length_u=None,
             length_q=None,
-            residual=problem.goal.residual(selected),
+            residual_state=selected,
             query_s=query_s,
             state_checks=presearch_state_checks + counters.state_checks,
             motion_checks=direct_checks + counters.motion_checks,
         )
 
+    selected_cand = match_selected_candidate(
+        candidates, selected, atol=float(ROUND_TRIP_TOL)
+    )
     cost = float(problem.objective.trajectory_cost(states))
     return _finish(
         status=PlanningStatus.SUCCESS,
         task_class=task_class,
         trajectory=Trajectory(states=states),
         selected=selected,
+        candidate=selected_cand,
         cost=cost,
         length_u=cost,
         length_q=path_length_q(states),
         length_x=path_length_x(states, robot=problem.robot),
-        residual=problem.goal.residual(selected),
         query_s=query_s,
         state_checks=presearch_state_checks + counters.state_checks,
         motion_checks=direct_checks + counters.motion_checks,

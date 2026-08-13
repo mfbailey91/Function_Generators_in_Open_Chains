@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import time
+from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any, Literal
 
@@ -11,8 +12,10 @@ import numpy as np
 from inequality_mechanisms.adapters.lattice_edge_cost import (
     EdgeCostMode,
     path_actuator_length,
+    resolve_lattice_goal_set_objective,
     resolve_lattice_search_objective,
 )
+from inequality_mechanisms.core.goal_residuals import build_goal_residual_report
 from inequality_mechanisms.core.goals import ExactOutputGoal
 from inequality_mechanisms.core.objectives import ActuatorTravelObjective
 from inequality_mechanisms.core.planner import PlannerCapabilities, PlannerLifecycle
@@ -23,9 +26,11 @@ from inequality_mechanisms.core.results import (
     ResultProvenance,
     Trajectory,
 )
-from inequality_mechanisms.core.state import PhysicalState
+from inequality_mechanisms.core.state import PhysicalState, StateCandidate
 from inequality_mechanisms.graphs.embedded import EmbeddedPlanningGraph
+from inequality_mechanisms.graphs.goal_set_query_overlay import GoalSetQueryOverlay
 from inequality_mechanisms.graphs.query_overlay import QueryOverlayGraph
+from inequality_mechanisms.planners.sampling_space import match_selected_candidate
 from inequality_mechanisms.search.graph_solver import (
     AStarGraphSolver,
     DijkstraGraphSolver,
@@ -49,8 +54,9 @@ class GraphSearchPlanner:
 
     The graph is planner configuration, not a ``PlanningProblem`` field.
     Exact starts/goals may lie on lattice nodes or attach through
-    ``QueryOverlayGraph`` (ADR-023; no task-semantic start tolerance).
-    Supports endpoint or integrated actuator edge-cost modes (Sprint V3.3).
+    ``QueryOverlayGraph`` / ``GoalSetQueryOverlay`` (ADR-023; no task-semantic
+    start tolerance). Supports endpoint or integrated actuator edge-cost modes
+    (Sprint V3.3). Goal-set queries use ADR-020 ``goal_node_ids`` (V3-632).
 
     Opt-in ``trace_sink`` / ``record_expanded`` are audit-only and do not
     change status, path, cost, or ordinary planner metrics when unused.
@@ -147,6 +153,30 @@ class GraphSearchPlanner:
             ),
         )
 
+    def _emit_trace(self, search: Any) -> None:
+        if self.trace_sink is None:
+            return
+        for step, node_id in enumerate(search.expanded_nodes):
+            self.trace_sink.record(
+                family="graph",
+                phase="expand",
+                event_type="record_expanded",
+                payload={"node_id": int(node_id), "order": int(step)},
+            )
+        self.trace_sink.record(
+            family="graph",
+            phase="path",
+            event_type="search_summary",
+            payload={
+                "found": bool(search.found),
+                "n_expanded": int(search.n_expanded),
+                "n_generated": int(search.n_generated),
+                "n_stale": int(search.n_stale),
+                "path_node_ids": list(search.path),
+                "cost": None if not search.found else float(search.cost),
+            },
+        )
+
     def solve(self, problem: PlanningProblem) -> PlanningResult:
         """Solve a lattice query through the frozen Version 2 search core."""
         if not isinstance(problem.objective, ActuatorTravelObjective):
@@ -155,7 +185,8 @@ class GraphSearchPlanner:
             )
         if not isinstance(problem.goal, ExactOutputGoal):
             raise ValueError(
-                "GraphSearchPlanner currently supports ExactOutputGoal only"
+                "GraphSearchPlanner currently supports ExactOutputGoal only; "
+                "use solve_goal_set for represented goal sets"
             )
         if not problem.scene.state_is_valid(problem.start):
             return self._invalid_result()
@@ -256,28 +287,7 @@ class GraphSearchPlanner:
             record_expanded=want_expanded,
         )
         query_time = time.perf_counter() - t0
-
-        if self.trace_sink is not None:
-            for step, node_id in enumerate(search.expanded_nodes):
-                self.trace_sink.record(
-                    family="graph",
-                    phase="expand",
-                    event_type="record_expanded",
-                    payload={"node_id": int(node_id), "order": int(step)},
-                )
-            self.trace_sink.record(
-                family="graph",
-                phase="path",
-                event_type="search_summary",
-                payload={
-                    "found": bool(search.found),
-                    "n_expanded": int(search.n_expanded),
-                    "n_generated": int(search.n_generated),
-                    "n_stale": int(search.n_stale),
-                    "path_node_ids": list(search.path),
-                    "cost": None if not search.found else float(search.cost),
-                },
-            )
+        self._emit_trace(search)
 
         if not search.found:
             return PlanningResult(
@@ -299,6 +309,12 @@ class GraphSearchPlanner:
                         "generated": int(search.n_generated),
                         "reopened_or_stale": int(search.n_stale),
                         "path_node_ids": list(search.path),
+                        "expansions_are_total_query_work": True,
+                        **(
+                            {"expanded_node_ids": list(search.expanded_nodes)}
+                            if want_expanded
+                            else {}
+                        ),
                     }
                 },
                 provenance=ResultProvenance(
@@ -318,6 +334,15 @@ class GraphSearchPlanner:
             else search.path[-1]
         )
         selected = self._state_from_node(search_graph, selected_id, assembly)
+        attachment = None
+        if overlay_metrics.get("overlay_used"):
+            attachment = float(overlay_metrics.get("goal_attachment_residual_q", 0.0))
+        report = build_goal_residual_report(
+            problem.goal,
+            selected,
+            candidate=None,
+            attachment_residual=attachment,
+        )
         path_u = path_actuator_length(
             search_graph,
             search.path,
@@ -337,6 +362,7 @@ class GraphSearchPlanner:
             status=PlanningStatus.SUCCESS,
             trajectory=Trajectory(states=states),
             selected_goal_state=selected,
+            selected_goal_candidate=None,
             query_time_s=query_time,
             total_wall_time_s=query_time,
             objective_cost=float(search.cost),
@@ -344,7 +370,8 @@ class GraphSearchPlanner:
             path_length_q=path_q,
             path_length_x=None,
             task_class=None,
-            final_goal_residual=problem.goal.residual(selected),
+            final_goal_residual=report.physical,
+            goal_residuals=report,
             planner_metrics={
                 "graph": {
                     **overlay_metrics,
@@ -353,6 +380,12 @@ class GraphSearchPlanner:
                     "reopened_or_stale": int(search.n_stale),
                     "path_node_ids": list(search.path),
                     "selected_goal_node_id": int(selected_id),
+                    "expansions_are_total_query_work": True,
+                    **(
+                        {"expanded_node_ids": list(search.expanded_nodes)}
+                        if want_expanded
+                        else {}
+                    ),
                 }
             },
             provenance=ResultProvenance(
@@ -360,5 +393,239 @@ class GraphSearchPlanner:
                 code_revision=self.code_revision,
                 planner_id=self.planner_id,
                 extras={"v2_solver_id": backend.solver_id},
+            ),
+        )
+
+    def solve_goal_set(
+        self,
+        problem: PlanningProblem,
+        candidates: Sequence[StateCandidate],
+    ) -> PlanningResult:
+        """Solve one true multi-goal lattice query over ``candidates`` (V3-632).
+
+        Builds a :class:`GoalSetQueryOverlay`, runs Dijkstra (``h=0``) or A*
+        (``input_euclidean_goal_set``) with ADR-020 ``goal_node_ids``, and returns
+        total-query expansion metrics plus selected-candidate provenance.
+        """
+        if not isinstance(problem.objective, ActuatorTravelObjective):
+            raise ValueError(
+                "GraphSearchPlanner currently supports ActuatorTravelObjective only"
+            )
+        if not problem.scene.state_is_valid(problem.start):
+            return self._invalid_result()
+        if not candidates:
+            return self._invalid_result(
+                residual=problem.goal.residual(problem.start),
+                metrics={
+                    "graph": {
+                        "goal_set_cardinality": 0,
+                        "expansions_are_total_query_work": True,
+                    }
+                },
+            )
+        if not self.allow_query_overlay:
+            return self._invalid_result(
+                residual=problem.goal.residual(problem.start),
+                metrics={
+                    "graph": {
+                        "overlay_used": False,
+                        "goal_set_cardinality": 0,
+                        "expansions_are_total_query_work": True,
+                    }
+                },
+            )
+
+        base = self.graph
+        start_q = np.asarray(problem.start.q, dtype=np.float64)
+        start_u = np.asarray(problem.start.u, dtype=np.float64)
+        goal_qs = [np.asarray(c.state.q, dtype=np.float64) for c in candidates]
+        goal_us = [np.asarray(c.state.u, dtype=np.float64) for c in candidates]
+        try:
+            overlay = GoalSetQueryOverlay(
+                base=base,
+                start_q=start_q,
+                goal_qs=goal_qs,
+                start_u=start_u,
+                goal_us=goal_us,
+                dedup_tol=self.q_match_tolerance,
+                edge_n_samples=self.edge_n_samples,
+                require_all_goals=False,
+            )
+        except (ValueError, TypeError):
+            return self._invalid_result(
+                residual=problem.goal.residual(problem.start),
+                metrics={
+                    "graph": {
+                        "overlay_used": False,
+                        "goal_set_cardinality": 0,
+                        "expansions_are_total_query_work": True,
+                    }
+                },
+            )
+
+        search_graph: Any = overlay
+        start_id = int(overlay.start_node_id)
+        goal_ids = tuple(int(n) for n in overlay.goal_node_ids)
+        assembly = dict(problem.start.assembly_state)
+        heuristic_name = (
+            "input_euclidean_goal_set" if self.algorithm == "astar" else "zero"
+        )
+        objective = resolve_lattice_goal_set_objective(
+            search_graph,
+            goal_ids,
+            edge_cost_mode=self.edge_cost_mode,
+            robot=problem.robot,
+            algorithm=self.algorithm,
+            scene=problem.scene,
+            n_samples=self.edge_n_samples,
+            assembly_state=assembly,
+            shared_edge_cost=(
+                self.shared_edge_cost
+                if self.edge_cost_mode == "integrated"
+                else None
+            ),
+        )
+        backend = _solver_backend(self.algorithm)
+        want_expanded = bool(self.record_expanded or self.trace_sink is not None)
+        t0 = time.perf_counter()
+        search = backend.solve(
+            search_graph,
+            start_id,
+            None,
+            objective,
+            goal_node_ids=goal_ids,
+            record_expanded=want_expanded,
+        )
+        query_time = time.perf_counter() - t0
+        self._emit_trace(search)
+
+        graph_metrics: dict[str, Any] = {
+            "edge_cost_mode": self.edge_cost_mode,
+            "connectivity": str(base.topology.connectivity),
+            "overlay_used": True,
+            "overlay_start_node_id": start_id,
+            "goal_node_ids": list(goal_ids),
+            "goal_set_cardinality": len(goal_ids),
+            "requested_goal_count": int(overlay.requested_goal_count),
+            "heuristic_name": heuristic_name,
+            "attachments": overlay.attachments_as_dicts(),
+            "failed_goal_attachments": list(overlay.failed_goal_attachments),
+            "expansions": int(search.n_expanded),
+            "generated": int(search.n_generated),
+            "reopened_or_stale": int(search.n_stale),
+            "path_node_ids": list(search.path),
+            "expansions_are_total_query_work": True,
+        }
+        if want_expanded:
+            graph_metrics["expanded_node_ids"] = list(search.expanded_nodes)
+
+        if not search.found:
+            return PlanningResult(
+                status=PlanningStatus.UNSOLVED,
+                trajectory=None,
+                selected_goal_state=None,
+                query_time_s=query_time,
+                total_wall_time_s=query_time,
+                objective_cost=None,
+                path_length_u=None,
+                path_length_q=None,
+                path_length_x=None,
+                task_class=None,
+                final_goal_residual=None,
+                planner_metrics={"graph": graph_metrics},
+                provenance=ResultProvenance(
+                    architecture_version=3,
+                    code_revision=self.code_revision,
+                    planner_id=self.planner_id,
+                    extras={
+                        "v2_solver_id": backend.solver_id,
+                        "represented_goal_set": True,
+                    },
+                ),
+            )
+
+        states = tuple(
+            self._state_from_node(search_graph, nid, assembly) for nid in search.path
+        )
+        selected_id = (
+            int(search.selected_goal_node_id)
+            if search.selected_goal_node_id is not None
+            else int(search.path[-1])
+        )
+        selected = self._state_from_node(search_graph, selected_id, assembly)
+        graph_metrics["selected_goal_node_id"] = selected_id
+
+        attachment_rec = overlay.attachment_for_goal_node(selected_id)
+        attachment_residual = (
+            None
+            if attachment_rec is None
+            else float(attachment_rec.attachment_residual_q)
+        )
+        if attachment_residual is None:
+            attachment_residual = float(
+                np.linalg.norm(overlay.q_state(selected_id) - selected.q)
+            )
+
+        selected_candidate: StateCandidate | None = None
+        if attachment_rec is not None and attachment_rec.goal_index is not None:
+            src = candidates[int(attachment_rec.goal_index)]
+            selected_candidate = StateCandidate(
+                state=selected,
+                residual=float(src.residual),
+                provenance=dict(src.provenance),
+            )
+        if selected_candidate is None:
+            matched = match_selected_candidate(candidates, selected)
+            if matched is not None:
+                selected_candidate = StateCandidate(
+                    state=selected,
+                    residual=float(matched.residual),
+                    provenance=dict(matched.provenance),
+                )
+
+        report = build_goal_residual_report(
+            problem.goal,
+            selected,
+            candidate=selected_candidate,
+            attachment_residual=attachment_residual,
+        )
+        path_u = path_actuator_length(
+            search_graph,
+            search.path,
+            robot=problem.robot,
+            edge_cost_mode=self.edge_cost_mode,
+            scene=problem.scene,
+            n_samples=self.edge_n_samples,
+            assembly_state=assembly,
+        )
+        path_q = float(
+            sum(
+                np.linalg.norm(states[i + 1].q - states[i].q)
+                for i in range(len(states) - 1)
+            )
+        )
+        return PlanningResult(
+            status=PlanningStatus.SUCCESS,
+            trajectory=Trajectory(states=states),
+            selected_goal_state=selected,
+            selected_goal_candidate=selected_candidate,
+            query_time_s=query_time,
+            total_wall_time_s=query_time,
+            objective_cost=float(search.cost),
+            path_length_u=path_u,
+            path_length_q=path_q,
+            path_length_x=None,
+            task_class=None,
+            final_goal_residual=report.physical,
+            goal_residuals=report,
+            planner_metrics={"graph": graph_metrics},
+            provenance=ResultProvenance(
+                architecture_version=3,
+                code_revision=self.code_revision,
+                planner_id=self.planner_id,
+                extras={
+                    "v2_solver_id": backend.solver_id,
+                    "represented_goal_set": True,
+                },
             ),
         )

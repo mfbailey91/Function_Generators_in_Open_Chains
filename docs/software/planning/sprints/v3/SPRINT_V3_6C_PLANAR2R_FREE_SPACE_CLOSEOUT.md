@@ -249,17 +249,26 @@ only in raw JSON:
 
 ### V3-630 — Closeout contract, activation, and artifact freeze
 
+**WP status:** freeze guard + closeout config/exporter scaffold landed (full
+report generation remains V3-638/V3-639).
+
 Land this sprint contract, completed Gate B findings, decision note, sprint-index
 changes, and ACTIVE_SPRINT authorization. Add a guard that refuses to write into
 frozen `v3_6_*` and `v3_6b_*` result directories from the V3.6C exporter.
 
 ### V3-631 — Goal-candidate identity and residual model
 
+**WP status:** candidate provenance + typed residual report landed (multi-goal
+lattice / RRT multi-root remain V3-632 / V3-633).
+
 Preserve `StateCandidate` provenance through common selection helpers and result
 assembly. Add typed/serialized physical, representation, and attachment
 residuals with explicit failure behavior.
 
 ### V3-632 — Multi-goal graph query
+
+**WP status:** GoalSetQueryOverlay + GraphSearchPlanner.solve_goal_set landed
+(one Dijkstra/A* query over represented goals; call sites updated).
 
 Add a reusable goal-set graph-search contract and query overlay supporting one
 exact start plus all represented goals. Implement Dijkstra and admissible A* to

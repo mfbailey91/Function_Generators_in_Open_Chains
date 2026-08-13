@@ -14,6 +14,10 @@ from inequality_mechanisms.benchmarks.classification import (
     TASK_INVALID_UNREPRESENTABLE,
     classify_direct_attempt,
 )
+from inequality_mechanisms.core.goal_residuals import (
+    GoalResidualReport,
+    build_goal_residual_report,
+)
 from inequality_mechanisms.core.goals import GoalStateGenerator
 from inequality_mechanisms.core.objectives import ActuatorTravelObjective
 from inequality_mechanisms.core.planner import PlannerCapabilities, PlannerLifecycle
@@ -24,7 +28,7 @@ from inequality_mechanisms.core.results import (
     ResultProvenance,
     Trajectory,
 )
-from inequality_mechanisms.core.state import PhysicalState
+from inequality_mechanisms.core.state import PhysicalState, StateCandidate
 from inequality_mechanisms.planners.sampling_rng import (
     SeededRun,
     make_generator,
@@ -32,12 +36,13 @@ from inequality_mechanisms.planners.sampling_rng import (
 )
 from inequality_mechanisms.planners.sampling_space import (
     direct_connector_available,
+    match_selected_candidate,
     path_cost_u,
     path_length_q,
     path_length_x,
     resolve_connector,
     sample_state_uniform,
-    select_goal_states,
+    select_goal_candidates,
     try_connect,
 )
 
@@ -126,15 +131,27 @@ class PRMPlanner:
             metrics: dict[str, Any],
             preprocess_s: float | None = None,
             query_s: float | None = None,
-            residual: Any = None,
+            residual_state: PhysicalState | None = None,
+            candidate: StateCandidate | None = None,
             state_checks: int | None = None,
             motion_checks: int | None = None,
         ) -> PlanningResult:
             total = time.perf_counter() - t0
+            report: GoalResidualReport | None = None
+            residual = None
+            state_for_residual = residual_state if residual_state is not None else selected
+            if state_for_residual is not None and goal_usable:
+                report = build_goal_residual_report(
+                    problem.goal,
+                    state_for_residual,
+                    candidate=candidate,
+                )
+                residual = report.physical
             return PlanningResult(
                 status=status,
                 trajectory=trajectory,
                 selected_goal_state=selected,
+                selected_goal_candidate=candidate,
                 total_wall_time_s=total,
                 preprocessing_time_s=preprocess_s,
                 query_time_s=query_s,
@@ -144,6 +161,7 @@ class PRMPlanner:
                 path_length_x=length_x,
                 task_class=task_class,
                 final_goal_residual=residual,
+                goal_residuals=report,
                 planner_metrics=metrics,
                 provenance=ResultProvenance(
                     architecture_version=3,
@@ -193,7 +211,7 @@ class PRMPlanner:
                 length_u=None,
                 length_q=None,
                 metrics=base_metrics,
-                residual=problem.goal.residual(problem.start) if goal_usable else None,
+                residual_state=problem.start if goal_usable else None,
                 state_checks=1,
             )
 
@@ -207,18 +225,18 @@ class PRMPlanner:
                 length_u=0.0,
                 length_q=0.0,
                 metrics=base_metrics,
-                residual=problem.goal.residual(problem.start),
                 state_checks=1,
                 preprocess_s=0.0,
                 query_s=0.0,
             )
 
-        goals = select_goal_states(
+        goal_candidates = select_goal_candidates(
             problem,
             goal_generator=self.goal_generator,
             max_candidates=self.max_goal_candidates,
             rng=rng,
         )
+        goals = [c.state for c in goal_candidates]
         if not goals:
             return _finish(
                 status=PlanningStatus.INVALID,
@@ -229,7 +247,7 @@ class PRMPlanner:
                 length_u=None,
                 length_q=None,
                 metrics=base_metrics,
-                residual=problem.goal.residual(problem.start),
+                residual_state=problem.start,
                 state_checks=1,
             )
 
@@ -407,7 +425,7 @@ class PRMPlanner:
                 length_u=None,
                 length_q=None,
                 metrics=base_metrics,
-                residual=problem.goal.residual(problem.start),
+                residual_state=problem.start,
                 preprocess_s=preprocess_s,
                 query_s=query_s,
                 state_checks=state_checks,
@@ -423,6 +441,7 @@ class PRMPlanner:
         node_ids.reverse()
         states = tuple(vertices[i] for i in node_ids)
         selected = states[-1]
+        selected_cand = match_selected_candidate(goal_candidates, selected)
         cost = path_cost_u(states)
         if sink is not None:
             sink.record(
@@ -436,12 +455,12 @@ class PRMPlanner:
             task_class=task_class,
             trajectory=Trajectory(states=states),
             selected=selected,
+            candidate=selected_cand,
             cost=cost,
             length_u=cost,
             length_q=path_length_q(states),
             length_x=path_length_x(states, robot=problem.robot),
             metrics=base_metrics,
-            residual=problem.goal.residual(selected),
             preprocess_s=preprocess_s,
             query_s=query_s,
             state_checks=state_checks,

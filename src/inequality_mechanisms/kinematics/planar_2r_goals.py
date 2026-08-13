@@ -64,6 +64,10 @@ class CartesianDiskGoalGenerator:
                     **dict(cand.provenance),
                     "ik_family": family,
                     "goal_region": "cartesian_disk_center",
+                    "candidate_generator_id": "cartesian_disk_center_ik",
+                    "goal_sample_id": "disk_center",
+                    "goal_sample_index": 0,
+                    "goal_sample_point": goal.center.tolist(),
                 }
                 out.append(
                     StateCandidate(

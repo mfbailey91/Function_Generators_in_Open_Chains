@@ -36,7 +36,16 @@ from inequality_mechanisms.graphs.topology import (
     TensorGridTopology,
 )
 from inequality_mechanisms.graphs.transitions import EdgeTraceV2, build_edge_trace_v2
-from inequality_mechanisms.graphs.query_overlay import QueryOverlayGraph, QueryNode
+from inequality_mechanisms.graphs.goal_set_query_overlay import (
+    GoalSetQueryOverlay,
+    QueryAttachment,
+)
+from inequality_mechanisms.graphs.query_overlay import (
+    QueryNode,
+    QueryOverlayGraph,
+    ResolvedQueryEndpoint,
+    resolve_query_endpoint,
+)
 from inequality_mechanisms.graphs.validation import (
     ConstrainedInputGraph,
     configuration_is_valid,
@@ -50,20 +59,23 @@ __all__ = [
     "ConstrainedInputSearchAdapter",
     "EdgeTraceV2",
     "EmbeddedPlanningGraph",
+    "GoalSetQueryOverlay",
     "GraphTopology",
     "GridNode",
     "KNOWN_COST_TYPES",
     "LatticeConnectivity",
     "MonotonicOutputGraph",
     "PeriodicGrid2D",
+    "QueryAttachment",
+    "QueryNode",
+    "QueryOverlayGraph",
+    "ResolvedQueryEndpoint",
     "SamplingDomain",
     "SamplingSpecification",
     "SharedQPairInvariantError",
     "SharedQPairInvariantReport",
     "TensorGridTopology",
     "TransitionParameterization",
-    "QueryNode",
-    "QueryOverlayGraph",
     "UniformOutputLattice",
     "assert_identical_query_overlays",
     "assert_shared_q_pair_invariants",
@@ -77,6 +89,7 @@ __all__ = [
     "interpolate_input_segment",
     "output_euclidean_cost",
     "output_euclidean_edge_cost",
+    "resolve_query_endpoint",
     "uniform_edge_cost",
     "wrapped_input_displacement",
 ]

@@ -10,6 +10,10 @@ import numpy as np
 from inequality_mechanisms.benchmarks.classification import (
     classify_direct_attempt,
 )
+from inequality_mechanisms.core.goal_residuals import (
+    GoalResidualReport,
+    build_goal_residual_report,
+)
 from inequality_mechanisms.core.goals import GoalSamplingRequest, GoalStateGenerator
 from inequality_mechanisms.core.local_motion import LocalMotion, LocalMotionModel
 from inequality_mechanisms.core.objectives import (
@@ -23,7 +27,7 @@ from inequality_mechanisms.core.results import (
     ResultProvenance,
     Trajectory,
 )
-from inequality_mechanisms.core.state import PhysicalState
+from inequality_mechanisms.core.state import PhysicalState, StateCandidate
 from inequality_mechanisms.core.trajectory_metrics import path_metrics_from_motion_samples
 
 
@@ -77,16 +81,28 @@ def solve_with_direct_connector(
         length_u: float | None,
         length_q: float | None,
         length_x: float | None,
-        residual: Any,
         metrics: dict[str, Any],
         state_checks: int | None = None,
         motion_checks: int | None = None,
+        candidate: StateCandidate | None = None,
+        residual_state: PhysicalState | None = None,
     ) -> PlanningResult:
         elapsed = time.perf_counter() - t0
+        report: GoalResidualReport | None = None
+        residual = None
+        state_for_residual = residual_state if residual_state is not None else selected
+        if state_for_residual is not None and goal_usable:
+            report = build_goal_residual_report(
+                problem.goal,
+                state_for_residual,
+                candidate=candidate,
+            )
+            residual = report.physical
         return PlanningResult(
             status=status,
             trajectory=trajectory,
             selected_goal_state=selected,
+            selected_goal_candidate=candidate,
             total_wall_time_s=elapsed,
             query_time_s=elapsed,
             objective_cost=cost,
@@ -95,6 +111,7 @@ def solve_with_direct_connector(
             path_length_x=length_x,
             task_class=task_class,
             final_goal_residual=residual,
+            goal_residuals=report,
             planner_metrics=metrics,
             provenance=ResultProvenance(
                 architecture_version=3,
@@ -121,9 +138,6 @@ def solve_with_direct_connector(
             candidates_representable=False,
             connector_succeeded=False,
         )
-        residual = None
-        if goal_usable:
-            residual = problem.goal.residual(problem.start)
         return _finish(
             status=PlanningStatus.INVALID,
             task_class=task_class,
@@ -133,7 +147,7 @@ def solve_with_direct_connector(
             length_u=None,
             length_q=None,
             length_x=None,
-            residual=residual,
+            residual_state=problem.start if goal_usable else None,
             metrics=base_metrics,
             state_checks=1,
         )
@@ -155,7 +169,6 @@ def solve_with_direct_connector(
             length_u=0.0,
             length_q=0.0,
             length_x=0.0,
-            residual=problem.goal.residual(problem.start),
             metrics=base_metrics,
             state_checks=1,
         )
@@ -191,7 +204,7 @@ def solve_with_direct_connector(
             length_u=None,
             length_q=None,
             length_x=None,
-            residual=problem.goal.residual(problem.start),
+            residual_state=problem.start,
             metrics=base_metrics,
             state_checks=1 + len(candidates),
         )
@@ -205,7 +218,7 @@ def solve_with_direct_connector(
             )
 
     objective = problem.objective
-    best: tuple[float, LocalMotion, PhysicalState] | None = None
+    best: tuple[float, LocalMotion, StateCandidate] | None = None
     motion_checks = 0
     state_checks = 1 + len(candidates)
 
@@ -220,7 +233,7 @@ def solve_with_direct_connector(
             continue
         cost = float(objective.motion_cost(motion))  # type: ignore[attr-defined]
         if best is None or cost < best[0]:
-            best = (cost, motion, cand.state)
+            best = (cost, motion, cand)
 
     if best is None:
         task_class = classify_direct_attempt(
@@ -239,13 +252,14 @@ def solve_with_direct_connector(
             length_u=None,
             length_q=None,
             length_x=None,
-            residual=problem.goal.residual(problem.start),
+            residual_state=problem.start,
             metrics=base_metrics,
             state_checks=state_checks,
             motion_checks=motion_checks,
         )
 
-    cost, motion, selected = best
+    cost, motion, selected_cand = best
+    selected = selected_cand.state
     length_u, length_q, length_x = path_lengths_from_motion(
         motion, robot=problem.robot
     )
@@ -261,11 +275,11 @@ def solve_with_direct_connector(
         task_class=task_class,
         trajectory=Trajectory(states=(problem.start, selected)),
         selected=selected,
+        candidate=selected_cand,
         cost=cost,
         length_u=length_u,
         length_q=length_q,
         length_x=length_x,
-        residual=problem.goal.residual(selected),
         metrics=base_metrics,
         state_checks=state_checks,
         motion_checks=motion_checks,

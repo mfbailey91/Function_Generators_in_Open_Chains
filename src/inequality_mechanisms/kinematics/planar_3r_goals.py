@@ -59,7 +59,10 @@ class Planar3RPoseGoalGenerator:
                     **dict(cand.provenance),
                     "ik_family": family,
                     "goal_region": "planar_pose_region_center",
+                    "candidate_generator_id": "planar_pose_region_center_ik",
                     "goal_sample_id": "se2_center",
+                    "goal_sample_index": 0,
+                    "goal_sample_point": goal.center.tolist(),
                     "goal_phi": float(goal.phi_goal),
                 }
                 out.append(
@@ -127,6 +130,9 @@ class FrozenPlanar3RPositionGoalGenerator:
                             **dict(cand.provenance),
                             "ik_family": planar_3r_elbow_family(q_arr),
                             "goal_representation": (
+                                "frozen_disk_points_times_phi_grid_v1"
+                            ),
+                            "candidate_generator_id": (
                                 "frozen_disk_points_times_phi_grid_v1"
                             ),
                             "goal_sample_id": f"{point_id}__phi_{phi_index}",

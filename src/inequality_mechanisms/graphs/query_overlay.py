@@ -12,6 +12,10 @@ The implementation is intentionally narrow:
   via :func:`inequality_mechanisms.graphs.transitions.build_edge_trace_v2`.
 
 It does *not* attempt to integrate obstacle fields or long-range connectivity.
+
+Shared attachment helpers (:func:`resolve_query_endpoint` and related
+primitives) are reused by :mod:`goal_set_query_overlay` without changing the
+single-goal :class:`QueryOverlayGraph` API.
 """
 
 from __future__ import annotations
@@ -52,6 +56,230 @@ class QueryNode:
         }
 
 
+@dataclass(frozen=True, slots=True)
+class ResolvedQueryEndpoint:
+    """Resolved attachment of one continuous query endpoint onto a lattice.
+
+    Parameters
+    ----------
+    base_node_id :
+        Base lattice node id when the request deduplicates to an existing
+        valid node; otherwise ``None`` and an overlay node is required.
+    q :
+        Canonical output configuration used for attachment.
+    u :
+        Actuator realization attached with ``q``.
+    corner_neighbors :
+        Transition-valid base corner node ids when an overlay node is needed;
+        empty when deduplicated.
+    requested_q :
+        Caller-supplied output configuration before canonicalization.
+    attachment_residual_q :
+        ``||q_attached - requested_q||`` after canonical attachment.
+    attachment_residual_u :
+        ``||u_attached - requested_u||`` when ``requested_u`` was supplied.
+    """
+
+    base_node_id: int | None
+    q: NDArray[np.float64]
+    u: NDArray[np.float64]
+    corner_neighbors: tuple[int, ...]
+    requested_q: NDArray[np.float64]
+    attachment_residual_q: float
+    attachment_residual_u: float | None = None
+
+
+def find_exact_base_node_for_q(
+    base: EmbeddedPlanningGraph,
+    canon_q: NDArray[np.float64],
+    *,
+    tol: float,
+) -> int | None:
+    """Return the lowest valid base node id matching ``canon_q``, if any."""
+    base_q = np.asarray(base.q_nodes, dtype=np.float64)
+    valid = np.asarray(base.valid_nodes, dtype=np.bool_)
+
+    matches = np.all(
+        np.isclose(base_q, canon_q[np.newaxis, :], atol=tol, rtol=0.0), axis=1
+    )
+    matches = np.where(valid, matches, False)
+    if not np.any(matches):
+        return None
+    sentinel = np.iinfo(np.int64).max
+    return int(
+        np.argmin(np.where(matches, np.arange(base_q.shape[0]), sentinel))
+    )
+
+
+def bracket_indices_per_axis(
+    base: EmbeddedPlanningGraph,
+    canon_q: NDArray[np.float64],
+    *,
+    tol: float,
+) -> list[int]:
+    """Return per-axis lower bracket indices for the cell containing ``canon_q``."""
+    if base.topology is None:  # pragma: no cover
+        raise ValueError("base graph must provide a topology")
+    shape = base.topology.shape
+    dim = len(shape)
+    if canon_q.shape != (dim,):
+        raise ValueError(f"canon_q shape must be {(dim,)}, got {canon_q.shape}")
+
+    brackets: list[int] = []
+    for axis in range(dim):
+        axis_values = base.axis_marginal(base.q_nodes, axis)
+        lo_v = float(axis_values[0])
+        hi_v = float(axis_values[-1])
+        qv = float(canon_q[axis])
+        if qv < lo_v - tol or qv > hi_v + tol:
+            raise ValueError(
+                f"requested q out of the base output range on axis {axis}: "
+                f"{qv} not in [{lo_v}, {hi_v}]"
+            )
+        i = int(np.searchsorted(axis_values, qv, side="right") - 1)
+        i = max(0, min(i, int(shape[axis]) - 2))
+        brackets.append(i)
+    return brackets
+
+
+def candidate_corner_ids(
+    base: EmbeddedPlanningGraph, canon_q: NDArray[np.float64]
+) -> list[int]:
+    """Return unordered cell-corner base node ids for ``canon_q``."""
+    if base.topology is None:  # pragma: no cover
+        raise ValueError("base graph must provide a topology")
+    brackets = bracket_indices_per_axis(base, canon_q, tol=1e-12)
+    corner_index_choices: list[tuple[int, int]] = [(i, i + 1) for i in brackets]
+    corner_ids: list[int] = []
+    for idx in itertools.product(*corner_index_choices):
+        nid = base.topology.node_id(tuple(int(x) for x in idx))
+        corner_ids.append(nid)
+    return corner_ids
+
+
+def validate_query_to_corner_edges(
+    base: EmbeddedPlanningGraph,
+    *,
+    q: NDArray[np.float64],
+    u: NDArray[np.float64],
+    corner_ids: Iterable[int],
+    edge_n_samples: int,
+) -> list[int]:
+    """Return the subset of ``corner_ids`` that are transition-valid."""
+    accepted: list[int] = []
+    for corner in corner_ids:
+        if not bool(base.valid_nodes[corner]):
+            continue
+        q_b = base.q_state(corner)
+        u_b = base.u_state(corner)
+        trace = build_edge_trace_v2(
+            base.branch,
+            base.transition_parameterization,
+            q,
+            u,
+            q_b,
+            u_b,
+            n_samples=edge_n_samples,
+        )
+        if trace.first_invalid_index is None and bool(np.all(trace.branch_valid)):
+            accepted.append(int(corner))
+    accepted.sort()
+    return accepted
+
+
+def resolve_query_endpoint(
+    base: EmbeddedPlanningGraph,
+    *,
+    requested_q: NDArray[np.float64],
+    requested_u: NDArray[np.float64] | None = None,
+    dedup_tol: float,
+    edge_n_samples: int,
+) -> ResolvedQueryEndpoint:
+    """Resolve one continuous endpoint onto the base lattice or an overlay stub.
+
+    Parameters
+    ----------
+    base :
+        Uniform-output ``EmbeddedPlanningGraph``.
+    requested_q :
+        Continuous output configuration to attach.
+    requested_u :
+        Optional actuator realization. When provided and an overlay node is
+        created, this ``u`` is preferred over ``branch.inverse(q)`` so candidate
+        provenance is preserved. Deduplicated base nodes keep the lattice ``u``.
+    dedup_tol :
+        Absolute tolerance for exact base-node matching.
+    edge_n_samples :
+        Samples used when validating query-to-corner transitions.
+    """
+    if base.sampling_domain != SamplingDomain.OUTPUT:
+        raise ValueError(
+            "query overlays currently support base graphs built from "
+            "uniform OUTPUT sampling only"
+        )
+    if base.topology is None:  # pragma: no cover
+        raise ValueError("base graph must provide a topology")
+
+    q_vec = np.asarray(requested_q, dtype=np.float64)
+    if q_vec.ndim != 1:
+        raise ValueError("requested_q must be 1-D")
+    canon_q = base.branch.output_space.canonicalize(q_vec)
+    residual_q = float(np.linalg.norm(canon_q - q_vec))
+
+    exact = find_exact_base_node_for_q(base, canon_q, tol=dedup_tol)
+    if exact is not None:
+        u_exact = np.asarray(base.u_state(exact), dtype=np.float64)
+        residual_u = None
+        if requested_u is not None:
+            residual_u = float(
+                np.linalg.norm(u_exact - np.asarray(requested_u, dtype=np.float64))
+            )
+        return ResolvedQueryEndpoint(
+            base_node_id=exact,
+            q=canon_q,
+            u=u_exact,
+            corner_neighbors=(),
+            requested_q=np.array(q_vec, copy=True),
+            attachment_residual_q=residual_q,
+            attachment_residual_u=residual_u,
+        )
+
+    if requested_u is not None:
+        u = np.asarray(requested_u, dtype=np.float64)
+        if u.shape != canon_q.shape:
+            raise ValueError(
+                f"requested_u shape must match q shape {canon_q.shape}, got {u.shape}"
+            )
+    else:
+        u = np.asarray(base.branch.inverse(canon_q), dtype=np.float64)
+
+    candidate_corners = candidate_corner_ids(base, canon_q)
+    accepted_corners = validate_query_to_corner_edges(
+        base,
+        q=canon_q,
+        u=u,
+        corner_ids=candidate_corners,
+        edge_n_samples=edge_n_samples,
+    )
+    if not accepted_corners:
+        raise ValueError(
+            "query has no transition-valid corner neighbors; requested_q likely "
+            "lies too close to a certified boundary"
+        )
+    residual_u = None
+    if requested_u is not None:
+        residual_u = float(np.linalg.norm(u - np.asarray(requested_u, dtype=np.float64)))
+    return ResolvedQueryEndpoint(
+        base_node_id=None,
+        q=canon_q,
+        u=u,
+        corner_neighbors=tuple(accepted_corners),
+        requested_q=np.array(q_vec, copy=True),
+        attachment_residual_q=residual_q,
+        attachment_residual_u=residual_u,
+    )
+
+
 class QueryOverlayGraph:
     """Version-2 SearchGraph wrapper with explicit query nodes.
 
@@ -81,11 +309,17 @@ class QueryOverlayGraph:
         self._edge_n_samples = int(edge_n_samples)
         self._output_space = base.branch.output_space
 
-        start_base_id, start_q2, start_u, start_corners = (
-            self._resolve_query_endpoint(requested_q=start_q, dedup_tol=dedup_tol)
+        start_resolved = resolve_query_endpoint(
+            base,
+            requested_q=start_q,
+            dedup_tol=dedup_tol,
+            edge_n_samples=self._edge_n_samples,
         )
-        goal_base_id, goal_q2, goal_u, goal_corners = (
-            self._resolve_query_endpoint(requested_q=goal_q, dedup_tol=dedup_tol)
+        goal_resolved = resolve_query_endpoint(
+            base,
+            requested_q=goal_q,
+            dedup_tol=dedup_tol,
+            edge_n_samples=self._edge_n_samples,
         )
 
         # Deterministically allocate compact overlay node ids for the
@@ -93,30 +327,30 @@ class QueryOverlayGraph:
         overlay_nodes: list[QueryNode] = []
         overlay_id_cursor = base.node_count
 
-        if start_base_id is not None:
-            start_node_id = start_base_id
+        if start_resolved.base_node_id is not None:
+            start_node_id = start_resolved.base_node_id
         else:
             start_node_id = overlay_id_cursor
             overlay_nodes.append(
                 QueryNode(
                     node_id=overlay_id_cursor,
-                    q=start_q2,
-                    u=start_u,
-                    corner_neighbors=tuple(start_corners),
+                    q=start_resolved.q,
+                    u=start_resolved.u,
+                    corner_neighbors=start_resolved.corner_neighbors,
                 )
             )
             overlay_id_cursor += 1
 
-        if goal_base_id is not None:
-            goal_node_id = goal_base_id
+        if goal_resolved.base_node_id is not None:
+            goal_node_id = goal_resolved.base_node_id
         else:
             goal_node_id = overlay_id_cursor
             overlay_nodes.append(
                 QueryNode(
                     node_id=overlay_id_cursor,
-                    q=goal_q2,
-                    u=goal_u,
-                    corner_neighbors=tuple(goal_corners),
+                    q=goal_resolved.q,
+                    u=goal_resolved.u,
+                    corner_neighbors=goal_resolved.corner_neighbors,
                 )
             )
             overlay_id_cursor += 1
@@ -245,63 +479,23 @@ class QueryOverlayGraph:
         return self._goal_node_id
 
     # ---------------------------------------------------------------------
-    # Query resolution helpers
+    # Query resolution helpers (compat wrappers over module primitives)
     # ---------------------------------------------------------------------
 
     def _find_exact_base_node_for_q(
         self, canon_q: NDArray[np.float64], *, tol: float
     ) -> int | None:
-        base_q = np.asarray(self._base.q_nodes, dtype=np.float64)
-        valid = np.asarray(self._base.valid_nodes, dtype=np.bool_)
-
-        matches = np.all(
-            np.isclose(base_q, canon_q[np.newaxis, :], atol=tol, rtol=0.0), axis=1
-        )
-        matches = np.where(valid, matches, False)
-        if not np.any(matches):
-            return None
-        sentinel = np.iinfo(np.int64).max
-        return int(
-            np.argmin(
-                np.where(matches, np.arange(base_q.shape[0]), sentinel)
-            )
-        )
+        return find_exact_base_node_for_q(self._base, canon_q, tol=tol)
 
     def _bracket_indices_per_axis(
         self, canon_q: NDArray[np.float64], *, tol: float
     ) -> list[int]:
-        shape = self._base.topology.shape
-        dim = len(shape)
-        if canon_q.shape != (dim,):
-            raise ValueError(f"canon_q shape must be {(dim,)}, got {canon_q.shape}")
-
-        # Axis sample arrays are available as 1-D marginals of the base lattice.
-        brackets: list[int] = []
-        for axis in range(dim):
-            axis_values = self._base.axis_marginal(self._base.q_nodes, axis)
-            lo_v = float(axis_values[0])
-            hi_v = float(axis_values[-1])
-            qv = float(canon_q[axis])
-            if qv < lo_v - tol or qv > hi_v + tol:
-                raise ValueError(
-                    f"requested q out of the base output range on axis {axis}: "
-                    f"{qv} not in [{lo_v}, {hi_v}]"
-                )
-            i = int(np.searchsorted(axis_values, qv, side="right") - 1)
-            i = max(0, min(i, int(shape[axis]) - 2))
-            brackets.append(i)
-        return brackets
+        return bracket_indices_per_axis(self._base, canon_q, tol=tol)
 
     def _candidate_corner_ids(
         self, canon_q: NDArray[np.float64]
     ) -> list[int]:
-        brackets = self._bracket_indices_per_axis(canon_q, tol=1e-12)
-        corner_index_choices: list[tuple[int, int]] = [(i, i + 1) for i in brackets]
-        corner_ids: list[int] = []
-        for idx in itertools.product(*corner_index_choices):
-            nid = self._base.topology.node_id(tuple(int(x) for x in idx))
-            corner_ids.append(nid)
-        return corner_ids
+        return candidate_corner_ids(self._base, canon_q)
 
     def _validate_query_to_corner_edges(
         self,
@@ -310,26 +504,13 @@ class QueryOverlayGraph:
         u: NDArray[np.float64],
         corner_ids: Iterable[int],
     ) -> list[int]:
-        """Return the subset of corner_ids that are transition-valid."""
-        accepted: list[int] = []
-        for corner in corner_ids:
-            if not bool(self._base.valid_nodes[corner]):
-                continue
-            q_b = self._base.q_state(corner)
-            u_b = self._base.u_state(corner)
-            trace = build_edge_trace_v2(
-                self._base.branch,
-                self._base.transition_parameterization,
-                q,
-                u,
-                q_b,
-                u_b,
-                n_samples=self._edge_n_samples,
-            )
-            if trace.first_invalid_index is None and bool(np.all(trace.branch_valid)):
-                accepted.append(int(corner))
-        accepted.sort()
-        return accepted
+        return validate_query_to_corner_edges(
+            self._base,
+            q=q,
+            u=u,
+            corner_ids=corner_ids,
+            edge_n_samples=self._edge_n_samples,
+        )
 
     def _resolve_query_endpoint(
         self,
@@ -337,28 +518,15 @@ class QueryOverlayGraph:
         requested_q: NDArray[np.float64],
         dedup_tol: float,
     ) -> tuple[int | None, NDArray[np.float64], NDArray[np.float64], list[int]]:
-
-        q_vec = np.asarray(requested_q, dtype=np.float64)
-        if q_vec.ndim != 1:
-            raise ValueError("requested_q must be 1-D")
-        canon_q = self._output_space.canonicalize(q_vec)
-
-        exact = self._find_exact_base_node_for_q(canon_q, tol=dedup_tol)
-        if exact is not None:
-            # Deduplicated: use the base node id. We still return q/u/corners
-            # for diagnostics, but node id stays in the base range.
-            return exact, canon_q, self._base.u_state(exact), []
-
-        # Otherwise build an overlay node.
-        u = self._base.branch.inverse(canon_q)
-        candidate_corners = self._candidate_corner_ids(canon_q)
-        accepted_corners = self._validate_query_to_corner_edges(
-            q=canon_q, u=u, corner_ids=candidate_corners
+        resolved = resolve_query_endpoint(
+            self._base,
+            requested_q=requested_q,
+            dedup_tol=dedup_tol,
+            edge_n_samples=self._edge_n_samples,
         )
-        if not accepted_corners:
-            raise ValueError(
-                "query has no transition-valid corner neighbors; requested_q likely "
-                "lies too close to a certified boundary"
-            )
-        return None, canon_q, u, accepted_corners
-
+        return (
+            resolved.base_node_id,
+            resolved.q,
+            resolved.u,
+            list(resolved.corner_neighbors),
+        )

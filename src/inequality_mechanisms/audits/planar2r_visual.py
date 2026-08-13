@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import subprocess
 import sys
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any, Literal, Mapping, Sequence
 
@@ -14,15 +14,6 @@ import numpy as np
 from inequality_mechanisms.adapters import GraphSearchPlanner
 from inequality_mechanisms.adapters.lattice_edge_cost import (
     integrated_actuator_edge_cost,
-    path_actuator_length,
-)
-from inequality_mechanisms.graphs.query_overlay import QueryOverlayGraph
-from inequality_mechanisms.search.graph_solver import AStarGraphSolver, DijkstraGraphSolver
-from inequality_mechanisms.search.v2_objectives import (
-    V2PlanningObjective,
-    input_euclidean_goal_set_heuristic_v2,
-    input_euclidean_heuristic_v2,
-    zero_heuristic_v2,
 )
 from inequality_mechanisms.adapters.ompl import is_ompl_available, ompl_version_string
 from inequality_mechanisms.audits.metrics import (
@@ -51,16 +42,15 @@ from inequality_mechanisms.benchmarks.smoke_lattice_2r import (
     build_paired_lattice_arms,
 )
 from inequality_mechanisms.benchmarks.smoke_sampling_2r import SamplingSmokeArm
-from inequality_mechanisms.core.goals import ExactOutputGoal, GoalSamplingRequest
+from inequality_mechanisms.core.goals import GoalResidual, GoalSamplingRequest
 from inequality_mechanisms.core.local_motion import OutputLinearMotion
 from inequality_mechanisms.core.problem import PlanningProblem
 from inequality_mechanisms.core.results import (
     PlanningResult,
     PlanningStatus,
     ResultProvenance,
-    Trajectory,
 )
-from inequality_mechanisms.core.state import PhysicalState
+from inequality_mechanisms.core.state import PhysicalState, StateCandidate
 from inequality_mechanisms.graphs.topology import LatticeConnectivity
 from inequality_mechanisms.planners.direct.input_linear import InputLinearDirectPlanner
 from inequality_mechanisms.planners.direct.output_linear import OutputLinearDirectPlanner
@@ -359,6 +349,9 @@ def _serialize_states(states: Sequence[PhysicalState]) -> list[dict[str, Any]]:
 
 
 def _selected_goal_sample_id(result: PlanningResult) -> str | None:
+    cand = result.selected_goal_candidate
+    if cand is not None and "goal_sample_id" in cand.provenance:
+        return str(cand.provenance["goal_sample_id"])
     state = result.selected_goal_state
     if state is None:
         return None
@@ -380,25 +373,33 @@ def _with_goal_sample(result: PlanningResult, sample_id: Any) -> PlanningResult:
             "goal_sample_id": sample_id,
         },
     )
-    return PlanningResult(
-        status=result.status,
-        trajectory=result.trajectory,
+    candidate = result.selected_goal_candidate
+    if candidate is not None:
+        provenance = {**dict(candidate.provenance), "goal_sample_id": sample_id}
+        candidate = StateCandidate(
+            state=selected,
+            residual=float(candidate.residual),
+            provenance=provenance,
+        )
+    return replace(
+        result,
         selected_goal_state=selected,
-        total_wall_time_s=result.total_wall_time_s,
-        preprocessing_time_s=result.preprocessing_time_s,
-        query_time_s=result.query_time_s,
-        postprocessing_time_s=result.postprocessing_time_s,
-        objective_cost=result.objective_cost,
-        path_length_u=result.path_length_u,
-        path_length_q=result.path_length_q,
-        path_length_x=result.path_length_x,
-        task_class=result.task_class,
-        final_goal_residual=result.final_goal_residual,
-        planner_metrics=result.planner_metrics,
-        provenance=result.provenance,
-        state_validity_checks=result.state_validity_checks,
-        motion_validity_checks=result.motion_validity_checks,
+        selected_goal_candidate=candidate,
     )
+
+
+def _physical_residual_primary(result: PlanningResult) -> float | None:
+    """Return the physical task residual primary value for audit tables."""
+    if result.goal_residuals is not None and result.goal_residuals.physical is not None:
+        return float(result.goal_residuals.physical.primary)
+    residual = result.final_goal_residual
+    if residual is None:
+        return None
+    if isinstance(residual, GoalResidual):
+        return float(residual.primary)
+    if isinstance(residual, (float, int)):
+        return float(residual)
+    return None
 
 
 def _solve_lattice_goal_set(
@@ -411,11 +412,7 @@ def _solve_lattice_goal_set(
     edge_n_samples: int,
     trace_sink: ListPlannerTraceSink | None,
 ) -> tuple[PlanningResult, list[int]]:
-    """Solve the represented goal set on the audit lattice.
-
-    Uses one shared integrated edge-cost cache across candidate queries so the
-    32x32 audit lattice remains tractable.
-    """
+    """Solve the represented goal set on the audit lattice (one V3-632 query)."""
     problem = build_problem_v2(arm, task)
     planner_id = f"lattice_goal_set_{algorithm}_eight_integrated"
     if problem.goal.satisfied(problem.start):
@@ -431,7 +428,13 @@ def _solve_lattice_goal_set(
                 path_length_x=0.0,
                 task_class=TASK_ALREADY_SATISFIED,
                 final_goal_residual=problem.goal.residual(problem.start),
-                planner_metrics={"graph": {"expansions": 0, "path_node_ids": []}},
+                planner_metrics={
+                    "graph": {
+                        "expansions": 0,
+                        "path_node_ids": [],
+                        "expansions_are_total_query_work": True,
+                    }
+                },
                 provenance=ResultProvenance(architecture_version=3, planner_id=planner_id),
             ),
             [],
@@ -449,159 +452,67 @@ def _solve_lattice_goal_set(
                 path_length_x=None,
                 task_class=TASK_INVALID_UNREPRESENTABLE,
                 final_goal_residual=None,
-                planner_metrics={"graph": {}},
+                planner_metrics={
+                    "graph": {
+                        "goal_set_cardinality": 0,
+                        "expansions_are_total_query_work": True,
+                    }
+                },
                 provenance=ResultProvenance(architecture_version=3, planner_id=planner_id),
             ),
             [],
         )
 
     assembly = dict(problem.start.assembly_state)
-    base = lattice_arm.graph
     shared_base_edge = integrated_actuator_edge_cost(
-        base,
+        lattice_arm.graph,
         problem.robot,
         scene=problem.scene,
         n_samples=edge_n_samples,
         assembly_state=assembly,
     )
-    backend = DijkstraGraphSolver() if algorithm == "dijkstra" else AStarGraphSolver()
-
-    best: PlanningResult | None = None
-    best_expanded: list[int] = []
-    for cand in candidates:
-        goal_q = np.asarray(cand.state.q, dtype=np.float64)
-        start_q = np.asarray(problem.start.q, dtype=np.float64)
-        try:
-            overlay = QueryOverlayGraph(
-                base=base,
-                start_q=start_q,
-                goal_q=goal_q,
-                dedup_tol=1e-9,
-                edge_n_samples=edge_n_samples,
-            )
-            search_graph: Any = overlay
-            start_id = int(overlay.start_node_id)
-            goal_id = int(overlay.goal_node_id)
-        except (ValueError, TypeError):
-            continue
-
-        base_n = int(base.node_count)
-
-        def edge_cost(a: int, b: int, _base_n=base_n) -> float:
-            if a < _base_n and b < _base_n:
-                return float(shared_base_edge(a, b))
-            # Overlay incident edges: integrate against overlay states.
-            ua = np.asarray(search_graph.u_state(a), dtype=np.float64)
-            ub = np.asarray(search_graph.u_state(b), dtype=np.float64)
-            qa = np.asarray(search_graph.q_state(a), dtype=np.float64)
-            qb = np.asarray(search_graph.q_state(b), dtype=np.float64)
-            sa = PhysicalState(u=ua, q=qa, assembly_state=assembly)
-            sb = PhysicalState(u=ub, q=qb, assembly_state=assembly)
-            from inequality_mechanisms.adapters.lattice_edge_cost import connector_for_graph
-            from inequality_mechanisms.core.objectives import ActuatorTravelObjective
-
-            motion = connector_for_graph(
-                base, problem.robot, n_samples=edge_n_samples
-            ).connect(sa, sb)
-            if motion is None:
-                return float("inf")
-            if not problem.scene.motion_is_valid(motion):
-                return float("inf")
-            return float(ActuatorTravelObjective().motion_cost(motion))
-
-        heuristic = (
-            input_euclidean_heuristic_v2(search_graph, goal_id)
-            if algorithm == "astar"
-            else zero_heuristic_v2
-        )
-        objective = V2PlanningObjective(
-            edge_cost=edge_cost,
-            heuristic=heuristic,
-            cost_name="actuator_travel_integrated",
-            heuristic_name="input_euclidean" if algorithm == "astar" else "zero",
-        )
-        search = backend.solve(
-            search_graph,
-            start_id,
-            goal_id,
-            objective,
-            record_expanded=True,
-        )
-        if not search.found:
-            continue
-        states = tuple(
-            PhysicalState(
-                u=np.asarray(search_graph.u_state(nid), dtype=np.float64),
-                q=np.asarray(search_graph.q_state(nid), dtype=np.float64),
-                assembly_state=assembly,
-                auxiliary_state={"lattice_node_id": int(nid)},
-            )
-            for nid in search.path
-        )
-        selected = states[-1]
-        path_u = float(search.cost)
-        path_q = float(
-            sum(np.linalg.norm(states[i + 1].q - states[i].q) for i in range(len(states) - 1))
-        )
-        result = PlanningResult(
-            status=PlanningStatus.SUCCESS,
-            trajectory=Trajectory(states=states),
-            selected_goal_state=selected,
-            total_wall_time_s=0.0,
-            objective_cost=path_u,
-            path_length_u=path_u,
-            path_length_q=path_q,
-            path_length_x=None,
-            task_class=None,
-            final_goal_residual=float(np.linalg.norm(selected.q - goal_q)),
-            planner_metrics={
-                "graph": {
-                    "expansions": int(search.n_expanded),
-                    "generated": int(search.n_generated),
-                    "reopened_or_stale": int(search.n_stale),
-                    "path_node_ids": list(search.path),
-                    "overlay_used": True,
-                }
-            },
-            provenance=ResultProvenance(architecture_version=3, planner_id=planner_id),
-        )
-        result = _with_goal_sample(result, cand.provenance.get("goal_sample_id"))
-        expanded = list(search.expanded_nodes)
-        if best is None or (
-            result.objective_cost is not None
-            and best.objective_cost is not None
-            and result.objective_cost < best.objective_cost
-        ):
-            best = result
-            best_expanded = expanded
-            if trace_sink is not None:
-                for step, node_id in enumerate(expanded):
-                    trace_sink.record(
-                        family="graph",
-                        phase="expand",
-                        event_type="record_expanded",
-                        payload={"node_id": int(node_id), "order": int(step)},
-                    )
-
-    if best is None:
-        return (
-            PlanningResult(
-                status=PlanningStatus.UNSOLVED,
-                trajectory=None,
-                selected_goal_state=None,
-                total_wall_time_s=0.0,
-                objective_cost=None,
-                path_length_u=None,
-                path_length_q=None,
-                path_length_x=None,
-                task_class=None,
-                final_goal_residual=None,
-                planner_metrics={"graph": {}},
-                provenance=ResultProvenance(architecture_version=3, planner_id=planner_id),
-            ),
-            [],
-        )
-    return best, best_expanded
+    planner = GraphSearchPlanner(
+        graph=lattice_arm.graph,
+        algorithm=algorithm,
+        edge_cost_mode="integrated",
+        allow_query_overlay=True,
+        edge_n_samples=edge_n_samples,
+        q_match_tolerance=1e-9,
+        record_expanded=True,
+        trace_sink=trace_sink,
+        shared_edge_cost=shared_base_edge,
+    )
+    result = planner.solve_goal_set(problem, list(candidates))
+    # Preserve audit planner_id while keeping V3-632 metrics/provenance.
+    result = PlanningResult(
+        status=result.status,
+        trajectory=result.trajectory,
+        selected_goal_state=result.selected_goal_state,
+        selected_goal_candidate=result.selected_goal_candidate,
+        total_wall_time_s=result.total_wall_time_s,
+        query_time_s=result.query_time_s,
+        objective_cost=result.objective_cost,
+        path_length_u=result.path_length_u,
+        path_length_q=result.path_length_q,
+        path_length_x=result.path_length_x,
+        task_class=result.task_class,
+        final_goal_residual=result.final_goal_residual,
+        goal_residuals=result.goal_residuals,
+        planner_metrics=result.planner_metrics,
+        provenance=ResultProvenance(
+            architecture_version=3,
+            code_revision=result.provenance.code_revision,
+            planner_id=planner_id,
+            extras=dict(result.provenance.extras),
+        ),
+    )
+    sample_id = None
+    if result.selected_goal_candidate is not None:
+        sample_id = result.selected_goal_candidate.provenance.get("goal_sample_id")
+    result = _with_goal_sample(result, sample_id)
+    graph_metrics = result.planner_metrics.get("graph") or {}
+    expanded = [int(n) for n in graph_metrics.get("expanded_node_ids") or []]
+    return result, expanded
 
 
 
@@ -640,8 +551,7 @@ def _pack_run(
         length_u = length_u if length_u is not None else metrics.length_u
         length_q = length_q if length_q is not None else metrics.length_q
         length_x = length_x if length_x is not None else metrics.length_x
-    residual = result.final_goal_residual
-    residual_f = float(residual) if isinstance(residual, (float, int)) else None
+    residual_f = _physical_residual_primary(result)
     return PlannerRunRecord(
         planner=planner,
         mechanism=mechanism,

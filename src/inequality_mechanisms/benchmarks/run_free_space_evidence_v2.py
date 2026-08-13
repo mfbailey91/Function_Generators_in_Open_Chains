@@ -42,7 +42,7 @@ from inequality_mechanisms.benchmarks.free_space_strata import (
 )
 from inequality_mechanisms.benchmarks.smoke_lattice_2r import build_paired_lattice_arms
 from inequality_mechanisms.benchmarks.smoke_sampling_2r import SamplingSmokeArm
-from inequality_mechanisms.core.goals import ExactOutputGoal, GoalSamplingRequest
+from inequality_mechanisms.core.goals import GoalSamplingRequest
 from inequality_mechanisms.core.local_motion import OutputLinearMotion
 from inequality_mechanisms.core.results import (
     PlanningResult,
@@ -253,125 +253,64 @@ def _solve_lattice_goal_set(
             reason="no_represented_goal_candidate",
         )
 
-    attempts: list[dict[str, Any]] = []
-    attempt_results: list[PlanningResult] = []
-    successes: list[tuple[float, int, PlanningResult]] = []
     wall_start = time.perf_counter()
-    for idx, cand in enumerate(candidates):
-        exact = replace(
-            problem,
-            goal=ExactOutputGoal(
-                q_goal=np.asarray(cand.state.q, dtype=np.float64).copy()
-            ),
-        )
-        planner = GraphSearchPlanner(
-            graph=lattice_arm.graph,
-            algorithm="dijkstra",
-            edge_cost_mode="integrated",
-            allow_query_overlay=True,
-        )
-        result = planner.solve(exact)
-        attempt_results.append(result)
-        attempts.append(
-            {
-                "candidate_index": idx,
-                "goal_sample_id": cand.provenance.get("goal_sample_id"),
-                "status": str(result.status),
-                "objective_cost": result.objective_cost,
-                "query_time_s": result.query_time_s,
-                "total_wall_time_s": result.total_wall_time_s,
-            }
-        )
-        if result.status is PlanningStatus.SUCCESS and result.objective_cost is not None:
-            successes.append((float(result.objective_cost), idx, result))
-
+    planner = GraphSearchPlanner(
+        graph=lattice_arm.graph,
+        algorithm="dijkstra",
+        edge_cost_mode="integrated",
+        allow_query_overlay=True,
+    )
+    result = planner.solve_goal_set(problem, candidates)
     total_wall = time.perf_counter() - wall_start
-    query_total = float(
-        sum(float(r.query_time_s or 0.0) for r in attempt_results)
-    )
-    preprocessing_total = float(
-        sum(float(r.preprocessing_time_s or 0.0) for r in attempt_results)
-    )
-    state_checks = int(
-        sum(int(r.state_validity_checks or 0) for r in attempt_results)
-    )
-    motion_checks = int(
-        sum(int(r.motion_validity_checks or 0) for r in attempt_results)
-    )
 
-    if not successes:
-        return PlanningResult(
-            status=PlanningStatus.UNSOLVED,
-            trajectory=None,
-            selected_goal_state=None,
-            total_wall_time_s=total_wall,
-            preprocessing_time_s=preprocessing_total,
-            query_time_s=query_total,
-            objective_cost=None,
-            path_length_u=None,
-            path_length_q=None,
-            path_length_x=None,
-            task_class=task_class,
-            final_goal_residual=problem.goal.residual(problem.start),
-            planner_metrics={
-                "graph": {
-                    "goal_set_candidate_count": len(candidates),
-                    "goal_set_attempts": attempts,
-                    "goal_set_successes": 0,
-                }
-            },
-            provenance=ResultProvenance(
-                architecture_version=3,
-                planner_id=planner_id,
-            ),
-            state_validity_checks=state_checks,
-            motion_validity_checks=motion_checks,
+    graph_metrics = dict(result.planner_metrics.get("graph", {}))
+    graph_metrics.setdefault("goal_set_candidate_count", len(candidates))
+    if result.selected_goal_candidate is not None:
+        graph_metrics["selected_goal_sample_id"] = (
+            result.selected_goal_candidate.provenance.get("goal_sample_id")
+        )
+        graph_metrics["selected_goal_candidate_index"] = (
+            result.selected_goal_candidate.provenance.get("goal_sample_index")
         )
 
-    _, selected_idx, chosen = min(successes, key=lambda item: item[0])
-    selected = chosen.selected_goal_state
-    graph_metrics = dict(chosen.planner_metrics.get("graph", {}))
-    graph_metrics.update(
-        {
-            "goal_set_candidate_count": len(candidates),
-            "goal_set_attempts": attempts,
-            "goal_set_successes": len(successes),
-            "selected_goal_candidate_index": selected_idx,
-            "selected_goal_sample_id": candidates[selected_idx].provenance.get(
-                "goal_sample_id"
-            ),
-        }
-    )
     return PlanningResult(
-        status=PlanningStatus.SUCCESS,
-        trajectory=chosen.trajectory,
-        selected_goal_state=selected,
+        status=result.status,
+        trajectory=result.trajectory,
+        selected_goal_state=result.selected_goal_state,
+        selected_goal_candidate=result.selected_goal_candidate,
         total_wall_time_s=total_wall,
-        setup_time_s=chosen.setup_time_s,
-        preprocessing_time_s=preprocessing_total,
-        query_time_s=query_total,
-        postprocessing_time_s=chosen.postprocessing_time_s,
-        objective_cost=chosen.objective_cost,
-        path_length_u=chosen.path_length_u,
-        path_length_q=chosen.path_length_q,
-        path_length_x=chosen.path_length_x,
+        setup_time_s=result.setup_time_s,
+        preprocessing_time_s=result.preprocessing_time_s,
+        query_time_s=result.query_time_s,
+        postprocessing_time_s=result.postprocessing_time_s,
+        objective_cost=result.objective_cost,
+        path_length_u=result.path_length_u,
+        path_length_q=result.path_length_q,
+        path_length_x=result.path_length_x,
         task_class=task_class,
         final_goal_residual=(
-            None if selected is None else problem.goal.residual(selected)
+            result.final_goal_residual
+            if result.final_goal_residual is not None
+            else (
+                None
+                if result.selected_goal_state is None
+                else problem.goal.residual(result.selected_goal_state)
+            )
         ),
+        goal_residuals=result.goal_residuals,
         planner_metrics={"graph": graph_metrics},
         provenance=ResultProvenance(
             architecture_version=3,
-            code_revision=chosen.provenance.code_revision,
+            code_revision=result.provenance.code_revision,
             planner_id=planner_id,
             extras={
-                **dict(chosen.provenance.extras),
+                **dict(result.provenance.extras),
                 "represented_goal_set": True,
             },
         ),
-        state_validity_checks=state_checks,
-        motion_validity_checks=motion_checks,
-        collision_checks=chosen.collision_checks,
+        state_validity_checks=result.state_validity_checks,
+        motion_validity_checks=result.motion_validity_checks,
+        collision_checks=result.collision_checks,
     )
 
 
