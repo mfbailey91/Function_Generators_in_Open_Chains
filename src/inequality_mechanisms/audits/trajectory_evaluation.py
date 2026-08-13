@@ -203,6 +203,30 @@ def _failed_segment(
     )
 
 
+def evaluate_trajectory_segment(
+    start: PhysicalState,
+    end: PhysicalState,
+    *,
+    connector: LocalMotionModel,
+    robot: RobotModel,
+    scene: PlanningScene | None = None,
+    assembly_override: Mapping[str, Any] | None = None,
+) -> TrajectorySegmentEvaluation:
+    """Rebuild one edge through ``connector`` and return U/Q/X samples.
+
+    Fail closed: rejected connects or missing connector samples yield
+    ``valid=False`` with no chord substitution.
+    """
+    return _evaluate_segment(
+        start,
+        end,
+        connector=connector,
+        robot=robot,
+        scene=scene,
+        assembly_override=assembly_override,
+    )
+
+
 def _evaluate_segment(
     start: PhysicalState,
     end: PhysicalState,

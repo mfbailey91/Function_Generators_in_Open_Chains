@@ -292,17 +292,27 @@ changing planner objective semantics.
 
 ### V3-635 — Native U/Q/X trace rendering
 
+**WP status:** native PRM/RRT U/Q/X trace payloads + connector-reconstructed
+renderers landed (actuator metric / shared-Q diagnostic / closeout HTML remain
+V3-636–V3-638).
+
 Extend trace payloads and renderers so PRM accepted edges, query search, RRT
 parent edges, roots, and final paths are visible as synchronized physical motions
 in U, Q, and X.
 
 ### V3-636 — Actuator metric on Q
 
+**WP status:** `actuator_metric_on_q` eigenvalues / \(\sqrt{\kappa}\) / shared LogNorm /
+ellipses + tests landed (shared-Q diagnostic / closeout HTML remain V3-637–V3-638).
+
 Rename fresh records/labels, add eigenvalue and directional-ratio diagnostics,
 metric ellipses, and one paired logarithmic scale. Document the interpretation in
 the report.
 
 ### V3-637 — Frozen shared-Q sampled-roadmap diagnostic
+
+**WP status:** reusable Q sample bank + mechanism U-lift + integrated \(w_U\)
+Dijkstra/A* goal-set diagnostic landed (closeout HTML remains V3-638).
 
 Generate one deterministic Q sample set and adjacency per task (or one declared
 reusable bank when task-independent), attach the same exact start and goal set,

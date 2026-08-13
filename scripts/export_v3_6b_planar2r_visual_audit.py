@@ -29,6 +29,7 @@ from inequality_mechanisms.audits.planar2r_visual import (
     assert_shared_wq_wx,
     compute_mechanism_edge_metrics,
     load_audit_config,
+    native_trace_connector,
     paired_delta,
     provenance_block,
     resolve_audit_trials,
@@ -210,6 +211,9 @@ def main(argv: list[str] | None = None) -> int:
 
         # Search panels.
         for run in runs:
+            connector = None
+            if run.planner in ("prm", "rrt_connect"):
+                connector = native_trace_connector(sampling_arms[run.mechanism].robot)
             s_assets = write_search_panels(
                 graph=lattice_arms[run.mechanism].graph,
                 robot=sampling_arms[run.mechanism].robot,
@@ -218,6 +222,7 @@ def main(argv: list[str] | None = None) -> int:
                 task_id=task_id,
                 goal_center=task.goal_center.tolist(),
                 goal_radius=float(task.goal_radius),
+                connector=connector,
             )
             for k, p in s_assets.items():
                 asset_map[f"{run.mechanism}_{run.planner}_{k}"] = _rel(p, trial_dir)
@@ -265,10 +270,18 @@ def main(argv: list[str] | None = None) -> int:
                         run=run,
                         out_dir=trial_assets,
                         fractions=fractions,
+                        connector=native_trace_connector(sampling_arms[mech].robot),
+                        robot=sampling_arms[mech].robot,
                     )
                     key = f"{mech}_{planner}_growth_anim"
                     asset_map[key] = _rel(growth["anim"], trial_dir)
                     asset_map[key + "_contact"] = _rel(growth["contact"], trial_dir)
+                    for space in ("u", "q", "x"):
+                        ckey = f"contact_{space}"
+                        if ckey in growth:
+                            asset_map[f"{mech}_{planner}_growth_{space}_contact"] = _rel(
+                                growth[ckey], trial_dir
+                            )
                     growth_html_parts.append(key)
             # Placeholder key consumed by trial HTML for growth block.
             if growth_html_parts:

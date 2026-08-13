@@ -25,6 +25,9 @@ from inequality_mechanisms.audits.metrics import (
     path_lengths,
 )
 from inequality_mechanisms.audits.traces import ListPlannerTraceSink
+from inequality_mechanisms.audits.shared_q_sampled_roadmap import (
+    solve_shared_q_sampled_roadmap,
+)
 from inequality_mechanisms.audits.trajectory_evaluation import (
     evaluate_continuous_trajectory,
 )
@@ -51,7 +54,11 @@ from inequality_mechanisms.core.goals import (
     GoalResidual,
     GoalSamplingRequest,
 )
-from inequality_mechanisms.core.local_motion import LocalMotionModel, OutputLinearMotion
+from inequality_mechanisms.core.local_motion import (
+    InputLinearMotion,
+    LocalMotionModel,
+    OutputLinearMotion,
+)
 from inequality_mechanisms.core.problem import PlanningProblem
 from inequality_mechanisms.core.results import (
     PlanningResult,
@@ -60,6 +67,13 @@ from inequality_mechanisms.core.results import (
 )
 from inequality_mechanisms.core.scene import PlanningScene
 from inequality_mechanisms.core.state import PhysicalState, StateCandidate
+from inequality_mechanisms.graphs.sampled_q_roadmap import (
+    FrozenQSampleBank,
+    SampledQRoadmapGraph,
+    embed_paired_sampled_q_roadmaps,
+    embed_sampled_q_roadmap,
+    freeze_reusable_q_sample_bank,
+)
 from inequality_mechanisms.graphs.topology import LatticeConnectivity
 from inequality_mechanisms.planners.direct.input_linear import InputLinearDirectPlanner
 from inequality_mechanisms.planners.direct.output_linear import OutputLinearDirectPlanner
@@ -524,6 +538,86 @@ def _solve_lattice_goal_set(
     return result, expanded
 
 
+def shared_q_sampled_settings(config: AuditConfig) -> dict[str, Any]:
+    """Return declared reusable-bank settings for the V3-637 diagnostic."""
+    settings = dict(config.raw.get("planner_settings", {}).get("shared_q_sampled_roadmap", {}))
+    if not settings:
+        raise ValueError("planner_settings.shared_q_sampled_roadmap is required")
+    if str(settings.get("bank_mode", "reusable")) != "reusable":
+        raise ValueError("shared_q_sampled_roadmap.bank_mode must be 'reusable'")
+    return settings
+
+
+def freeze_shared_q_sampled_pair(
+    config: AuditConfig,
+    lattice_arms: Mapping[MechanismName, LatticeSmokeArm],
+) -> tuple[FrozenQSampleBank, dict[str, SampledQRoadmapGraph]]:
+    """Freeze one Q bank and embed every paired mechanism, failing closed on divergence."""
+    settings = shared_q_sampled_settings(config)
+    first = next(iter(lattice_arms.values()))
+    bank = freeze_reusable_q_sample_bank(
+        first.graph.branch.output_space,
+        n_samples=int(settings["n_samples"]),
+        k_neighbors=int(settings["k_neighbors"]),
+        max_edge_q=float(settings["max_edge_q"]),
+        seed=int(config.seed),
+        bank_mode=str(settings.get("bank_mode", "reusable")),
+    )
+    graphs = embed_paired_sampled_q_roadmaps(
+        bank,
+        {name: arm.graph.branch for name, arm in lattice_arms.items()},
+    )
+    return bank, graphs
+
+
+def _sampled_q_graph_for_arm(
+    *,
+    config: AuditConfig,
+    lattice_arm: LatticeSmokeArm,
+    lattice_arms: Mapping[MechanismName, LatticeSmokeArm] | None,
+) -> SampledQRoadmapGraph:
+    if lattice_arms is not None:
+        _bank, graphs = freeze_shared_q_sampled_pair(config, lattice_arms)
+        return graphs[lattice_arm.name]
+    settings = shared_q_sampled_settings(config)
+    bank = freeze_reusable_q_sample_bank(
+        lattice_arm.graph.branch.output_space,
+        n_samples=int(settings["n_samples"]),
+        k_neighbors=int(settings["k_neighbors"]),
+        max_edge_q=float(settings["max_edge_q"]),
+        seed=int(config.seed),
+        bank_mode=str(settings.get("bank_mode", "reusable")),
+    )
+    return embed_sampled_q_roadmap(bank, lattice_arm.graph.branch)
+
+
+def _solve_shared_q_sampled(
+    *,
+    arm: SamplingSmokeArm,
+    task: ResolvedFreeSpaceTaskV2,
+    candidates: Sequence[Any],
+    algorithm: Literal["dijkstra", "astar"],
+    edge_n_samples: int,
+    graph: SampledQRoadmapGraph,
+) -> tuple[PlanningResult, list[int]]:
+    """Solve the represented goal set on the frozen shared-Q sampled roadmap."""
+    problem = build_problem_v2(arm, task)
+    result = solve_shared_q_sampled_roadmap(
+        graph=graph,
+        problem=problem,
+        candidates=list(candidates),
+        algorithm=algorithm,
+        edge_n_samples=edge_n_samples,
+        record_expanded=True,
+    )
+    sample_id = None
+    if result.selected_goal_candidate is not None:
+        sample_id = result.selected_goal_candidate.provenance.get("goal_sample_id")
+    result = _with_goal_sample(result, sample_id)
+    family = result.planner_metrics.get("shared_q_sampled_roadmap") or {}
+    expanded = [int(n) for n in family.get("expanded_node_ids") or []]
+    return result, expanded
+
 
 def _pack_run(
     *,
@@ -613,6 +707,7 @@ def run_planner_for_trial(
     task: ResolvedFreeSpaceTaskV2,
     contract: Any,
     capture_trace: bool = True,
+    lattice_arms: Mapping[MechanismName, LatticeSmokeArm] | None = None,
 ) -> PlannerRunRecord:
     """Run one planner for one mechanism x task, optionally capturing traces."""
     max_candidates = int(config.raw["planner_settings"]["max_goal_candidates"])
@@ -687,6 +782,36 @@ def run_planner_for_trial(
             planner=planner_name, mechanism=arm.name, result=result,
             skipped=None, expanded=expanded, sink=sink, robot=arm.robot,
             connector=lattice_connector,
+            goal=problem.goal,
+            scene=problem.scene,
+        )
+
+    if planner_name in ("shared_q_sampled_dijkstra", "shared_q_sampled_astar"):
+        sq_algorithm: Literal["dijkstra", "astar"] = (
+            "dijkstra" if planner_name == "shared_q_sampled_dijkstra" else "astar"
+        )
+        sq_settings = shared_q_sampled_settings(config)
+        sq_edge_n = int(sq_settings.get("edge_n_samples", edge_n_samples))
+        sq_graph = _sampled_q_graph_for_arm(
+            config=config,
+            lattice_arm=lattice_arm,
+            lattice_arms=lattice_arms,
+        )
+        result, expanded = _solve_shared_q_sampled(
+            arm=arm,
+            task=task,
+            candidates=candidates,
+            algorithm=sq_algorithm,
+            edge_n_samples=sq_edge_n,
+            graph=sq_graph,
+        )
+        sq_connector = connector_for_graph(
+            sq_graph, arm.robot, n_samples=sq_edge_n
+        )
+        return _pack_run(
+            planner=planner_name, mechanism=arm.name, result=result,
+            skipped=None, expanded=expanded, sink=sink, robot=arm.robot,
+            connector=sq_connector,
             goal=problem.goal,
             scene=problem.scene,
         )
@@ -809,6 +934,15 @@ def paired_delta(fourbar: PlannerRunRecord, gearbox: PlannerRunRecord, field: st
     return float(a) - float(b)
 
 
+def native_trace_connector(robot: Any, *, n_samples: int = 12) -> LocalMotionModel:
+    """Declared connector for native PRM/RRT U/Q/X edge reconstruction.
+
+    Matches the bank ``build_problem_v2`` InputLinearMotion policy used by PRM
+    and RRTConnect in this audit.
+    """
+    return InputLinearMotion(robot=robot, n_samples=n_samples)
+
+
 def compute_mechanism_edge_metrics(
     lattice_arm: LatticeSmokeArm,
     sampling_arm: SamplingSmokeArm,
@@ -822,6 +956,32 @@ def compute_mechanism_edge_metrics(
         sampling_arm.robot,
         n_samples=n_samples,
         assembly_state=assembly,
+    )
+
+
+def pack_actuator_metric_on_q_panels(
+    *,
+    bundles: Mapping[str, LatticeMetricBundle],
+    out_dir: Path,
+    task_id: str,
+    mechanisms: Sequence[str] = ("fourbar", "gearbox"),
+    ellipse_stride: int = 8,
+) -> dict[str, Path]:
+    """Write paired V3-636 actuator-metric-on-Q panels for one trial.
+
+    Returns asset paths keyed as ``{mech}_actuator_metric_{field}`` plus
+    ``actuator_metric_shared_log_limits``. Does not mutate frozen V3.6B assets.
+    """
+    from inequality_mechanisms.visualization.audit_actuator_metric import (
+        write_actuator_metric_on_q_panels,
+    )
+
+    return write_actuator_metric_on_q_panels(
+        bundles=bundles,
+        out_dir=Path(out_dir),
+        task_id=task_id,
+        mechanisms=mechanisms,
+        ellipse_stride=ellipse_stride,
     )
 
 
@@ -890,6 +1050,8 @@ __all__ = [
     "compute_mechanism_edge_metrics",
     "edge_bundle_to_jsonable",
     "load_audit_config",
+    "native_trace_connector",
+    "pack_actuator_metric_on_q_panels",
     "paired_delta",
     "provenance_block",
     "resolve_audit_trials",

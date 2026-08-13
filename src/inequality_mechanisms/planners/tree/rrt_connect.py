@@ -286,6 +286,7 @@ class RRTConnectPlanner:
                     "index": 0,
                     "parent": None,
                     "u": problem.start.u.tolist(),
+                    "q": problem.start.q.tolist(),
                 },
             )
             for root_i, cand in enumerate(goal_candidates):
@@ -298,6 +299,7 @@ class RRTConnectPlanner:
                         "index": int(root_i),
                         "parent": None,
                         "u": cand.state.u.tolist(),
+                        "q": cand.state.q.tolist(),
                         "goal_root_index": int(root_i),
                         "provenance": dict(cand.provenance),
                     },
@@ -356,6 +358,7 @@ class RRTConnectPlanner:
             extensions += 1
             new_i = len(tree) - 1
             if sink is not None:
+                parent_state = tree[ni].state
                 sink.record(
                     family="tree",
                     phase="insert",
@@ -365,6 +368,9 @@ class RRTConnectPlanner:
                         "index": int(new_i),
                         "parent": int(ni),
                         "u": new_state.u.tolist(),
+                        "q": new_state.q.tolist(),
+                        "parent_u": parent_state.u.tolist(),
+                        "parent_q": parent_state.q.tolist(),
                     },
                 )
             if float(np.linalg.norm(new_state.u - target.u)) <= 1e-9:
@@ -525,6 +531,8 @@ class RRTConnectPlanner:
                     "start_tree_size": len(start_tree),
                     "goal_tree_size": len(goal_tree),
                     "selected_goal_root_index": int(selected_goal_root_index),
+                    "u": [s.u.tolist() for s in states],
+                    "q": [s.q.tolist() for s in states],
                 },
             )
         return _finish(

@@ -140,22 +140,10 @@ def write_graph_panels(
         plt.close(fig)
         assets[key] = path
 
-    # Metric field: M_Q condition.
-    if bundle.fields:
-        fig, ax = plt.subplots(figsize=(5.5, 5.0), constrained_layout=True)
-        xs = [f.q[0] for f in bundle.fields]
-        ys = [f.q[1] for f in bundle.fields]
-        cs = [f.m_q_cond for f in bundle.fields]
-        sc = ax.scatter(xs, ys, c=cs, s=12, cmap="magma", zorder=3)
-        fig.colorbar(sc, ax=ax, fraction=0.046, pad=0.04)
-        ax.set_title(f"{task_id}/{mechanism}: cond(M_Q)")
-        ax.set_xlabel("q1")
-        ax.set_ylabel("q2")
-        ax.set_aspect("equal", adjustable="datalim")
-        path = out_dir / f"{task_id}__{mechanism}__field_mq_cond.png"
-        fig.savefig(path, dpi=120)
-        plt.close(fig)
-        assets["field_mq_cond"] = path
+    # V3-636: Q-side actuator metric fields are written by
+    # visualization.audit_actuator_metric.write_actuator_metric_on_q_panels
+    # (paired LogNorm / sqrt_kappa / ellipses). Do not label fresh assets
+    # cond(M_Q).
     return assets
 
 

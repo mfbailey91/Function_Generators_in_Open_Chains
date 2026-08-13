@@ -174,12 +174,22 @@ def write_trial_html(
 </div>
 
 <div class="section">
-<h2>5. w_U, w_Q, w_X, and local metric fields</h2>
+<h2>5. w_U, w_Q, w_X, and actuator metric on Q</h2>
+<p class="muted">
+<code>actuator_metric_on_q</code> is the actuator-travel metric expressed in Q
+(<code>M = J_inv.T @ J_inv</code>). Paired panels share one logarithmic color scale.
+Primary field: <code>sqrt_kappa</code> (directional actuator-cost ratio).
+Anisotropy is not Cartesian dexterity and is not path cost.
+</p>
 <div class="grid2">
 {asset('fourbar_w_u')}{asset('gearbox_w_u')}
 {asset('fourbar_w_q')}{asset('gearbox_w_q')}
 {asset('fourbar_w_x')}{asset('gearbox_w_x')}
-{asset('fourbar_field_mq_cond')}{asset('gearbox_field_mq_cond')}
+{asset('fourbar_actuator_metric_sqrt_kappa')}{asset('gearbox_actuator_metric_sqrt_kappa')}
+{asset('fourbar_actuator_metric_kappa')}{asset('gearbox_actuator_metric_kappa')}
+{asset('fourbar_actuator_metric_lambda_min')}{asset('gearbox_actuator_metric_lambda_min')}
+{asset('fourbar_actuator_metric_lambda_max')}{asset('gearbox_actuator_metric_lambda_max')}
+{asset('fourbar_actuator_metric_sqrt_det')}{asset('gearbox_actuator_metric_sqrt_det')}
 </div>
 </div>
 
@@ -203,9 +213,14 @@ def write_trial_html(
 
 <div class="section">
 <h2>8. Native roadmap/tree traces</h2>
+<p class="muted">Synchronized U/Q/X panels; edges reconstructed through the declared connector. Projected crossings do not invent adjacency.</p>
 <div class="grid2">
-{asset('fourbar_prm_final_trace')}{asset('gearbox_prm_final_trace')}
-{asset('fourbar_rrt_connect_final_trace')}{asset('gearbox_rrt_connect_final_trace')}
+{asset('fourbar_prm_final_trace_u')}{asset('gearbox_prm_final_trace_u')}
+{asset('fourbar_prm_final_trace_q')}{asset('gearbox_prm_final_trace_q')}
+{asset('fourbar_prm_final_trace_x')}{asset('gearbox_prm_final_trace_x')}
+{asset('fourbar_rrt_connect_final_trace_u')}{asset('gearbox_rrt_connect_final_trace_u')}
+{asset('fourbar_rrt_connect_final_trace_q')}{asset('gearbox_rrt_connect_final_trace_q')}
+{asset('fourbar_rrt_connect_final_trace_x')}{asset('gearbox_rrt_connect_final_trace_x')}
 </div>
 {asset('growth_anims', anim=True)}
 </div>

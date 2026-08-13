@@ -285,6 +285,7 @@ class PRMPlanner:
                     payload={
                         "index": int(sample_i),
                         "u": sample.u.tolist(),
+                        "q": sample.q.tolist(),
                         "accepted": bool(accepted_sample),
                     },
                 )
@@ -320,7 +321,15 @@ class PRMPlanner:
                             family="roadmap",
                             phase="edge",
                             event_type="edge_accept",
-                            payload={"i": int(i), "j": int(j), "dist_u": float(dist)},
+                            payload={
+                                "i": int(i),
+                                "j": int(j),
+                                "dist_u": float(dist),
+                                "u_i": si.u.tolist(),
+                                "q_i": si.q.tolist(),
+                                "u_j": vertices[j].u.tolist(),
+                                "q_j": vertices[j].q.tolist(),
+                            },
                         )
         base_metrics["roadmap"]["attempted_edges"] = attempted
         base_metrics["roadmap"]["accepted_edges"] = accepted
@@ -363,6 +372,10 @@ class PRMPlanner:
                                 "src": int(src),
                                 "dst": int(dst),
                                 "dist_u": float(dist),
+                                "u_src": vertices[src].u.tolist(),
+                                "q_src": vertices[src].q.tolist(),
+                                "u_dst": vertices[dst].u.tolist(),
+                                "q_dst": vertices[dst].q.tolist(),
                             },
                         )
             return attached
@@ -385,6 +398,10 @@ class PRMPlanner:
                     "goal_indices": list(goal_indices),
                     "start_links": int(start_links),
                     "goal_links": int(goal_links),
+                    "start_u": problem.start.u.tolist(),
+                    "start_q": problem.start.q.tolist(),
+                    "goals_u": [g.u.tolist() for g in goals],
+                    "goals_q": [g.q.tolist() for g in goals],
                 },
             )
 
@@ -406,7 +423,12 @@ class PRMPlanner:
                     family="roadmap",
                     phase="search",
                     event_type="dijkstra_expand",
-                    payload={"node": int(u), "order": int(expansions - 1)},
+                    payload={
+                        "node": int(u),
+                        "order": int(expansions - 1),
+                        "u": vertices[u].u.tolist(),
+                        "q": vertices[u].q.tolist(),
+                    },
                 )
             if u in goal_set:
                 found_goal = u
@@ -453,7 +475,12 @@ class PRMPlanner:
                 family="roadmap",
                 phase="path",
                 event_type="final_path",
-                payload={"node_ids": list(node_ids), "cost_u": float(cost)},
+                payload={
+                    "node_ids": list(node_ids),
+                    "cost_u": float(cost),
+                    "u": [s.u.tolist() for s in states],
+                    "q": [s.q.tolist() for s in states],
+                },
             )
         return _finish(
             status=PlanningStatus.SUCCESS,
