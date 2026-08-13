@@ -60,7 +60,8 @@ class PRMPlanner:
     """Basic probabilistic roadmap planner over certified actuator samples.
 
     Builds a roadmap per solve (``BUILD_PER_TASK``), attaches the exact start
-    and goal candidates, then runs Dijkstra. Not Lazy-PRM and not PRM*.
+    and every accepted goal candidate, then runs Dijkstra to the goal set.
+    Not Lazy-PRM and not PRM*.
 
     Opt-in ``trace_sink`` records sample/edge/query/search events for audits
     without changing ordinary planner metrics.
@@ -181,6 +182,8 @@ class PRMPlanner:
                 "accepted_edges": 0,
                 "start_attached": False,
                 "goal_attached": False,
+                "goal_candidate_count": 0,
+                "goal_attachment_count": 0,
                 "expansions": 0,
                 "seed": int(self.seed),
                 "repetition_index": int(self.repetition_index),
@@ -237,6 +240,7 @@ class PRMPlanner:
             rng=rng,
         )
         goals = [c.state for c in goal_candidates]
+        base_metrics["roadmap"]["goal_candidate_count"] = len(goal_candidates)
         if not goals:
             return _finish(
                 status=PlanningStatus.INVALID,
@@ -370,6 +374,7 @@ class PRMPlanner:
         for gi in goal_indices:
             goal_links += _attach(gi, sample_ids + [start_idx])
         base_metrics["roadmap"]["goal_attached"] = goal_links > 0
+        base_metrics["roadmap"]["goal_attachment_count"] = int(goal_links)
         if sink is not None:
             sink.record(
                 family="roadmap",

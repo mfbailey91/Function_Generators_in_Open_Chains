@@ -196,9 +196,13 @@ def test_prm_and_rrt_match_selected_candidate() -> None:
         goal_generator=generator,
     ).solve(problem)
     assert rrt.status is PlanningStatus.SUCCESS
-    # First-root only (V3-633 deferred): provenance is for that root.
     assert rrt.selected_goal_candidate is not None
-    assert rrt.selected_goal_candidate.provenance["goal_sample_id"] == "disk_center"
+    assert np.allclose(
+        rrt.selected_goal_candidate.state.u, rrt.selected_goal_state.u  # type: ignore[union-attr]
+    )
+    assert "goal_sample_id" in rrt.selected_goal_candidate.provenance
+    assert rrt.planner_metrics["tree"]["goal_root_count"] >= 1
+    assert "selected_goal_root_index" in rrt.planner_metrics["tree"]
 
 
 def test_physical_vs_margin_vs_attachment() -> None:

@@ -276,6 +276,8 @@ that set, with one expansion trace and unambiguous total-work metrics.
 
 ### V3-633 — Roadmap/tree goal parity
 
+**WP status:** multi-root RRTConnect + PRM/RRT shared ordered goal-set parity landed.
+
 Convert RRTConnect to a multi-root goal tree. Verify PRM and RRTConnect consume
 the same ordered frozen candidate set, preserve exact starts, and return selected
 candidate provenance.

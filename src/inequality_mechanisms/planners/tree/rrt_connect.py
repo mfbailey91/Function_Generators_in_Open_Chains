@@ -66,10 +66,12 @@ class RRTConnectPlanner:
     """Bidirectional RRT-Connect in certified actuator space.
 
     Not plain RRT and not RRT* (no rewiring). Exact start is the start-tree
-    root; a selected goal candidate roots the goal tree.
+    root; every accepted goal ``StateCandidate`` is a root of the goal tree.
+    The first connected goal-root ancestry determines the selected candidate;
+    all roots remain part of the declared query.
 
     Opt-in ``trace_sink`` records tree growth events for audits without
-    changing ordinary planner metrics.
+    changing status, cost, selected identity, or ordinary planner metrics.
     """
 
     seed: int = 0
@@ -265,13 +267,15 @@ class RRTConnectPlanner:
         connector = resolve_connector(problem)
         assembly = dict(problem.start.assembly_state)
         lo, hi = actuator_bounds(problem.robot)
-        # V3-631: first-root only; V3-633 will initialize all goal roots.
-        first_goal_candidate = goal_candidates[0]
-        goal_root = first_goal_candidate.state
         sink = self.trace_sink
+        goal_root_count = len(goal_candidates)
+        base_metrics["tree"]["goal_root_count"] = int(goal_root_count)
 
         start_tree: list[_TreeNode] = [_TreeNode(state=problem.start, parent=None)]
-        goal_tree: list[_TreeNode] = [_TreeNode(state=goal_root, parent=None)]
+        goal_tree: list[_TreeNode] = [
+            _TreeNode(state=cand.state, parent=None) for cand in goal_candidates
+        ]
+        goal_root_states = [node.state for node in goal_tree]
         if sink is not None:
             sink.record(
                 family="tree",
@@ -284,17 +288,20 @@ class RRTConnectPlanner:
                     "u": problem.start.u.tolist(),
                 },
             )
-            sink.record(
-                family="tree",
-                phase="insert",
-                event_type="vertex_insert",
-                payload={
-                    "tree": "goal",
-                    "index": 0,
-                    "parent": None,
-                    "u": goal_root.u.tolist(),
-                },
-            )
+            for root_i, cand in enumerate(goal_candidates):
+                sink.record(
+                    family="tree",
+                    phase="insert",
+                    event_type="vertex_insert",
+                    payload={
+                        "tree": "goal",
+                        "index": int(root_i),
+                        "parent": None,
+                        "u": cand.state.u.tolist(),
+                        "goal_root_index": int(root_i),
+                        "provenance": dict(cand.provenance),
+                    },
+                )
 
         nn_ops = 0
         extensions = 0
@@ -385,17 +392,31 @@ class RRTConnectPlanner:
             out.reverse()
             return out
 
+        def ancestry_root_index(tree: list[_TreeNode], idx: int) -> int:
+            cur = idx
+            while tree[cur].parent is not None:
+                parent = tree[cur].parent
+                assert parent is not None
+                cur = parent
+            return cur
+
         t_query = time.perf_counter()
         swapped = False
         found = False
         start_meet: int | None = None
         goal_meet: int | None = None
+        selected_goal_root_index: int | None = None
         iterations = 0
 
         for it in range(self.max_iterations):
             iterations = it + 1
             if rng.random() < self.goal_bias:
-                sample = goal_root if not swapped else problem.start
+                if not swapped:
+                    sample = goal_root_states[
+                        int(rng.integers(0, len(goal_root_states)))
+                    ]
+                else:
+                    sample = problem.start
             else:
                 sample = sample_state_uniform(
                     problem.robot, rng, assembly_state=assembly
@@ -417,6 +438,7 @@ class RRTConnectPlanner:
                     start_meet, goal_meet = new_a, new_b
                 else:
                     start_meet, goal_meet = new_b, new_a
+                selected_goal_root_index = ancestry_root_index(goal_tree, goal_meet)
                 if sink is not None:
                     sink.record(
                         family="tree",
@@ -426,6 +448,7 @@ class RRTConnectPlanner:
                             "start_meet": int(start_meet),
                             "goal_meet": int(goal_meet),
                             "iteration": int(iterations),
+                            "selected_goal_root_index": int(selected_goal_root_index),
                         },
                     )
                 break
@@ -436,9 +459,18 @@ class RRTConnectPlanner:
         base_metrics["tree"]["nn_ops"] = nn_ops
         base_metrics["tree"]["start_tree_size"] = len(start_tree)
         base_metrics["tree"]["goal_tree_size"] = len(goal_tree)
+        if selected_goal_root_index is not None:
+            base_metrics["tree"]["selected_goal_root_index"] = int(
+                selected_goal_root_index
+            )
         query_s = time.perf_counter() - t_query
 
-        if not found or start_meet is None or goal_meet is None:
+        if (
+            not found
+            or start_meet is None
+            or goal_meet is None
+            or selected_goal_root_index is None
+        ):
             return _finish(
                 status=PlanningStatus.UNSOLVED,
                 task_class=task_class,
@@ -480,9 +512,7 @@ class RRTConnectPlanner:
             states = tuple(path_start + path_goal[1:])
 
         selected = states[-1]
-        selected_cand = match_selected_candidate(
-            [first_goal_candidate], selected
-        )
+        selected_cand = match_selected_candidate(goal_candidates, selected)
         cost = path_cost_u(states)
         if sink is not None:
             sink.record(
@@ -494,6 +524,7 @@ class RRTConnectPlanner:
                     "cost_u": float(cost),
                     "start_tree_size": len(start_tree),
                     "goal_tree_size": len(goal_tree),
+                    "selected_goal_root_index": int(selected_goal_root_index),
                 },
             )
         return _finish(
