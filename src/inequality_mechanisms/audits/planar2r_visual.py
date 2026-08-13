@@ -13,6 +13,7 @@ import numpy as np
 
 from inequality_mechanisms.adapters import GraphSearchPlanner
 from inequality_mechanisms.adapters.lattice_edge_cost import (
+    connector_for_graph,
     integrated_actuator_edge_cost,
 )
 from inequality_mechanisms.adapters.ompl import is_ompl_available, ompl_version_string
@@ -24,6 +25,9 @@ from inequality_mechanisms.audits.metrics import (
     path_lengths,
 )
 from inequality_mechanisms.audits.traces import ListPlannerTraceSink
+from inequality_mechanisms.audits.trajectory_evaluation import (
+    evaluate_continuous_trajectory,
+)
 from inequality_mechanisms.benchmarks.classification import (
     TASK_ALREADY_SATISFIED,
     TASK_INVALID_UNREPRESENTABLE,
@@ -42,14 +46,19 @@ from inequality_mechanisms.benchmarks.smoke_lattice_2r import (
     build_paired_lattice_arms,
 )
 from inequality_mechanisms.benchmarks.smoke_sampling_2r import SamplingSmokeArm
-from inequality_mechanisms.core.goals import GoalResidual, GoalSamplingRequest
-from inequality_mechanisms.core.local_motion import OutputLinearMotion
+from inequality_mechanisms.core.goals import (
+    GoalConstraint,
+    GoalResidual,
+    GoalSamplingRequest,
+)
+from inequality_mechanisms.core.local_motion import LocalMotionModel, OutputLinearMotion
 from inequality_mechanisms.core.problem import PlanningProblem
 from inequality_mechanisms.core.results import (
     PlanningResult,
     PlanningStatus,
     ResultProvenance,
 )
+from inequality_mechanisms.core.scene import PlanningScene
 from inequality_mechanisms.core.state import PhysicalState, StateCandidate
 from inequality_mechanisms.graphs.topology import LatticeConnectivity
 from inequality_mechanisms.planners.direct.input_linear import InputLinearDirectPlanner
@@ -525,6 +534,9 @@ def _pack_run(
     expanded: Sequence[int] | None,
     sink: ListPlannerTraceSink | None,
     robot: Any | None,
+    connector: LocalMotionModel | None = None,
+    goal: GoalConstraint | None = None,
+    scene: PlanningScene | None = None,
 ) -> PlannerRunRecord:
     if result is None:
         return PlannerRunRecord(
@@ -546,7 +558,27 @@ def _pack_run(
     length_x = result.path_length_x
     length_q = result.path_length_q
     length_u = result.path_length_u
-    if states and robot is not None:
+    planner_metrics = dict(result.planner_metrics or {})
+    if (
+        result.status == PlanningStatus.SUCCESS
+        and len(states) >= 2
+        and connector is not None
+        and robot is not None
+    ):
+        cte = evaluate_continuous_trajectory(
+            states,
+            connector=connector,
+            robot=robot,
+            goal=goal,
+            scene=scene,
+        )
+        planner_metrics["continuous_trajectory"] = cte.to_jsonable()
+        # Continuous lengths are the fresh reporting truth; never fall back to
+        # waypoint chords when reconstruction fails.
+        length_u = cte.length_u
+        length_q = cte.length_q
+        length_x = cte.length_x
+    elif states and robot is not None:
         metrics = path_lengths(states, robot=robot)
         length_u = length_u if length_u is not None else metrics.length_u
         length_q = length_q if length_q is not None else metrics.length_q
@@ -564,7 +596,7 @@ def _pack_run(
         task_class=result.task_class,
         selected_goal_sample_id=_selected_goal_sample_id(result),
         final_goal_residual=residual_f,
-        planner_metrics=dict(result.planner_metrics or {}),
+        planner_metrics=planner_metrics,
         trajectory_states=_serialize_states(states),
         expanded_node_ids=list(expanded or []),
         trace_events=sink.to_jsonable() if sink is not None else [],
@@ -609,6 +641,9 @@ def run_planner_for_trial(
         return _pack_run(
             planner=planner_name, mechanism=arm.name, result=result,
             skipped=None, expanded=None, sink=sink, robot=arm.robot,
+            connector=problem.local_motion,
+            goal=problem.goal,
+            scene=problem.scene,
         )
 
     if planner_name == "output_linear":
@@ -627,6 +662,9 @@ def run_planner_for_trial(
         return _pack_run(
             planner=planner_name, mechanism=arm.name, result=result,
             skipped=None, expanded=None, sink=sink, robot=arm.robot,
+            connector=out_problem.local_motion,
+            goal=out_problem.goal,
+            scene=out_problem.scene,
         )
 
     if planner_name in ("lattice_dijkstra", "lattice_astar"):
@@ -642,9 +680,15 @@ def run_planner_for_trial(
             edge_n_samples=edge_n_samples,
             trace_sink=sink,
         )
+        lattice_connector = connector_for_graph(
+            lattice_arm.graph, arm.robot, n_samples=edge_n_samples
+        )
         return _pack_run(
             planner=planner_name, mechanism=arm.name, result=result,
             skipped=None, expanded=expanded, sink=sink, robot=arm.robot,
+            connector=lattice_connector,
+            goal=problem.goal,
+            scene=problem.scene,
         )
 
     settings = config.raw["planner_settings"]
@@ -662,6 +706,9 @@ def run_planner_for_trial(
         return _pack_run(
             planner=planner_name, mechanism=arm.name, result=result,
             skipped=None, expanded=None, sink=sink, robot=arm.robot,
+            connector=problem.local_motion,
+            goal=problem.goal,
+            scene=problem.scene,
         )
 
     if planner_name == "rrt_connect":
@@ -678,6 +725,9 @@ def run_planner_for_trial(
         return _pack_run(
             planner=planner_name, mechanism=arm.name, result=result,
             skipped=None, expanded=None, sink=sink, robot=arm.robot,
+            connector=problem.local_motion,
+            goal=problem.goal,
+            scene=problem.scene,
         )
 
     if planner_name == "ompl_prm":
@@ -693,6 +743,9 @@ def run_planner_for_trial(
         return _pack_run(
             planner=planner_name, mechanism=arm.name, result=result,
             skipped=None, expanded=None, sink=sink, robot=arm.robot,
+            connector=problem.local_motion,
+            goal=problem.goal,
+            scene=problem.scene,
         )
 
     if planner_name == "ompl_rrt_connect":
@@ -708,6 +761,9 @@ def run_planner_for_trial(
         return _pack_run(
             planner=planner_name, mechanism=arm.name, result=result,
             skipped=None, expanded=None, sink=sink, robot=arm.robot,
+            connector=problem.local_motion,
+            goal=problem.goal,
+            scene=problem.scene,
         )
 
     raise ValueError(f"unknown planner {planner_name!r}")

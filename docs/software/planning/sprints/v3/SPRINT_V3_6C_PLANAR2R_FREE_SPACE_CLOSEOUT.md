@@ -284,6 +284,8 @@ candidate provenance.
 
 ### V3-634 — Continuous trajectory evaluation
 
+**WP status:** continuous evaluator + audit packing wire-up landed.
+
 Implement the shared local-motion reconstruction/evaluation record. Route fresh
 direct, lattice, roadmap, tree, and OMPL audit results through it without
 changing planner objective semantics.
