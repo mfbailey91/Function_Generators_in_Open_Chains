@@ -1,6 +1,6 @@
 # Version 3 Project Plan — Planner-Agnostic Mechanism-Aware Motion Planning
 
-**Status:** active architecture; roadmap amended to validate 2R→3R→6R free space before collision routing
+**Status:** active architecture; roadmap amended to validate 2R→3R→6R free space before collision routing; V3.6C planar-2R closeout gate active
 **Predecessor:** Version 2 / Experiment A and bounded Experiment B work
 **Primary decision:** freeze production scaling while the planning formulation is generalized
 **Initial mechanism scope:** certified monotonic transmission branches
@@ -403,6 +403,12 @@ Purpose:
 - validate exact start and Cartesian goal regions;
 - compare direct, lattice, roadmap, tree, and OMPL planners;
 - understand planner-family sensitivity before obstacles.
+
+Closeout gate:
+
+- Sprint V3.6C resolves represented-goal parity, selected-candidate provenance,
+  continuous local-motion path evaluation, native U/Q/X trace projections, and
+  Q-side actuator-metric interpretation before V3.7 is architecture-final.
 
 ### 10.2 Planar 3R
 
