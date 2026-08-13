@@ -1,9 +1,9 @@
 # Sprint V3.7 — Planar 3R Free-Space Implementation
 
-**Status:** completed provisional / pre-gate — planar 3R implementation and evidence shipped ahead of V3.6A/V3.6B; residual reconciliation remains drafted until those gates close
+**Status:** completed provisional / pre-gate — planar 3R implementation and evidence shipped ahead of V3.6A/V3.6B/V3.6C; residual reconciliation remains drafted until the 2R closeout gate passes
 **Reserved work packages:** V3-700–V3-708
-**Code authorization:** none (provisional V3-700–V3-706 work already shipped; do not re-authorize until ACTIVE_SPRINT explicitly activates residual reconciliation after V3.6A and V3.6B)
-**Depends on:** corrected 2R free-space evidence; dimensional-generalization refactor; reviewed planar 2R visual audit; ADR-021–026
+**Code authorization:** none (provisional V3-700–V3-706 work already shipped; do not re-authorize until ACTIVE_SPRINT explicitly activates residual reconciliation after V3.6C)
+**Depends on:** corrected 2R free-space evidence; dimensional-generalization refactor; reviewed planar 2R visual audit; completed V3.6C closeout; ADR-021–026
 **Provisional evidence:** [`results/v3_review/v3_7_3r_free_space/`](../../../../results/v3_review/v3_7_3r_free_space/) (implementation `a65de24`, evidence `5249a5a`; bank `configs/v3/free_space_planar3r_v1.json`)
 **Program:** [V3 pre-3R refactor and visual audit](../../V3_PRE_3R_REFACTOR_AND_VISUAL_AUDIT_PLAN.md)
 

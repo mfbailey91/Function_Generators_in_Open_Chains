@@ -1,16 +1,16 @@
 # Version 3 Pre-3R Program — Architecture Refactor and Planar 2R Visual Audit
 
-**Status:** active program amendment — V3.6A completed; V3.6B completed; residual V3.7 drafted / blocked
+**Status:** active program amendment — V3.6A and V3.6B completed; V3.6C active; residual V3.7 drafted / blocked
 **Authority:** scoped amendment to `docs/software/V3_PROJECT_PLAN.md` for the pre-3R handoff
 **Applies after:** corrected Sprint V3.6 closeout
 **Blocks:** architecture-final Sprint V3.7 acceptance and Sprint V3.8 activation
-**Program sequence:** Sprint V3.6A (completed) → Sprint V3.6B → revised / residual Sprint V3.7
+**Program sequence:** Sprint V3.6A (completed) → Sprint V3.6B (completed) → Sprint V3.6C (active) → revised / residual Sprint V3.7
 **Note:** A provisional V3.7 implementation and evidence package already shipped ahead of this sequence and is retained; this program now runs as architecture-debt gates before treating 3R as final.
 
 ## 1. Decision
 
-Insert two bounded gates between the corrected planar 2R evidence sprint and the
-first planar 3R implementation:
+Insert three bounded gates between the corrected planar 2R evidence sprint and
+the architecture-final planar 3R implementation:
 
 \[
 \boxed{
@@ -20,6 +20,8 @@ first planar 3R implementation:
 \rightarrow
 \text{V3.6B planar 2R visual audit}
 \rightarrow
+\text{V3.6C planar 2R closeout corrections}
+\rightarrow
 \text{V3.7 planar 3R implementation}
 }
 \]
@@ -28,7 +30,9 @@ V3.6A removes known concrete 2R dependencies from shared architecture. V3.6B
 then uses the still-readable 2R case to expose the actual
 \(\mathcal U\rightarrow\mathcal Q\rightarrow\mathcal X\) mapping, graph
 embeddings, planner traces, and metric calculations in one trial-scoped HTML
-artifact. V3.7 begins only after both gates are reviewed.
+artifact. V3.6C corrects the concrete goal-set, provenance, trajectory,
+visualization, and metric-interpretation discrepancies found during Gate B
+review. V3.7 begins only after all three gates are reviewed.
 
 These are pre-3R implementation gates, not new population studies and not a
 reinterpretation of V3.6 evidence.
@@ -472,6 +476,11 @@ shared primitives. They are not rewritten solely to match this target layout.
 7. Do the report and code architecture make every U→Q→X transition auditable?
 8. Are any shared modules still 2R-specific after V3.6A?
 
+The completed findings are recorded in
+[`V3_6B_GATE_B_REVIEW_FINDINGS.md`](../architecture/notes/V3_6B_GATE_B_REVIEW_FINDINGS.md).
+Questions 4–7 produced V3.6C closeout blockers; questions 1–3 and 8 passed with
+explicit planner-family or audit-only qualifications.
+
 ## 9. Program exit criteria
 
 The pre-3R program passes only when:
@@ -479,8 +488,26 @@ The pre-3R program passes only when:
 1. corrected V3.6 evidence is formally closed and preserved;
 2. Sprint V3.6A refactors land with no frozen-evidence regression;
 3. the ten-trial V3.6B report is generated from a clean revision;
-4. mapping, graph, metric, exact-start, and goal-representation invariants pass;
-5. the report has been reviewed and any implementation discrepancies are either
-   corrected or entered as explicit V3.7 blockers;
-6. the revised V3.7 contract is accepted;
-7. ACTIVE_SPRINT separately activates V3.7.
+4. the Gate B review is completed and its discrepancies are assigned to V3.6C;
+5. V3.6C delivers true represented-goal parity, retained selected-goal
+   provenance, consistent physical residuals, continuous local-motion path
+   evaluation, native U/Q/X trace projections, and interpretable actuator-metric
+   fields;
+6. the new V3.6C report is generated without overwriting frozen V3.6/V3.6B
+   artifacts and all closeout invariants pass;
+7. the revised V3.7 contract is accepted against the closed 2R architecture;
+8. ACTIVE_SPRINT separately activates V3.7.
+
+## 10. V3.6C closeout amendment
+
+Sprint V3.6C is a bounded correction sprint, not a third 2R evidence campaign.
+It retains the ten-task audit corpus and mechanism pair, fixes common planner and
+result contracts, and writes a new review package under
+`results/v3_review/v3_6c_planar2r_closeout/`.
+
+Its authoritative decisions are recorded in
+[`V3_6C_CLOSEOUT_DECISIONS.md`](../architecture/notes/V3_6C_CLOSEOUT_DECISIONS.md).
+The native PRM remains a roadmap-family control; a separately labeled frozen
+shared-Q sampled roadmap isolates mechanism-specific graph weights. U is the
+authoritative physical-state view for native roadmap/tree planners, with Q and X
+rendered as synchronized projections of the same states and continuous edges.
