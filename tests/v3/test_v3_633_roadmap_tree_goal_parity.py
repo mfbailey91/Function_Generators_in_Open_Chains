@@ -262,6 +262,47 @@ def test_trace_sink_noninterference_rrt_and_prm() -> None:
     assert len(attach.payload["goal_indices"]) == len(cands)
 
 
+def test_prm_query_edges_are_canonical_and_traced_once() -> None:
+    _robot, problem, generator, cands = _ordered_far_near_problem()
+    sink = ListPlannerTraceSink()
+    result = PRMPlanner(
+        seed=23,
+        n_samples=0,
+        k_neighbors=1,
+        max_edge_u=10.0,
+        max_goal_candidates=16,
+        goal_generator=generator,
+        trace_sink=sink,
+    ).solve(problem)
+
+    assert result.status is PlanningStatus.SUCCESS
+    roadmap = result.planner_metrics["roadmap"]
+    goal_count = len(cands)
+    assert roadmap["start_attachment_count"] == goal_count
+    assert roadmap["goal_attachment_count"] == goal_count
+    assert roadmap["query_unique_edges_attempted"] == goal_count
+    assert roadmap["query_unique_edges_accepted"] == goal_count
+    assert roadmap["query_duplicate_edge_reuses"] == goal_count
+
+    attach_edges = [
+        event
+        for event in sink.events
+        if event.family == "roadmap"
+        and event.phase == "query"
+        and event.event_type == "attach_edge"
+    ]
+    assert len(attach_edges) == goal_count
+    pairs = [
+        tuple(sorted((int(event.payload["src"]), int(event.payload["dst"]))))
+        for event in attach_edges
+    ]
+    assert len(pairs) == len(set(pairs))
+    pair_set = set(pairs)
+    assert all(
+        tuple(event.payload["edge_key"]) in pair_set for event in attach_edges
+    )
+
+
 def test_seed_reproducibility_multi_root_rrt() -> None:
     _robot, problem, generator, _cands = _ordered_far_near_problem()
     kwargs = dict(

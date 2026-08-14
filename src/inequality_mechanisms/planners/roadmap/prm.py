@@ -181,9 +181,13 @@ class PRMPlanner:
                 "attempted_edges": 0,
                 "accepted_edges": 0,
                 "start_attached": False,
+                "start_attachment_count": 0,
                 "goal_attached": False,
                 "goal_candidate_count": 0,
                 "goal_attachment_count": 0,
+                "query_unique_edges_attempted": 0,
+                "query_unique_edges_accepted": 0,
+                "query_duplicate_edge_reuses": 0,
                 "expansions": 0,
                 "seed": int(self.seed),
                 "repetition_index": int(self.repetition_index),
@@ -347,19 +351,42 @@ class PRMPlanner:
             adj.append([])
             goal_indices.append(gi)
 
+        # Query attachment may encounter a direct start-goal pair twice: once
+        # from the start role and once from the goal role. Validate and insert
+        # each physical undirected pair exactly once, while allowing both roles
+        # to count an already accepted edge as an attachment.
+        query_edge_results: dict[tuple[int, int], bool] = {}
+        query_unique_edges_attempted = 0
+        query_unique_edges_accepted = 0
+        query_duplicate_edge_reuses = 0
+
         def _attach(src: int, dsts: list[int]) -> int:
             attached = 0
-            nonlocal motion_checks
+            nonlocal motion_checks, query_unique_edges_attempted
+            nonlocal query_unique_edges_accepted, query_duplicate_edge_reuses
             for dst in dsts:
-                dist = float(np.linalg.norm(vertices[src].u - vertices[dst].u))
-                if dist > self.max_edge_u and src != start_idx:
-                    # Still allow start/goal attachment within 2x max for query.
-                    if dist > 2.0 * self.max_edge_u:
-                        continue
-                elif dist > 2.0 * self.max_edge_u:
+                if src == dst:
                     continue
+                dist = float(np.linalg.norm(vertices[src].u - vertices[dst].u))
+                # Allow query attachments within 2x the roadmap edge limit.
+                if dist > 2.0 * self.max_edge_u:
+                    continue
+
+                edge_key = (src, dst) if src < dst else (dst, src)
+                if edge_key in query_edge_results:
+                    query_duplicate_edge_reuses += 1
+                    if query_edge_results[edge_key]:
+                        attached += 1
+                    continue
+
+                query_unique_edges_attempted += 1
                 motion_checks += 1
-                if try_connect(connector, problem, vertices[src], vertices[dst]):
+                connected = try_connect(
+                    connector, problem, vertices[src], vertices[dst]
+                )
+                query_edge_results[edge_key] = bool(connected)
+                if connected:
+                    query_unique_edges_accepted += 1
                     adj[src].append((dst, dist))
                     adj[dst].append((src, dist))
                     attached += 1
@@ -371,6 +398,7 @@ class PRMPlanner:
                             payload={
                                 "src": int(src),
                                 "dst": int(dst),
+                                "edge_key": list(edge_key),
                                 "dist_u": float(dist),
                                 "u_src": vertices[src].u.tolist(),
                                 "q_src": vertices[src].q.tolist(),
@@ -383,11 +411,21 @@ class PRMPlanner:
         sample_ids = list(range(start_idx))
         start_links = _attach(start_idx, sample_ids + goal_indices)
         base_metrics["roadmap"]["start_attached"] = start_links > 0
+        base_metrics["roadmap"]["start_attachment_count"] = int(start_links)
         goal_links = 0
         for gi in goal_indices:
             goal_links += _attach(gi, sample_ids + [start_idx])
         base_metrics["roadmap"]["goal_attached"] = goal_links > 0
         base_metrics["roadmap"]["goal_attachment_count"] = int(goal_links)
+        base_metrics["roadmap"]["query_unique_edges_attempted"] = int(
+            query_unique_edges_attempted
+        )
+        base_metrics["roadmap"]["query_unique_edges_accepted"] = int(
+            query_unique_edges_accepted
+        )
+        base_metrics["roadmap"]["query_duplicate_edge_reuses"] = int(
+            query_duplicate_edge_reuses
+        )
         if sink is not None:
             sink.record(
                 family="roadmap",
@@ -398,6 +436,15 @@ class PRMPlanner:
                     "goal_indices": list(goal_indices),
                     "start_links": int(start_links),
                     "goal_links": int(goal_links),
+                    "query_unique_edges_attempted": int(
+                        query_unique_edges_attempted
+                    ),
+                    "query_unique_edges_accepted": int(
+                        query_unique_edges_accepted
+                    ),
+                    "query_duplicate_edge_reuses": int(
+                        query_duplicate_edge_reuses
+                    ),
                     "start_u": problem.start.u.tolist(),
                     "start_q": problem.start.q.tolist(),
                     "goals_u": [g.u.tolist() for g in goals],
