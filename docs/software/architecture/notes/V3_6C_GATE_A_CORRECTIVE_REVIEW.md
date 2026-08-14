@@ -1,21 +1,20 @@
 # V3.6C Gate A Corrective Review
 
-**Disposition:** changes requested
+**Disposition:** accepted (Gate A and Gate B)
 **Reviewed main:** `db967ab31af8acab83d113812bab748384374234`
-**Reviewed implementation source:** `e32394978e4283015444ad8b6bcad090a6b8140f`
-**Reviewed generated-artifact commit:** `7d97666faa2245a33b39f16df6544bcef2eaaa18`
-**Corrective work packages:** V3-640–V3-644
+**Original review-candidate implementation:** `e32394978e4283015444ad8b6bcad090a6b8140f`
+**Original review-candidate artifact:** `7d97666faa2245a33b39f16df6544bcef2eaaa18`
+**Accepted Gate A implementation:** `ff9facdd94925916cb899700223d89dafae02918`
+**Accepted V3-643 artifact:** `8f4781eca6c85c45629f0771f1fb07bd8bd3bc65`
+**Corrective work packages:** V3-640–V3-644 (closed)
 
-## Review conclusion
+## Review conclusion (original Gate A request)
 
 V3-631 through V3-639 establish the intended common planner, goal, trajectory,
-trace, metric, and report architecture. The generated V3.6C package is a valid
-review candidate, but Gate A remains open because two bounded implementation
-details weaken the declared comparison contract.
-
-This review does not reopen the V3.6C scientific formulation and does not
-authorize V3.7. It authorizes only the two corrections below, their report and
-regression coverage, clean regeneration, and final disposition.
+trace, metric, and report architecture. The generated V3.6C package was a valid
+review candidate, but Gate A remained open until the two bounded implementation
+details below were corrected. Those corrections are now landed and regenerated;
+see **Accepted closeout record** at the end of this note.
 
 ## Finding A — represented-goal attachment is not fail-closed
 
@@ -113,3 +112,15 @@ After Gate A passes:
    authorization.
 
 Residual V3.7 activation remains a separate planning change.
+
+## Accepted closeout record
+
+Gate A passed on the corrective branch `v3_6c-gate-a-corrective-closeout`:
+
+1. Fail-closed incomplete lattice attachment is covered by `tests/v3/test_v3_632_multi_goal_graph_query.py`.
+2. Canonical undirected PRM query edges are covered by `tests/v3/test_v3_633_roadmap_tree_goal_parity.py`.
+3. Closeout HTML metric columns are covered by `tests/v3/test_v3_6c_planar2r_closeout.py`.
+4. Full suite from implementation `ff9facd`: `PYTHONPATH="src:." .venv/bin/pytest` → **1528 passed, 26 skipped in 711.63s**. Repo-wide `ruff`/`mypy` remain dirty (pre-existing E501 and typing plus untracked Finder copies); Gate A tests were not waived.
+5. V3-643 regenerated only `results/v3_review/v3_6c_planar2r_closeout/` from `ff9facd`; manifest `git_revision` matches; all ten successful lattice runs report complete 9/9 attachment; native PRM `attach_edge` keys are unique; required lattice and growth animations/contact sheets are present; frozen `v3_6_*` / `v3_6b_*` / `v3_7_*` checksums unchanged.
+
+Gate B inspected `near_0`, `near_3`, and `far_2` (task identity, complete lattice attachment, unique PRM query-edge metrics, RRT `goal_root_count=9` with non-first selected roots, U/Q/X traces, `actuator_metric_on_q` panels, animations and print contact sheets). V3.6B findings are marked corrected or interpretive as recorded in [`V3_6B_GATE_B_REVIEW_FINDINGS.md`](V3_6B_GATE_B_REVIEW_FINDINGS.md). `ACTIVE_SPRINT` returns to no authorization. V3.7 is not activated.

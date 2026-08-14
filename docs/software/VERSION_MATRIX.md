@@ -12,6 +12,6 @@
 | Start / goal | Graph nodes / V1 queries | Lattice attachment; Cartesian goal regions (B) | Exact start; goal as task predicate; attachment residual is diagnostic |
 | Sampling modes | Uniform actuator lattice | Uniform-\(\mathcal U\) mapped to \(\mathcal Q\), plus uniform-\(\mathcal Q\) control | External task banks; planner sampling is backend-specific |
 | Config/result schema | Version 1 | Separate Version 2 schema | Separate Version 3 problem/result schema |
-| Status | Preserved research baseline | Frozen historical experiment lineage | V3.6C review candidate generated; Gate A corrective amendment V3-640–V3-644 active; provisional 3R free-space remains blocked |
+| Status | Preserved research baseline | Frozen historical experiment lineage | V3.6C planar-2R closeout accepted (`ff9facd` / `8f4781e`); residual 3R free-space remains blocked pending a separate V3.7 activation |
 
 ADR-001 remains authoritative for Version 1. Version 2 may use output-state identity only after the operating branch satisfies the accepted certification contract. Version 3 contracts are accepted under ADRs 021–026 and do not reinterpret frozen Version 2 evidence.

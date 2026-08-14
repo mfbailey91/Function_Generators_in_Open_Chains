@@ -1,9 +1,9 @@
 # Sprint V3.6C — Planar 2R Free-Space Closeout
 
-**Status:** active — Gate A corrective amendment
+**Status:** completed — Gate A/B accepted; no remaining code authorization
 **Reserved work packages:** V3-630–V3-644
-**Implementation authorization:** V3-640–V3-642 only
-**Closeout authorization:** V3-643–V3-644 only after Gate A implementation acceptance
+**Implementation authorization:** none (sprint closed)
+**Closeout authorization:** none (V3-643–V3-644 completed)
 **Depends on:** corrected Sprint V3.6 evidence; Sprint V3.6A; Sprint V3.6B and its completed Gate B review; ADR-021–026
 **Blocks:** architecture-final Sprint V3.7 acceptance and Sprint V3.8 activation
 **Decision note:** [`V3_6C_CLOSEOUT_DECISIONS.md`](../../../architecture/notes/V3_6C_CLOSEOUT_DECISIONS.md)
@@ -365,7 +365,7 @@ commit implementation without generated results.
 
 ### V3-643 — Clean corrective generation and review
 
-**WP status:** blocked on V3-640–V3-642 acceptance.
+**WP status:** completed (artifact `8f4781e` from implementation `ff9facd`).
 
 From the clean corrective implementation commit, regenerate the canonical
 `results/v3_review/v3_6c_planar2r_closeout/` package. The prior package is a
@@ -375,7 +375,7 @@ all ten tasks. Commit generated evidence separately.
 
 ### V3-644 — Gate B disposition and no authorization
 
-**WP status:** blocked on manual V3-643 review.
+**WP status:** completed — Gate B accepted; ACTIVE_SPRINT has no code authorization.
 
 Record the final Gate A/Gate B disposition, test evidence, implementation and
 artifact SHAs, and the status of every V3.6B finding. Return `ACTIVE_SPRINT` to

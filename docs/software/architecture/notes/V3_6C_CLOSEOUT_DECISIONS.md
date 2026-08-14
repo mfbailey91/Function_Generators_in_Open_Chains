@@ -1,6 +1,6 @@
 # V3.6C closeout decisions — planner roles, goal sets, and Q-side actuator metric
 
-**Status:** accepted for Sprint V3.6C implementation
+**Status:** implemented; Gate A/B accepted for Sprint V3.6C
 **Scope:** planar 2R free-space closeout only
 **Authority:** bounded architecture note; ADR-021–026 remain controlling contracts
 **Related review:** [`V3_6B_GATE_B_REVIEW_FINDINGS.md`](V3_6B_GATE_B_REVIEW_FINDINGS.md)

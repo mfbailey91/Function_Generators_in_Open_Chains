@@ -1,10 +1,10 @@
 # Version 3 Pre-3R Program — Architecture Refactor and Planar 2R Visual Audit
 
-**Status:** active program amendment — V3.6A and V3.6B completed; V3.6C active; residual V3.7 drafted / blocked
+**Status:** active program amendment — V3.6A, V3.6B, and V3.6C completed; residual V3.7 drafted / blocked
 **Authority:** scoped amendment to `docs/software/V3_PROJECT_PLAN.md` for the pre-3R handoff
 **Applies after:** corrected Sprint V3.6 closeout
 **Blocks:** architecture-final Sprint V3.7 acceptance and Sprint V3.8 activation
-**Program sequence:** Sprint V3.6A (completed) → Sprint V3.6B (completed) → Sprint V3.6C (active) → revised / residual Sprint V3.7
+**Program sequence:** Sprint V3.6A (completed) → Sprint V3.6B (completed) → Sprint V3.6C (completed) → revised / residual Sprint V3.7
 **Note:** A provisional V3.7 implementation and evidence package already shipped ahead of this sequence and is retained; this program now runs as architecture-debt gates before treating 3R as final.
 
 ## 1. Decision
