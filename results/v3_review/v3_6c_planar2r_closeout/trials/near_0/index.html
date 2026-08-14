@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"/><title>Trial near_0</title>
+<style>
+@media print {
+  .anim-live { display: none !important; }
+  .contact-sheet { display: block !important; }
+  .section { break-before: page; page-break-before: always; }
+  a[href]::after { content: ""; }
+}
+@media screen {
+  .contact-sheet.fallback-only { display: none; }
+}
+body { font-family: Georgia, "Times New Roman", serif; margin: 1.2rem; color: #222; }
+nav a { margin-right: 0.8rem; }
+table { border-collapse: collapse; width: 100%; margin: 0.6rem 0 1.2rem; font-size: 0.92rem; }
+th, td { border: 1px solid #bbb; padding: 0.35rem 0.45rem; vertical-align: top; }
+th { background: #f3f3f3; }
+img { max-width: 100%; height: auto; border: 1px solid #ddd; margin: 0.25rem 0; }
+.muted { color: #555; }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0.8rem; }
+code, pre { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 0.85rem; }
+</style></head><body>
+<nav><a href="../../index.html">Index</a> <a href="../../architecture.html">Architecture</a></nav>
+<h1>Trial near_0</h1>
+<p class="muted">Paired four-bar / gearbox review unit. Static panels are authoritative.</p>
+
+<div class="section">
+<h2>1. Task definition and candidates</h2>
+<table>
+<tr><th>start_q</th><td><code>[1.4097984247458286, 1.4627912569891355]</code></td></tr>
+<tr><th>start_tip</th><td><code>[-0.8037330727914214, 1.2528382054572202]</code></td></tr>
+<tr><th>goal_center</th><td><code>[-1.0125605050108843, 0.9148261117946465]</code></td></tr>
+<tr><th>goal_radius</th><td>0.06</td></tr>
+<tr><th>goal_point_ids</th><td><code>[&#x27;center&#x27;, &#x27;boundary_0deg&#x27;, &#x27;boundary_45deg&#x27;, &#x27;boundary_90deg&#x27;, &#x27;boundary_135deg&#x27;, &#x27;boundary_180deg&#x27;, &#x27;boundary_225deg&#x27;, &#x27;boundary_270deg&#x27;, &#x27;boundary_315deg&#x27;]</code></td></tr>
+</table>
+</div>
+
+<div class="section">
+<h2>2. Code/dataflow architecture</h2>
+<p>See <a href="../../architecture.html">architecture.html</a>. Shared Q lattice and frozen Cartesian disk candidates are pair-invariant; U realizations are mechanism-specific.</p>
+</div>
+
+<div class="section">
+<h2>3. Mechanism transmission maps</h2>
+<div class="grid2">
+<img src="assets/near_0__shared__q_of_u.png" alt="q_of_u" loading="lazy" />
+<img src="assets/near_0__shared__dqdu_u_of_q.png" alt="dqdu_u_of_q" loading="lazy" />
+<img src="assets/near_0__fourbar__operating_branch.png" alt="fourbar_operating_branch" loading="lazy" />
+<img src="assets/near_0__gearbox__operating_branch.png" alt="gearbox_operating_branch" loading="lazy" />
+</div>
+</div>
+
+<div class="section">
+<h2>4. Q, U, and X graph embeddings</h2>
+<div class="grid2">
+<img src="assets/near_0__fourbar__embed_q.png" alt="fourbar_embed_q" loading="lazy" /><img src="assets/near_0__gearbox__embed_q.png" alt="gearbox_embed_q" loading="lazy" />
+<img src="assets/near_0__fourbar__embed_u.png" alt="fourbar_embed_u" loading="lazy" /><img src="assets/near_0__gearbox__embed_u.png" alt="gearbox_embed_u" loading="lazy" />
+<img src="assets/near_0__fourbar__embed_x.png" alt="fourbar_embed_x" loading="lazy" /><img src="assets/near_0__gearbox__embed_x.png" alt="gearbox_embed_x" loading="lazy" />
+</div>
+</div>
+
+<div class="section">
+<h2>5. w_U, w_Q, w_X, and actuator metric on Q</h2>
+<p class="muted">
+<code>actuator_metric_on_q</code> is the actuator-travel metric expressed in Q
+(<code>M = J_inv.T @ J_inv</code>). Paired panels share one logarithmic color scale.
+Primary field: <code>sqrt_kappa</code> (directional actuator-cost ratio).
+Anisotropy is not Cartesian dexterity and is not path cost.
+</p>
+<div class="grid2">
+<img src="assets/near_0__fourbar__w_u.png" alt="fourbar_w_u" loading="lazy" /><img src="assets/near_0__gearbox__w_u.png" alt="gearbox_w_u" loading="lazy" />
+<img src="assets/near_0__fourbar__w_q.png" alt="fourbar_w_q" loading="lazy" /><img src="assets/near_0__gearbox__w_q.png" alt="gearbox_w_q" loading="lazy" />
+<img src="assets/near_0__fourbar__w_x.png" alt="fourbar_w_x" loading="lazy" /><img src="assets/near_0__gearbox__w_x.png" alt="gearbox_w_x" loading="lazy" />
+<img src="assets/near_0__fourbar__actuator_metric_sqrt_kappa.png" alt="fourbar_actuator_metric_sqrt_kappa" loading="lazy" /><img src="assets/near_0__gearbox__actuator_metric_sqrt_kappa.png" alt="gearbox_actuator_metric_sqrt_kappa" loading="lazy" />
+<img src="assets/near_0__fourbar__actuator_metric_kappa.png" alt="fourbar_actuator_metric_kappa" loading="lazy" /><img src="assets/near_0__gearbox__actuator_metric_kappa.png" alt="gearbox_actuator_metric_kappa" loading="lazy" />
+<img src="assets/near_0__fourbar__actuator_metric_lambda_min.png" alt="fourbar_actuator_metric_lambda_min" loading="lazy" /><img src="assets/near_0__gearbox__actuator_metric_lambda_min.png" alt="gearbox_actuator_metric_lambda_min" loading="lazy" />
+<img src="assets/near_0__fourbar__actuator_metric_lambda_max.png" alt="fourbar_actuator_metric_lambda_max" loading="lazy" /><img src="assets/near_0__gearbox__actuator_metric_lambda_max.png" alt="gearbox_actuator_metric_lambda_max" loading="lazy" />
+<img src="assets/near_0__fourbar__actuator_metric_sqrt_det.png" alt="fourbar_actuator_metric_sqrt_det" loading="lazy" /><img src="assets/near_0__gearbox__actuator_metric_sqrt_det.png" alt="gearbox_actuator_metric_sqrt_det" loading="lazy" />
+</div>
+</div>
+
+<div class="section">
+<h2>6. Direct planner paths</h2>
+<img src="assets/near_0__shared__path_lengths.png" alt="path_lengths" loading="lazy" />
+<div class="grid2">
+<img src="assets/near_0__fourbar__input_linear__path_u.png" alt="fourbar_input_linear_path_u" loading="lazy" /><img src="assets/near_0__gearbox__input_linear__path_u.png" alt="gearbox_input_linear_path_u" loading="lazy" />
+<img src="assets/near_0__fourbar__output_linear__path_u.png" alt="fourbar_output_linear_path_u" loading="lazy" /><img src="assets/near_0__gearbox__output_linear__path_u.png" alt="gearbox_output_linear_path_u" loading="lazy" />
+</div>
+</div>
+
+<div class="section">
+<h2>7. Lattice Dijkstra/A* traces and animation</h2>
+<div class="grid2">
+<img src="assets/near_0__fourbar__lattice_dijkstra__expansion.png" alt="fourbar_lattice_dijkstra_expansion" loading="lazy" /><img src="assets/near_0__gearbox__lattice_dijkstra__expansion.png" alt="gearbox_lattice_dijkstra_expansion" loading="lazy" />
+<img src="assets/near_0__fourbar__lattice_astar__expansion.png" alt="fourbar_lattice_astar_expansion" loading="lazy" /><img src="assets/near_0__gearbox__lattice_astar__expansion.png" alt="gearbox_lattice_astar_expansion" loading="lazy" />
+</div>
+<img class="anim-live" src="assets/near_0__lattice_combined__anim.gif" alt="lattice_combined_anim" loading="lazy" />
+<img class="contact-sheet" src="assets/near_0__lattice_combined__contact.png" alt="lattice_combined_anim contact" loading="lazy" />
+</div>
+
+<div class="section">
+<h2>8. Native roadmap/tree traces</h2>
+<p class="muted">Synchronized U/Q/X panels; edges reconstructed through the declared connector. Projected crossings do not invent adjacency.</p>
+<div class="grid2">
+<img src="assets/near_0__fourbar__prm__final_trace_u.png" alt="fourbar_prm_final_trace_u" loading="lazy" /><img src="assets/near_0__gearbox__prm__final_trace_u.png" alt="gearbox_prm_final_trace_u" loading="lazy" />
+<img src="assets/near_0__fourbar__prm__final_trace_q.png" alt="fourbar_prm_final_trace_q" loading="lazy" /><img src="assets/near_0__gearbox__prm__final_trace_q.png" alt="gearbox_prm_final_trace_q" loading="lazy" />
+<img src="assets/near_0__fourbar__prm__final_trace_x.png" alt="fourbar_prm_final_trace_x" loading="lazy" /><img src="assets/near_0__gearbox__prm__final_trace_x.png" alt="gearbox_prm_final_trace_x" loading="lazy" />
+<img src="assets/near_0__fourbar__rrt_connect__final_trace_u.png" alt="fourbar_rrt_connect_final_trace_u" loading="lazy" /><img src="assets/near_0__gearbox__rrt_connect__final_trace_u.png" alt="gearbox_rrt_connect_final_trace_u" loading="lazy" />
+<img src="assets/near_0__fourbar__rrt_connect__final_trace_q.png" alt="fourbar_rrt_connect_final_trace_q" loading="lazy" /><img src="assets/near_0__gearbox__rrt_connect__final_trace_q.png" alt="gearbox_rrt_connect_final_trace_q" loading="lazy" />
+<img src="assets/near_0__fourbar__rrt_connect__final_trace_x.png" alt="fourbar_rrt_connect_final_trace_x" loading="lazy" /><img src="assets/near_0__gearbox__rrt_connect__final_trace_x.png" alt="gearbox_rrt_connect_final_trace_x" loading="lazy" />
+</div>
+<img class="anim-live" src="assets/near_0__fourbar__prm__growth__anim.gif" alt="growth_anims" loading="lazy" />
+<img class="contact-sheet" src="assets/near_0__fourbar__prm__growth__contact.png" alt="growth_anims contact" loading="lazy" />
+</div>
+
+<div class="section">
+<h2>8b. Frozen shared-Q sampled-roadmap diagnostic</h2>
+<p class="muted">Same frozen Q samples and adjacency; mechanism-specific integrated actuator weights. Metric-isolation diagnostic; not native PRM and not primary performance evidence.</p>
+<div class="grid2">
+<img src="assets/near_0__fourbar__shared_q_sampled_dijkstra__expansion.png" alt="fourbar_shared_q_sampled_dijkstra_expansion" loading="lazy" /><img src="assets/near_0__gearbox__shared_q_sampled_dijkstra__expansion.png" alt="gearbox_shared_q_sampled_dijkstra_expansion" loading="lazy" />
+<img src="assets/near_0__fourbar__shared_q_sampled_astar__expansion.png" alt="fourbar_shared_q_sampled_astar_expansion" loading="lazy" /><img src="assets/near_0__gearbox__shared_q_sampled_astar__expansion.png" alt="gearbox_shared_q_sampled_astar_expansion" loading="lazy" />
+</div>
+</div>
+
+<div class="section">
+<h2>9. Optional OMPL final graph/path</h2>
+<p class="muted">Stepwise OMPL history is unavailable; final PlannerData snapshot only when bindings exist.</p>
+<div class="grid2">
+<img src="assets/near_0__fourbar__ompl_prm__path_u.png" alt="fourbar_ompl_prm_path_u" loading="lazy" /><img src="assets/near_0__gearbox__ompl_prm__path_u.png" alt="gearbox_ompl_prm_path_u" loading="lazy" />
+<img src="assets/near_0__fourbar__ompl_rrt_connect__path_u.png" alt="fourbar_ompl_rrt_connect_path_u" loading="lazy" /><img src="assets/near_0__gearbox__ompl_rrt_connect__path_u.png" alt="gearbox_ompl_rrt_connect_path_u" loading="lazy" />
+<img src="assets/near_0__fourbar__ompl_prm__unavailable.png" alt="fourbar_ompl_prm_unavailable" loading="lazy" /><img src="assets/near_0__gearbox__ompl_prm__unavailable.png" alt="gearbox_ompl_prm_unavailable" loading="lazy" />
+</div>
+</div>
+
+<div class="section">
+<h2>10. Common and family metrics</h2>
+<table>
+<tr><th>mech</th><th>planner</th><th>status</th><th>skipped</th><th>cost</th>
+<th>L_U</th><th>L_Q</th><th>L_X</th><th>J_alpha</th><th>goal_id</th>
+<th>physical residual</th></tr>
+<tr><td>fourbar</td><td>input_linear</td><td>success</td><td></td><td>0.38980915888262163</td><td>0.38980915888262163</td><td>0.21208223730253586</td><td>0.3496534145090698</td><td>0.7401203956444674</td><td>boundary_90deg</td><td>0.058799999986065776</td></tr><tr><td>gearbox</td><td>input_linear</td><td>success</td><td></td><td>0.5266834439053545</td><td>0.5266834439053545</td><td>0.21208208169836185</td><td>0.3496637767514275</td><td>1.0</td><td>boundary_90deg</td><td>0.058800000000000296</td></tr><tr><td>fourbar</td><td>output_linear</td><td>success</td><td></td><td>0.38980944827245817</td><td>0.38980944827245817</td><td>0.21208208167776252</td><td>0.34967184415321934</td><td>0.7401209451013374</td><td>boundary_90deg</td><td>0.058799999986065776</td></tr><tr><td>gearbox</td><td>output_linear</td><td>success</td><td></td><td>0.5266834439053545</td><td>0.5266834439053545</td><td>0.21208208169836176</td><td>0.34967184418927005</td><td>1.0</td><td>boundary_90deg</td><td>0.058800000000000296</td></tr><tr><td>fourbar</td><td>lattice_dijkstra</td><td>success</td><td></td><td>0.4101577869174692</td><td>0.4101577869174691</td><td>0.22317160192934116</td><td>0.3518896994172054</td><td>0.7400589943583903</td><td>boundary_90deg</td><td>0.058799999986065776</td></tr><tr><td>gearbox</td><td>lattice_dijkstra</td><td>success</td><td></td><td>0.5542230957858487</td><td>0.5542230957858488</td><td>0.2231716019171007</td><td>0.3543435820149961</td><td>1.0</td><td>boundary_90deg</td><td>0.058800000000000296</td></tr><tr><td>fourbar</td><td>lattice_astar</td><td>success</td><td></td><td>0.4101577869174692</td><td>0.4101577869174691</td><td>0.22317160192934116</td><td>0.3518896994172054</td><td>0.7400589943583903</td><td>boundary_90deg</td><td>0.058799999986065776</td></tr><tr><td>gearbox</td><td>lattice_astar</td><td>success</td><td></td><td>0.5542230957858487</td><td>0.5542230957858488</td><td>0.2231716019171007</td><td>0.3543435820149961</td><td>1.0</td><td>boundary_90deg</td><td>0.058800000000000296</td></tr><tr><td>fourbar</td><td>shared_q_sampled_dijkstra</td><td>success</td><td></td><td>0.41116240603831666</td><td>0.41116240603831666</td><td>0.22342742984712302</td><td>0.34110126875604074</td><td>0.7410222014739944</td><td>boundary_45deg</td><td>0.05879999998081906</td></tr><tr><td>gearbox</td><td>shared_q_sampled_dijkstra</td><td>success</td><td></td><td>0.5548584174947234</td><td>0.5548584174947234</td><td>0.2234274298762391</td><td>0.3411012687836472</td><td>1.0</td><td>boundary_45deg</td><td>0.058800000000000324</td></tr><tr><td>fourbar</td><td>shared_q_sampled_astar</td><td>success</td><td></td><td>0.41116240603831666</td><td>0.41116240603831666</td><td>0.22342742984712302</td><td>0.34110126875604074</td><td>0.7410222014739944</td><td>boundary_45deg</td><td>0.05879999998081906</td></tr><tr><td>gearbox</td><td>shared_q_sampled_astar</td><td>success</td><td></td><td>0.5548584174947234</td><td>0.5548584174947234</td><td>0.2234274298762391</td><td>0.3411012687836472</td><td>1.0</td><td>boundary_45deg</td><td>0.058800000000000324</td></tr><tr><td>fourbar</td><td>prm</td><td>success</td><td></td><td>0.38980915888262163</td><td>0.38980915888262163</td><td>0.21208223730253586</td><td>0.3496534145090698</td><td>0.7401203956444674</td><td>boundary_90deg</td><td>0.058799999986065776</td></tr><tr><td>gearbox</td><td>prm</td><td>success</td><td></td><td>0.5266834439053545</td><td>0.5266834439053545</td><td>0.21208208169836185</td><td>0.3496637767514275</td><td>1.0</td><td>boundary_90deg</td><td>0.058800000000000296</td></tr><tr><td>fourbar</td><td>rrt_connect</td><td>success</td><td></td><td>0.5664769431861426</td><td>0.5664769431861426</td><td>0.3081383862988327</td><td>0.4144345434341463</td><td>0.8005831489765465</td><td>boundary_135deg</td><td>0.05879999996673894</td></tr><tr><td>gearbox</td><td>rrt_connect</td><td>success</td><td></td><td>0.7075803980015296</td><td>0.7075803980015296</td><td>0.28492470290007216</td><td>0.4071769659516668</td><td>1.0</td><td>boundary_135deg</td><td>0.058799999999999936</td></tr><tr><td>fourbar</td><td>ompl_prm</td><td>unavailable</td><td>ompl_unavailable</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr><tr><td>gearbox</td><td>ompl_prm</td><td>unavailable</td><td>ompl_unavailable</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr><tr><td>fourbar</td><td>ompl_rrt_connect</td><td>unavailable</td><td>ompl_unavailable</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr><tr><td>gearbox</td><td>ompl_rrt_connect</td><td>unavailable</td><td>ompl_unavailable</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+</table>
+<h3>Lattice</h3><table><tr><th>mech</th><th>planner</th><th>expansions</th><th>generated</th><th>stale/reopened</th><th>attachments</th><th>path edges</th><th>expansions_are_total_query_work</th></tr><tr><td>fourbar</td><td>lattice_dijkstra</td><td>78</td><td>144</td><td>17</td><td>9</td><td>5</td><td>True</td></tr><tr><td>gearbox</td><td>lattice_dijkstra</td><td>80</td><td>149</td><td>11</td><td>9</td><td>5</td><td>True</td></tr><tr><td>fourbar</td><td>lattice_astar</td><td>6</td><td>24</td><td>0</td><td>9</td><td>5</td><td>True</td></tr><tr><td>gearbox</td><td>lattice_astar</td><td>8</td><td>30</td><td>1</td><td>9</td><td>5</td><td>True</td></tr></table>
+<h3>PRM (native roadmap-family control)</h3><table><tr><th>mech</th><th>requested samples</th><th>vertices</th><th>attempted edges</th><th>accepted edges</th><th>start attached</th><th>goal attachments</th><th>expansions</th></tr><tr><td>fourbar</td><td>80</td><td>80</td><td>400</td><td>400</td><td>True</td><td>727</td><td>7</td></tr><tr><td>gearbox</td><td>80</td><td>80</td><td>400</td><td>400</td><td>True</td><td>729</td><td>10</td></tr></table>
+<h3>RRTConnect</h3><table><tr><th>mech</th><th>iterations</th><th>extensions</th><th>nearest-neighbor ops</th><th>start tree</th><th>goal tree</th><th>goal-root count</th><th>selected root</th></tr><tr><td>fourbar</td><td>1</td><td>2</td><td>2</td><td>2</td><td>10</td><td>9</td><td>4</td></tr><tr><td>gearbox</td><td>1</td><td>3</td><td>3</td><td>2</td><td>11</td><td>9</td><td>4</td></tr></table>
+<h3>Frozen shared-Q sampled roadmap (metric-isolation diagnostic; not native PRM)</h3><table><tr><th>mech</th><th>planner</th><th>n_samples</th><th>vertices</th><th>edges</th><th>start attached</th><th>goal attachments</th><th>bank_mode</th><th>label</th></tr><tr><td>fourbar</td><td>shared_q_sampled_dijkstra</td><td>80</td><td>80</td><td>459</td><td>True</td><td>9</td><td>reusable</td><td>metric-isolation diagnostic; not native PRM</td></tr><tr><td>gearbox</td><td>shared_q_sampled_dijkstra</td><td>80</td><td>80</td><td>459</td><td>True</td><td>9</td><td>reusable</td><td>metric-isolation diagnostic; not native PRM</td></tr><tr><td>fourbar</td><td>shared_q_sampled_astar</td><td>80</td><td>80</td><td>459</td><td>True</td><td>9</td><td>reusable</td><td>metric-isolation diagnostic; not native PRM</td></tr><tr><td>gearbox</td><td>shared_q_sampled_astar</td><td>80</td><td>80</td><td>459</td><td>True</td><td>9</td><td>reusable</td><td>metric-isolation diagnostic; not native PRM</td></tr></table>
+</div>
+
+<div class="section">
+<h2>11. Paired differences (Δz = z_F − z_G)</h2>
+<table><tr><th>planner</th><th>field</th><th>delta</th><th>|delta|</th></tr><tr><td>input_linear</td><td>objective_cost</td><td>-0.13687428502273286</td><td>0.13687428502273286</td></tr><tr><td>input_linear</td><td>path_length_u</td><td>-0.13687428502273286</td><td>0.13687428502273286</td></tr><tr><td>input_linear</td><td>path_length_q</td><td>1.556041740180536e-07</td><td>1.556041740180536e-07</td></tr><tr><td>input_linear</td><td>path_length_x</td><td>-1.0362242357730977e-05</td><td>1.0362242357730977e-05</td></tr><tr><td>output_linear</td><td>objective_cost</td><td>-0.13687399563289632</td><td>0.13687399563289632</td></tr><tr><td>output_linear</td><td>path_length_u</td><td>-0.13687399563289632</td><td>0.13687399563289632</td></tr><tr><td>output_linear</td><td>path_length_q</td><td>-2.0599244532348848e-11</td><td>2.0599244532348848e-11</td></tr><tr><td>output_linear</td><td>path_length_x</td><td>-3.605071796641823e-11</td><td>3.605071796641823e-11</td></tr><tr><td>lattice_dijkstra</td><td>objective_cost</td><td>-0.14406530886837954</td><td>0.14406530886837954</td></tr><tr><td>lattice_dijkstra</td><td>path_length_u</td><td>-0.1440653088683797</td><td>0.1440653088683797</td></tr><tr><td>lattice_dijkstra</td><td>path_length_q</td><td>1.2240458646672892e-11</td><td>1.2240458646672892e-11</td></tr><tr><td>lattice_dijkstra</td><td>path_length_x</td><td>-0.002453882597790724</td><td>0.002453882597790724</td></tr><tr><td>lattice_astar</td><td>objective_cost</td><td>-0.14406530886837954</td><td>0.14406530886837954</td></tr><tr><td>lattice_astar</td><td>path_length_u</td><td>-0.1440653088683797</td><td>0.1440653088683797</td></tr><tr><td>lattice_astar</td><td>path_length_q</td><td>1.2240458646672892e-11</td><td>1.2240458646672892e-11</td></tr><tr><td>lattice_astar</td><td>path_length_x</td><td>-0.002453882597790724</td><td>0.002453882597790724</td></tr><tr><td>shared_q_sampled_dijkstra</td><td>objective_cost</td><td>-0.14369601145640676</td><td>0.14369601145640676</td></tr><tr><td>shared_q_sampled_dijkstra</td><td>path_length_u</td><td>-0.14369601145640676</td><td>0.14369601145640676</td></tr><tr><td>shared_q_sampled_dijkstra</td><td>path_length_q</td><td>-2.9116070665580196e-11</td><td>2.9116070665580196e-11</td></tr><tr><td>shared_q_sampled_dijkstra</td><td>path_length_x</td><td>-2.7606472663421755e-11</td><td>2.7606472663421755e-11</td></tr><tr><td>shared_q_sampled_astar</td><td>objective_cost</td><td>-0.14369601145640676</td><td>0.14369601145640676</td></tr><tr><td>shared_q_sampled_astar</td><td>path_length_u</td><td>-0.14369601145640676</td><td>0.14369601145640676</td></tr><tr><td>shared_q_sampled_astar</td><td>path_length_q</td><td>-2.9116070665580196e-11</td><td>2.9116070665580196e-11</td></tr><tr><td>shared_q_sampled_astar</td><td>path_length_x</td><td>-2.7606472663421755e-11</td><td>2.7606472663421755e-11</td></tr><tr><td>prm</td><td>objective_cost</td><td>-0.13687428502273286</td><td>0.13687428502273286</td></tr><tr><td>prm</td><td>path_length_u</td><td>-0.13687428502273286</td><td>0.13687428502273286</td></tr><tr><td>prm</td><td>path_length_q</td><td>1.556041740180536e-07</td><td>1.556041740180536e-07</td></tr><tr><td>prm</td><td>path_length_x</td><td>-1.0362242357730977e-05</td><td>1.0362242357730977e-05</td></tr><tr><td>rrt_connect</td><td>objective_cost</td><td>-0.141103454815387</td><td>0.141103454815387</td></tr><tr><td>rrt_connect</td><td>path_length_u</td><td>-0.141103454815387</td><td>0.141103454815387</td></tr><tr><td>rrt_connect</td><td>path_length_q</td><td>0.023213683398760565</td><td>0.023213683398760565</td></tr><tr><td>rrt_connect</td><td>path_length_x</td><td>0.007257577482479516</td><td>0.007257577482479516</td></tr><tr><td>ompl_prm</td><td>objective_cost</td><td></td><td></td></tr><tr><td>ompl_prm</td><td>path_length_u</td><td></td><td></td></tr><tr><td>ompl_prm</td><td>path_length_q</td><td></td><td></td></tr><tr><td>ompl_prm</td><td>path_length_x</td><td></td><td></td></tr><tr><td>ompl_rrt_connect</td><td>objective_cost</td><td></td><td></td></tr><tr><td>ompl_rrt_connect</td><td>path_length_u</td><td></td><td></td></tr><tr><td>ompl_rrt_connect</td><td>path_length_q</td><td></td><td></td></tr><tr><td>ompl_rrt_connect</td><td>path_length_x</td><td></td><td></td></tr></table>
+</div>
+
+<div class="section">
+<h2>12. Raw records and asset manifest</h2>
+<p><a href="trial.json">trial.json</a> · <a href="runs.json">runs.json</a> · <a href="../../manifest.json">manifest.json</a></p>
+</div>
+</body></html>
