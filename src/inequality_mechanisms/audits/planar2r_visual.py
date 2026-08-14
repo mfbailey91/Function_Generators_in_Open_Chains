@@ -1049,6 +1049,7 @@ __all__ = [
     "attach_composites",
     "compute_mechanism_edge_metrics",
     "edge_bundle_to_jsonable",
+    "freeze_shared_q_sampled_pair",
     "load_audit_config",
     "native_trace_connector",
     "pack_actuator_metric_on_q_panels",

@@ -77,23 +77,34 @@ def test_config_stub_declares_allowed_output_dir():
     ).resolve()
 
 
-def test_exporter_scaffold_on_temp_allowed_dir(tmp_path, monkeypatch):
+def test_exporter_writes_generated_manifest_on_allowed_dir(tmp_path, monkeypatch):
     monkeypatch.setattr(artifact_freeze, "REPO_ROOT", tmp_path)
     allowed = tmp_path / "results" / "v3_review" / V3_6C_ALLOWED_PACKAGE
-    # Exporter uses its own ROOT for default config; pass config + output.
     mod = _load_exporter()
-    # Guard uses monkeypatched REPO_ROOT from the imported freeze module.
-    # Re-bind the exporter's assert to the same module so the patch applies.
     monkeypatch.setattr(mod, "assert_v3_6c_output_allowed", assert_v3_6c_output_allowed)
 
-    rc = mod.main(["--config", str(CLOSEOUT_CONFIG), "--output", str(allowed)])
+    rc = mod.main(
+        [
+            "--config",
+            str(CLOSEOUT_CONFIG),
+            "--output",
+            str(allowed),
+            "--task-ids",
+            "near_0",
+            "--lattice-shape",
+            "6",
+            "6",
+            "--skip-animations",
+        ]
+    )
     assert rc == 0
     manifest_path = allowed / "manifest.json"
     assert manifest_path.is_file()
     man = json.loads(manifest_path.read_text(encoding="utf-8"))
-    assert man["status"] == "scaffold"
+    assert man["status"] == "generated"
+    assert man["status"] != "scaffold"
     assert "freeze_statement" in man
-    assert "V3-638" in man["note"] or "V3-639" in man["note"]
+    assert man.get("artifact_version") == "v3_6c_closeout_v1"
 
 
 def test_exporter_refuses_forbidden_path(tmp_path, monkeypatch):

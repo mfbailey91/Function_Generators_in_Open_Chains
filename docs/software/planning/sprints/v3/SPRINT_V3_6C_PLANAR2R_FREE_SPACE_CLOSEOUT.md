@@ -321,6 +321,9 @@ separate from native PRM rows.
 
 ### V3-638 — Report and regression suite
 
+**WP status:** closeout exporter + family-metric HTML + subset report tests landed
+(canonical package generation remains V3-639).
+
 Add the V3.6C config/exporter/report target, readable family metrics, raw records,
 link checks, print fallbacks, trace noninterference checks, and V1–V3.6B plus
 provisional-V3.7 regression coverage.

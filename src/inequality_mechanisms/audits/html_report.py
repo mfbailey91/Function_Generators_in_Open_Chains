@@ -40,11 +40,130 @@ def _img(rel: str, *, cls: str = "", alt: str = "") -> str:
     return f'<img{klass} src="{_esc(rel)}" alt="{_esc(alt or rel)}" loading="lazy" />'
 
 
+def _metrics(run: Mapping[str, Any]) -> dict[str, Any]:
+    raw = run.get("planner_metrics") or {}
+    return dict(raw) if isinstance(raw, Mapping) else {}
+
+
+def _nested(metrics: Mapping[str, Any], key: str) -> dict[str, Any]:
+    raw = metrics.get(key) or {}
+    return dict(raw) if isinstance(raw, Mapping) else {}
+
+
+def family_metrics_html(runs: Sequence[Mapping[str, Any]]) -> str:
+    """Compact family-specific metric tables (sprint V3.6C §7)."""
+    lattice_rows: list[str] = []
+    prm_rows: list[str] = []
+    rrt_rows: list[str] = []
+    sq_rows: list[str] = []
+    for r in runs:
+        mech = r.get("mechanism")
+        planner = str(r.get("planner") or "")
+        pm = _metrics(r)
+        if planner in ("lattice_dijkstra", "lattice_astar"):
+            g = _nested(pm, "graph")
+            path = g.get("path_node_ids") or []
+            n_edges = max(0, len(path) - 1) if isinstance(path, list) else None
+            lattice_rows.append(
+                "<tr>"
+                f"<td>{_esc(mech)}</td><td>{_esc(planner)}</td>"
+                f"<td>{_esc(g.get('expansions'))}</td>"
+                f"<td>{_esc(g.get('generated'))}</td>"
+                f"<td>{_esc(g.get('reopened_or_stale'))}</td>"
+                f"<td>{_esc(g.get('goal_set_cardinality') or g.get('requested_goal_count'))}</td>"
+                f"<td>{_esc(n_edges)}</td>"
+                f"<td>{_esc(g.get('expansions_are_total_query_work'))}</td>"
+                "</tr>"
+            )
+        elif planner == "prm":
+            rd = _nested(pm, "roadmap")
+            prm_rows.append(
+                "<tr>"
+                f"<td>{_esc(mech)}</td>"
+                f"<td>{_esc(rd.get('n_samples_requested'))}</td>"
+                f"<td>{_esc(rd.get('vertices'))}</td>"
+                f"<td>{_esc(rd.get('attempted_edges'))}</td>"
+                f"<td>{_esc(rd.get('accepted_edges'))}</td>"
+                f"<td>{_esc(rd.get('start_attached'))}</td>"
+                f"<td>{_esc(rd.get('goal_attachment_count') or rd.get('goal_candidate_count'))}</td>"
+                f"<td>{_esc(rd.get('expansions'))}</td>"
+                "</tr>"
+            )
+        elif planner == "rrt_connect":
+            tree = _nested(pm, "tree")
+            rrt_rows.append(
+                "<tr>"
+                f"<td>{_esc(mech)}</td>"
+                f"<td>{_esc(tree.get('iterations'))}</td>"
+                f"<td>{_esc(tree.get('extensions'))}</td>"
+                f"<td>{_esc(tree.get('nn_ops'))}</td>"
+                f"<td>{_esc(tree.get('start_tree_size'))}</td>"
+                f"<td>{_esc(tree.get('goal_tree_size'))}</td>"
+                f"<td>{_esc(tree.get('goal_root_count'))}</td>"
+                f"<td>{_esc(tree.get('selected_goal_root_index'))}</td>"
+                "</tr>"
+            )
+        elif planner.startswith("shared_q_sampled"):
+            sq = _nested(pm, "shared_q_sampled_roadmap")
+            sq_rows.append(
+                "<tr>"
+                f"<td>{_esc(mech)}</td><td>{_esc(planner)}</td>"
+                f"<td>{_esc(sq.get('n_samples'))}</td>"
+                f"<td>{_esc(sq.get('vertices'))}</td>"
+                f"<td>{_esc(sq.get('edges'))}</td>"
+                f"<td>{_esc(sq.get('start_attached'))}</td>"
+                f"<td>{_esc(sq.get('goal_attachment_count') or sq.get('goal_candidate_count'))}</td>"
+                f"<td>{_esc(sq.get('bank_mode'))}</td>"
+                f"<td>{_esc(sq.get('diagnostic_label'))}</td>"
+                "</tr>"
+            )
+
+    parts: list[str] = []
+    if lattice_rows:
+        parts.append(
+            "<h3>Lattice</h3>"
+            "<table><tr><th>mech</th><th>planner</th><th>expansions</th>"
+            "<th>generated</th><th>stale/reopened</th><th>attachments</th>"
+            "<th>path edges</th><th>expansions_are_total_query_work</th></tr>"
+            + "".join(lattice_rows)
+            + "</table>"
+        )
+    if prm_rows:
+        parts.append(
+            "<h3>PRM (native roadmap-family control)</h3>"
+            "<table><tr><th>mech</th><th>requested samples</th><th>vertices</th>"
+            "<th>attempted edges</th><th>accepted edges</th><th>start attached</th>"
+            "<th>goal attachments</th><th>expansions</th></tr>"
+            + "".join(prm_rows)
+            + "</table>"
+        )
+    if rrt_rows:
+        parts.append(
+            "<h3>RRTConnect</h3>"
+            "<table><tr><th>mech</th><th>iterations</th><th>extensions</th>"
+            "<th>nearest-neighbor ops</th><th>start tree</th><th>goal tree</th>"
+            "<th>goal-root count</th><th>selected root</th></tr>"
+            + "".join(rrt_rows)
+            + "</table>"
+        )
+    if sq_rows:
+        parts.append(
+            "<h3>Frozen shared-Q sampled roadmap (metric-isolation diagnostic; not native PRM)</h3>"
+            "<table><tr><th>mech</th><th>planner</th><th>n_samples</th>"
+            "<th>vertices</th><th>edges</th><th>start attached</th>"
+            "<th>goal attachments</th><th>bank_mode</th><th>label</th></tr>"
+            + "".join(sq_rows)
+            + "</table>"
+        )
+    return "\n".join(parts)
+
+
 def write_architecture_html(
     out_path: Path,
     *,
     provenance: Mapping[str, Any],
     ownership: Sequence[Mapping[str, str]],
+    report_title: str = "V3.6B Architecture",
 ) -> Path:
     """Write architecture/provenance page."""
     rows = "".join(
@@ -53,7 +172,7 @@ def write_architecture_html(
         for r in ownership
     )
     body = f"""<!DOCTYPE html>
-<html lang="en"><head><meta charset="utf-8"/><title>V3.6B Architecture</title>
+<html lang="en"><head><meta charset="utf-8"/><title>{_esc(report_title)}</title>
 <style>{PRINT_CSS}</style></head><body>
 <nav><a href="index.html">Index</a></nav>
 <h1>Architecture and provenance</h1>
@@ -122,8 +241,13 @@ def write_trial_html(
         f"<td>{_esc(r.get('path_length_x'))}</td>"
         f"<td>{_esc((r.get('composite') or {}).get('J_alpha'))}</td>"
         f"<td>{_esc(r.get('selected_goal_sample_id'))}</td>"
+        f"<td>{_esc(r.get('final_goal_residual'))}</td>"
         "</tr>"
         for r in runs
+    )
+    family_html = family_metrics_html(runs)
+    has_shared_q = any(
+        str(r.get("planner") or "").startswith("shared_q_sampled") for r in runs
     )
     delta_rows = "".join(
         f"<tr><td>{_esc(d.get('planner'))}</td><td>{_esc(d.get('field'))}</td>"
@@ -224,7 +348,20 @@ Anisotropy is not Cartesian dexterity and is not path cost.
 </div>
 {asset('growth_anims', anim=True)}
 </div>
-
+"""
+    shared_q_section = ""
+    if has_shared_q:
+        shared_q_section = f"""
+<div class="section">
+<h2>8b. Frozen shared-Q sampled-roadmap diagnostic</h2>
+<p class="muted">Same frozen Q samples and adjacency; mechanism-specific integrated actuator weights. Metric-isolation diagnostic; not native PRM and not primary performance evidence.</p>
+<div class="grid2">
+{asset('fourbar_shared_q_sampled_dijkstra_expansion')}{asset('gearbox_shared_q_sampled_dijkstra_expansion')}
+{asset('fourbar_shared_q_sampled_astar_expansion')}{asset('gearbox_shared_q_sampled_astar_expansion')}
+</div>
+</div>
+"""
+    body = body + shared_q_section + f"""
 <div class="section">
 <h2>9. Optional OMPL final graph/path</h2>
 <p class="muted">Stepwise OMPL history is unavailable; final PlannerData snapshot only when bindings exist.</p>
@@ -239,9 +376,11 @@ Anisotropy is not Cartesian dexterity and is not path cost.
 <h2>10. Common and family metrics</h2>
 <table>
 <tr><th>mech</th><th>planner</th><th>status</th><th>skipped</th><th>cost</th>
-<th>L_U</th><th>L_Q</th><th>L_X</th><th>J_alpha</th><th>goal_id</th></tr>
+<th>L_U</th><th>L_Q</th><th>L_X</th><th>J_alpha</th><th>goal_id</th>
+<th>physical residual</th></tr>
 {run_rows}
 </table>
+{family_html}
 </div>
 
 <div class="section">
@@ -266,6 +405,7 @@ def write_index_html(
     provenance: Mapping[str, Any],
     summary_rows: Sequence[Mapping[str, Any]],
     task_ids: Sequence[str],
+    report_title: str = "V3.6B Planar 2R Visual Audit",
 ) -> Path:
     """Write audit index with navigation and compact paired summary."""
     nav = "".join(f'<li><a href="trials/{_esc(t)}/index.html">{_esc(t)}</a></li>' for t in task_ids)
@@ -280,9 +420,9 @@ def write_index_html(
         for r in summary_rows
     )
     body = f"""<!DOCTYPE html>
-<html lang="en"><head><meta charset="utf-8"/><title>V3.6B Planar 2R Visual Audit</title>
+<html lang="en"><head><meta charset="utf-8"/><title>{_esc(report_title)}</title>
 <style>{PRINT_CSS}</style></head><body>
-<h1>V3.6B Planar 2R Visual Audit</h1>
+<h1>{_esc(report_title)}</h1>
 <p><strong>No-inference:</strong> {_esc(provenance.get("no_inference_statement"))}</p>
 <p>Git <code>{_esc(provenance.get("git_revision"))}</code> · seed {_esc(provenance.get("seed"))} ·
 OMPL {_esc(provenance.get("ompl_available"))} ({_esc(provenance.get("ompl_version"))})</p>
@@ -307,9 +447,10 @@ def build_manifest(
     task_ids: Sequence[str],
     assets: Sequence[Mapping[str, Any]],
     root: Path,
+    extra: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Assemble manifest.json payload."""
-    return {
+    payload: dict[str, Any] = {
         "audit_id": provenance.get("audit_id"),
         "schema_version": 1,
         "git_revision": provenance.get("git_revision"),
@@ -324,6 +465,9 @@ def build_manifest(
         "generated_at_utc": datetime.now(timezone.utc).isoformat(),
         "root": str(root),
     }
+    if extra:
+        payload.update(dict(extra))
+    return payload
 
 
 DEFAULT_OWNERSHIP = (
@@ -340,6 +484,7 @@ __all__ = [
     "DEFAULT_OWNERSHIP",
     "PRINT_CSS",
     "build_manifest",
+    "family_metrics_html",
     "write_architecture_html",
     "write_index_html",
     "write_trial_html",
