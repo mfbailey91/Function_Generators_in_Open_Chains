@@ -64,19 +64,31 @@ def family_metrics_html(runs: Sequence[Mapping[str, Any]]) -> str:
             g = _nested(pm, "graph")
             path = g.get("path_node_ids") or []
             n_edges = max(0, len(path) - 1) if isinstance(path, list) else None
+            unique_goal_nodes = g.get(
+                "unique_goal_node_count", g.get("goal_set_cardinality")
+            )
             lattice_rows.append(
                 "<tr>"
                 f"<td>{_esc(mech)}</td><td>{_esc(planner)}</td>"
                 f"<td>{_esc(g.get('expansions'))}</td>"
                 f"<td>{_esc(g.get('generated'))}</td>"
                 f"<td>{_esc(g.get('reopened_or_stale'))}</td>"
-                f"<td>{_esc(g.get('goal_set_cardinality') or g.get('requested_goal_count'))}</td>"
+                f"<td>{_esc(g.get('requested_goal_count'))}</td>"
+                f"<td>{_esc(g.get('attached_goal_candidate_count'))}</td>"
+                f"<td>{_esc(unique_goal_nodes)}</td>"
+                f"<td>{_esc(g.get('goal_set_attachment_complete'))}</td>"
                 f"<td>{_esc(n_edges)}</td>"
                 f"<td>{_esc(g.get('expansions_are_total_query_work'))}</td>"
                 "</tr>"
             )
         elif planner == "prm":
             rd = _nested(pm, "roadmap")
+            start_attachment_count = rd.get(
+                "start_attachment_count", rd.get("start_attached")
+            )
+            goal_attachment_count = rd.get(
+                "goal_attachment_count", rd.get("goal_candidate_count")
+            )
             prm_rows.append(
                 "<tr>"
                 f"<td>{_esc(mech)}</td>"
@@ -84,8 +96,11 @@ def family_metrics_html(runs: Sequence[Mapping[str, Any]]) -> str:
                 f"<td>{_esc(rd.get('vertices'))}</td>"
                 f"<td>{_esc(rd.get('attempted_edges'))}</td>"
                 f"<td>{_esc(rd.get('accepted_edges'))}</td>"
-                f"<td>{_esc(rd.get('start_attached'))}</td>"
-                f"<td>{_esc(rd.get('goal_attachment_count') or rd.get('goal_candidate_count'))}</td>"
+                f"<td>{_esc(start_attachment_count)}</td>"
+                f"<td>{_esc(goal_attachment_count)}</td>"
+                f"<td>{_esc(rd.get('query_unique_edges_attempted'))}</td>"
+                f"<td>{_esc(rd.get('query_unique_edges_accepted'))}</td>"
+                f"<td>{_esc(rd.get('query_duplicate_edge_reuses'))}</td>"
                 f"<td>{_esc(rd.get('expansions'))}</td>"
                 "</tr>"
             )
@@ -123,8 +138,10 @@ def family_metrics_html(runs: Sequence[Mapping[str, Any]]) -> str:
         parts.append(
             "<h3>Lattice</h3>"
             "<table><tr><th>mech</th><th>planner</th><th>expansions</th>"
-            "<th>generated</th><th>stale/reopened</th><th>attachments</th>"
-            "<th>path edges</th><th>expansions_are_total_query_work</th></tr>"
+            "<th>generated</th><th>stale/reopened</th><th>requested goals</th>"
+            "<th>attached candidates</th><th>unique goal nodes</th>"
+            "<th>attachment complete</th><th>path edges</th>"
+            "<th>expansions_are_total_query_work</th></tr>"
             + "".join(lattice_rows)
             + "</table>"
         )
@@ -132,8 +149,11 @@ def family_metrics_html(runs: Sequence[Mapping[str, Any]]) -> str:
         parts.append(
             "<h3>PRM (native roadmap-family control)</h3>"
             "<table><tr><th>mech</th><th>requested samples</th><th>vertices</th>"
-            "<th>attempted edges</th><th>accepted edges</th><th>start attached</th>"
-            "<th>goal attachments</th><th>expansions</th></tr>"
+            "<th>attempted edges</th><th>accepted edges</th>"
+            "<th>start attachments</th>"
+            "<th>goal attachments</th><th>query unique attempted</th>"
+            "<th>query unique accepted</th><th>duplicate pair reuses</th>"
+            "<th>expansions</th></tr>"
             + "".join(prm_rows)
             + "</table>"
         )
