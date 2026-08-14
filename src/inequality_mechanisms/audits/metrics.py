@@ -1,4 +1,4 @@
-"""U/Q/X edge and field metrics for the planar-2R visual audit (V3-623)."""
+"""U/Q/X edge and field metrics for the planar-2R visual audit (V3-623 / V3-636)."""
 
 from __future__ import annotations
 
@@ -36,15 +36,57 @@ class EdgeWeightRecord:
 
 
 @dataclass(frozen=True, slots=True)
-class FieldScalarRecord:
-    """Scalar differential diagnostics at one lattice node."""
+class ActuatorMetricOnQRecord:
+    """Actuator-travel metric expressed in Q at one lattice node (V3-636).
+
+    For the operating-branch map ``q = g(u)``,
+
+    .. math::
+
+        M_Q^{(U)}(q) = J_{g^{-1}}(q)^\\mathsf T J_{g^{-1}}(q),
+        \\qquad
+        ds_U^2 = dq^\\mathsf T M_Q^{(U)} dq.
+
+    ``kappa`` is ``lambda_max / lambda_min``; ``sqrt_kappa`` is the directional
+    actuator-cost ratio. Legacy ``m_q_*`` properties remain for V3.6B callers.
+    """
 
     node_id: int
     q: tuple[float, ...]
-    m_q_diag: tuple[float, ...]
-    m_q_det: float
-    m_q_cond: float
+    lambda_min: float
+    lambda_max: float
+    sqrt_det: float
+    kappa: float
+    sqrt_kappa: float
+    eigenvectors: tuple[tuple[float, ...], ...]
     j_ux_fro: float
+    m_q_diag: tuple[float, ...]
+
+    @property
+    def m_q_det(self) -> float:
+        """Determinant of ``M_Q^{(U)}`` (product of eigenvalues)."""
+        return float(self.sqrt_det * self.sqrt_det)
+
+    @property
+    def m_q_cond(self) -> float:
+        """Legacy alias for ``kappa`` (condition number of ``M_Q^{(U)}``)."""
+        return float(self.kappa)
+
+    def actuator_metric_on_q_dict(self) -> dict[str, Any]:
+        """Serialize the fresh ``actuator_metric_on_q`` payload."""
+        return {
+            "lambda_min": self.lambda_min,
+            "lambda_max": self.lambda_max,
+            "sqrt_det": self.sqrt_det,
+            "kappa": self.kappa,
+            "sqrt_kappa": self.sqrt_kappa,
+            "eigenvectors": [list(v) for v in self.eigenvectors],
+            "j_ux_fro": self.j_ux_fro,
+        }
+
+
+# Backward-compatible name used by V3.6B call sites.
+FieldScalarRecord = ActuatorMetricOnQRecord
 
 
 @dataclass(frozen=True, slots=True)
@@ -52,8 +94,22 @@ class LatticeMetricBundle:
     """Edge weights and node fields for one mechanism lattice."""
 
     edges: tuple[EdgeWeightRecord, ...]
-    fields: tuple[FieldScalarRecord, ...]
+    fields: tuple[ActuatorMetricOnQRecord, ...]
     connector_id: str
+
+
+def ellipse_semi_axes_from_eigenvalues(
+    eigenvalues: Sequence[float],
+    *,
+    eps: float = EPS,
+) -> NDArray[np.float64]:
+    """Return metric-ellipse semi-axis lengths ``1 / sqrt(lambda_i)``.
+
+    The unit-cost ellipse ``{dq : dq^T M dq = 1}`` has semi-axes
+    ``1/sqrt(lambda_i)`` along the eigenvectors of ``M``.
+    """
+    lam = np.asarray(eigenvalues, dtype=np.float64).reshape(-1)
+    return 1.0 / np.sqrt(np.maximum(lam, eps))
 
 
 def _polyline_length(samples: NDArray[np.float64]) -> float:
@@ -140,13 +196,14 @@ def compute_node_fields(
     robot: RobotModel,
     *,
     assembly_state: Mapping[str, Any] | None = None,
-) -> list[FieldScalarRecord]:
-    """Compute independent-axis scalar fields from ``M_Q`` and ``J_u→x``."""
+    eps: float = EPS,
+) -> list[ActuatorMetricOnQRecord]:
+    """Compute ``actuator_metric_on_q`` fields via ``M = Jinv.T @ Jinv`` + ``eigh``."""
     branch = getattr(robot, "branch", None)
     if branch is None:
         raise TypeError("robot must expose an operating branch for field metrics")
     assembly = dict(assembly_state or {})
-    out: list[FieldScalarRecord] = []
+    out: list[ActuatorMetricOnQRecord] = []
     for node_id in range(graph.node_count):
         if not graph.node_is_valid(node_id):
             continue
@@ -154,24 +211,40 @@ def compute_node_fields(
         u = np.asarray(graph.u_state(node_id), dtype=np.float64)
         state = PhysicalState(u=u, q=q, assembly_state=assembly)
         j_g = np.asarray(branch.jacobian(u), dtype=np.float64)
-        j_g_inv = np.linalg.inv(j_g)
+        try:
+            j_g_inv = np.linalg.inv(j_g)
+        except np.linalg.LinAlgError:
+            j_g_inv = np.linalg.pinv(j_g)
         m_q = j_g_inv.T @ j_g_inv
+        m_q = 0.5 * (m_q + m_q.T)
+        evals, evecs = np.linalg.eigh(m_q)
+        evals = np.asarray(evals, dtype=np.float64)
+        # Guard tiny / non-positive eigenvalues from roundoff.
+        evals_pos = np.maximum(evals, eps)
+        lambda_min = float(evals_pos[0])
+        lambda_max = float(evals_pos[-1])
+        kappa = float(lambda_max / max(lambda_min, eps))
+        sqrt_kappa = float(np.sqrt(max(kappa, eps)))
+        det_guarded = float(np.prod(evals_pos))
+        sqrt_det = float(np.sqrt(max(det_guarded, eps)))
         j_f = np.asarray(robot.jacobian_q_to_x(state), dtype=np.float64)
         j_ux = j_f @ j_g
         diag = tuple(float(m_q[i, i]) for i in range(m_q.shape[0]))
-        det = float(np.linalg.det(m_q))
-        try:
-            cond = float(np.linalg.cond(m_q))
-        except np.linalg.LinAlgError:
-            cond = float("inf")
+        evec_cols = tuple(
+            tuple(float(x) for x in evecs[:, i]) for i in range(evecs.shape[1])
+        )
         out.append(
-            FieldScalarRecord(
+            ActuatorMetricOnQRecord(
                 node_id=int(node_id),
                 q=tuple(float(v) for v in q),
-                m_q_diag=diag,
-                m_q_det=det,
-                m_q_cond=cond,
+                lambda_min=lambda_min,
+                lambda_max=lambda_max,
+                sqrt_det=sqrt_det,
+                kappa=kappa,
+                sqrt_kappa=sqrt_kappa,
+                eigenvectors=evec_cols,
                 j_ux_fro=float(np.linalg.norm(j_ux, ord="fro")),
+                m_q_diag=diag,
             )
         )
     return out
@@ -237,7 +310,12 @@ def composite_j_alpha(
 
 
 def edge_bundle_to_jsonable(bundle: LatticeMetricBundle) -> dict[str, Any]:
-    """Serialize a lattice metric bundle."""
+    """Serialize a lattice metric bundle.
+
+    Fresh node fields expose ``actuator_metric_on_q`` (V3-636). Legacy
+    ``m_q_*`` keys remain as aliases for callers that still read them. This
+    writer must not be used to overwrite frozen V3.6B metric JSON.
+    """
     return {
         "connector_id": bundle.connector_id,
         "edges": [
@@ -256,6 +334,7 @@ def edge_bundle_to_jsonable(bundle: LatticeMetricBundle) -> dict[str, Any]:
             {
                 "node_id": f.node_id,
                 "q": list(f.q),
+                "actuator_metric_on_q": f.actuator_metric_on_q_dict(),
                 "m_q_diag": list(f.m_q_diag),
                 "m_q_det": f.m_q_det,
                 "m_q_cond": f.m_q_cond,
@@ -268,12 +347,14 @@ def edge_bundle_to_jsonable(bundle: LatticeMetricBundle) -> dict[str, Any]:
 
 __all__ = [
     "EPS",
+    "ActuatorMetricOnQRecord",
     "EdgeWeightRecord",
     "FieldScalarRecord",
     "LatticeMetricBundle",
     "composite_j_alpha",
     "compute_node_fields",
     "edge_bundle_to_jsonable",
+    "ellipse_semi_axes_from_eigenvalues",
     "integrate_edge_weights",
     "path_lengths",
     "path_metrics_from_motion_samples",

@@ -1,0 +1,152 @@
+{
+  "audit_id": "planar2r_closeout_v1",
+  "schema_version": 1,
+  "architecture_version": 3,
+  "description": "Sprint V3.6C planar-2R free-space closeout. Ten-task implementation repair and readable audit only; not a population experiment, not a rewrite of frozen V3.6/V3.6B evidence, and not a mechanism-performance claim.",
+  "no_inference_statement": "This closeout does not support inferential statistics, stochastic repetition estimates, or ranking mechanisms by a hidden composite. Static print panels are authoritative; animations are supplementary. Failures remain in the report; tasks are not replaced after seeing outcomes. Frozen V3.6 and V3.6B packages are not regenerated.",
+  "source_bank": {
+    "contract_path": "free_space_planar2r_v2.json",
+    "bank_id": "free_space_planar2r_v2",
+    "reuse_only": true,
+    "do_not_edit": true
+  },
+  "mechanisms": {
+    "pair": ["fourbar", "gearbox"],
+    "fourbar": {
+      "kind": "crank_rocker",
+      "a": 1.0,
+      "b": 2.5,
+      "c": 2.0,
+      "d": 2.0,
+      "branch": 1
+    },
+    "gearbox": {
+      "kind": "span_matched_equivalent_gearbox"
+    },
+    "kinematics": {
+      "model": "Planar2R",
+      "L1": 1.0,
+      "L2": 1.0
+    }
+  },
+  "task_ids": [
+    "near_0",
+    "near_1",
+    "near_2",
+    "near_3",
+    "near_4",
+    "far_0",
+    "far_1",
+    "far_2",
+    "far_3",
+    "far_4"
+  ],
+  "seed": 7,
+  "lattice": {
+    "shape": [32, 32],
+    "connectivity": "chebyshev_1",
+    "edge_cost_mode": "integrated",
+    "edge_n_samples": 16,
+    "note": "Audit resolution only; not scientific evidence resolution. Connector quadrature uses 16 samples for tractable 32x32 integrated weights."
+  },
+  "planners": [
+    "input_linear",
+    "output_linear",
+    "lattice_dijkstra",
+    "lattice_astar",
+    "shared_q_sampled_dijkstra",
+    "shared_q_sampled_astar",
+    "prm",
+    "rrt_connect",
+    "ompl_prm",
+    "ompl_rrt_connect"
+  ],
+  "planner_settings": {
+    "shared_q_sampled_roadmap": {
+      "n_samples": 80,
+      "k_neighbors": 10,
+      "max_edge_q": 0.75,
+      "bank_mode": "reusable",
+      "edge_n_samples": 16,
+      "diagnostic_label": "metric-isolation diagnostic; not native PRM"
+    },
+    "prm": {
+      "n_samples": 80,
+      "k_neighbors": 10,
+      "max_edge_u": 1.25
+    },
+    "rrt_connect": {
+      "max_iterations": 800,
+      "step_u": 0.35,
+      "goal_bias": 0.1
+    },
+    "ompl": {
+      "solve_time_s": 2.0,
+      "stepwise_history": "unavailable"
+    },
+    "max_goal_candidates": 32
+  },
+  "animation_policy": {
+    "lattice_combined_per_trial": true,
+    "roadmap_tree_growth_task_ids": ["near_0", "near_3", "far_2"],
+    "contact_sheet_fractions": [0.0, 0.25, 0.5, 0.75, 1.0],
+    "format": "gif_matplotlib_pillow",
+    "authoritative": "static_print_panels"
+  },
+  "delta_convention": {
+    "expression": "delta_z = z_fourbar - z_gearbox",
+    "report_absolute_differences_before_ratios": true
+  },
+  "composite_diagnostic": {
+    "name": "J_alpha",
+    "formula": "J_alpha = alpha_U * L_U_hat + alpha_Q * L_Q_hat + alpha_X * L_X_hat",
+    "weights": {
+      "alpha_U": 1.0,
+      "alpha_Q": 0.0,
+      "alpha_X": 0.0
+    },
+    "normalization": {
+      "mode": "per_trial_max_abs_across_mechanisms",
+      "epsilon": 1e-12,
+      "note": "Hats are |L| / max(|L_fourbar|, |L_gearbox|, epsilon) within the trial for the same planner. Diagnostic only; not a ranking objective."
+    }
+  },
+  "artifact_contract": {
+    "output_dir": "results/v3_review/v3_6c_planar2r_closeout",
+    "layout": [
+      "index.html",
+      "architecture.html",
+      "manifest.json",
+      "summary.json",
+      "assets/",
+      "trials/{task_id}/index.html"
+    ],
+    "asset_naming": {
+      "pattern": "{task_id}__{mechanism}__{planner}__{panel}.{ext}",
+      "shared_pattern": "{task_id}__shared__{panel}.{ext}",
+      "animation_pattern": "{task_id}__{kind}__anim.{ext}",
+      "contact_sheet_pattern": "{task_id}__{kind}__contact.png"
+    },
+    "manifest_fields": [
+      "audit_id",
+      "schema_version",
+      "git_revision",
+      "dependency_versions",
+      "ompl_available",
+      "ompl_version",
+      "config_path",
+      "task_ids",
+      "seed",
+      "assets",
+      "trials",
+      "generated_at_utc"
+    ],
+    "offline": true,
+    "no_cdn": true,
+    "print_css": {
+      "page_breaks_between_sections": true,
+      "hide_live_animations": true,
+      "show_contact_sheets": true
+    }
+  }
+}

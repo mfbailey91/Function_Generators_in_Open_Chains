@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from typing import Any
 
 import numpy as np
@@ -19,7 +20,7 @@ from inequality_mechanisms.core.local_motion import (
 )
 from inequality_mechanisms.core.problem import PlanningProblem
 from inequality_mechanisms.core.robot import RobotModel
-from inequality_mechanisms.core.state import PhysicalState
+from inequality_mechanisms.core.state import PhysicalState, StateCandidate
 
 
 def actuator_bounds(robot: RobotModel) -> tuple[NDArray[np.float64], NDArray[np.float64]]:
@@ -91,6 +92,45 @@ def direct_connector_available(
     return False, motion_checks
 
 
+def select_goal_candidates(
+    problem: PlanningProblem,
+    *,
+    goal_generator: GoalStateGenerator | None,
+    max_candidates: int,
+    rng: Generator | None = None,
+) -> list[StateCandidate]:
+    """Return scene-valid goal candidates preserving generator provenance."""
+    goal = problem.goal
+    if isinstance(goal, ExactOutputGoal):
+        cands = list(problem.robot.states_from_output(goal.q_goal))
+        out: list[StateCandidate] = []
+        for cand in cands:
+            if not problem.scene.state_is_valid(cand.state):
+                continue
+            provenance = {
+                **dict(cand.provenance),
+                "candidate_generator_id": "exact_output_ik",
+            }
+            if "goal_sample_id" not in provenance:
+                provenance["goal_sample_id"] = "exact_output"
+            out.append(
+                StateCandidate(
+                    state=cand.state,
+                    residual=float(cand.residual),
+                    provenance=provenance,
+                )
+            )
+            if len(out) >= max_candidates:
+                break
+        return out
+    if goal_generator is None:
+        raise ValueError("goal_generator required for non-exact goals")
+    seed = None if rng is None else int(rng.integers(0, 2**31 - 1))
+    request = GoalSamplingRequest(max_candidates=max_candidates, seed=seed)
+    cands = list(goal_generator.generate(problem.robot, goal, request))
+    return [c for c in cands if problem.scene.state_is_valid(c.state)]
+
+
 def select_goal_states(
     problem: PlanningProblem,
     *,
@@ -98,18 +138,33 @@ def select_goal_states(
     max_candidates: int,
     rng: Generator | None = None,
 ) -> list[PhysicalState]:
-    """Return physical goal candidates for ExactOutputGoal or CartesianDiskGoal."""
-    goal = problem.goal
-    if isinstance(goal, ExactOutputGoal):
-        cands = list(problem.robot.states_from_output(goal.q_goal))
-        out = [c.state for c in cands if problem.scene.state_is_valid(c.state)]
-        return out[:max_candidates]
-    if goal_generator is None:
-        raise ValueError("goal_generator required for non-exact goals")
-    seed = None if rng is None else int(rng.integers(0, 2**31 - 1))
-    request = GoalSamplingRequest(max_candidates=max_candidates, seed=seed)
-    cands = list(goal_generator.generate(problem.robot, goal, request))
-    return [c.state for c in cands if problem.scene.state_is_valid(c.state)]
+    """Return physical goal states (shim over ``select_goal_candidates``)."""
+    return [
+        c.state
+        for c in select_goal_candidates(
+            problem,
+            goal_generator=goal_generator,
+            max_candidates=max_candidates,
+            rng=rng,
+        )
+    ]
+
+
+def match_selected_candidate(
+    candidates: Sequence[StateCandidate],
+    selected: PhysicalState,
+    *,
+    atol: float = 1e-9,
+) -> StateCandidate | None:
+    """Return the candidate whose state matches ``selected`` in U (then Q)."""
+    for cand in candidates:
+        if np.allclose(cand.state.u, selected.u, rtol=0.0, atol=atol):
+            if np.allclose(cand.state.q, selected.q, rtol=0.0, atol=atol):
+                return cand
+    for cand in candidates:
+        if np.allclose(cand.state.u, selected.u, rtol=0.0, atol=atol):
+            return cand
+    return None
 
 
 def path_cost_u(states: tuple[PhysicalState, ...]) -> float:
@@ -135,4 +190,3 @@ def path_length_x(
     from inequality_mechanisms.core.trajectory_metrics import path_metrics_from_states
 
     return path_metrics_from_states(states, robot=robot).length_x
-

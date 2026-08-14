@@ -21,7 +21,9 @@ from inequality_mechanisms.search.protocol import EdgeCost, Heuristic
 from inequality_mechanisms.search.v2_objectives import (
     V2PlanningObjective,
     actuator_travel_edge_cost,
+    input_euclidean_goal_set_heuristic_v2,
     input_euclidean_heuristic_v2,
+    resolve_v2_goal_set_objective,
     resolve_v2_objective,
     zero_heuristic_v2,
 )
@@ -174,4 +176,67 @@ def resolve_lattice_search_objective(
         heuristic=heuristic,
         cost_name="actuator_travel_integrated",
         heuristic_name="input_euclidean" if algorithm == "astar" else "zero",
+    )
+
+
+def resolve_lattice_goal_set_objective(
+    graph: Any,
+    goal_node_ids: tuple[int, ...] | list[int] | set[int],
+    *,
+    edge_cost_mode: EdgeCostMode,
+    robot: RobotModel,
+    algorithm: str,
+    scene: PlanningScene | None = None,
+    n_samples: int = 32,
+    assembly_state: dict[str, Any] | None = None,
+    shared_edge_cost: EdgeCost | None = None,
+) -> V2PlanningObjective:
+    """Return Dijkstra/A* objective for one represented goal-set query.
+
+    Dijkstra uses ``h=0``. A* uses ADR-020 ``input_euclidean_goal_set``.
+    Endpoint mode reuses ``resolve_v2_goal_set_objective``. Integrated mode
+    wraps continuous connector costs (optionally reusing a base-lattice
+    ``shared_edge_cost`` for base-to-base edges).
+    """
+    goals = tuple(sorted({int(n) for n in goal_node_ids}))
+    if not goals:
+        raise ValueError("goal_node_ids must contain at least one node")
+    h_name = "input_euclidean_goal_set" if algorithm == "astar" else "zero"
+    if edge_cost_mode == "endpoint":
+        return resolve_v2_goal_set_objective(
+            graph,
+            goals,
+            cost_name="actuator_travel",
+            heuristic_name=h_name,
+        )
+
+    base = getattr(graph, "base", None)
+    base_n = int(base.node_count) if base is not None else int(graph.node_count)
+    integrated = integrated_actuator_edge_cost(
+        graph,
+        robot,
+        scene=scene,
+        n_samples=n_samples,
+        assembly_state=assembly_state,
+    )
+    if shared_edge_cost is None:
+        edge: EdgeCost = integrated
+    else:
+        shared = shared_edge_cost
+
+        def edge(a: int, b: int, _base_n: int = base_n) -> float:
+            if a < _base_n and b < _base_n:
+                return float(shared(a, b))
+            return float(integrated(a, b))
+
+    heuristic: Heuristic
+    if algorithm == "astar":
+        heuristic = input_euclidean_goal_set_heuristic_v2(graph, goals)
+    else:
+        heuristic = zero_heuristic_v2
+    return V2PlanningObjective(
+        edge_cost=edge,
+        heuristic=heuristic,
+        cost_name="actuator_travel_integrated",
+        heuristic_name=h_name,
     )

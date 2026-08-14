@@ -36,7 +36,29 @@ from inequality_mechanisms.graphs.topology import (
     TensorGridTopology,
 )
 from inequality_mechanisms.graphs.transitions import EdgeTraceV2, build_edge_trace_v2
-from inequality_mechanisms.graphs.query_overlay import QueryOverlayGraph, QueryNode
+from inequality_mechanisms.graphs.goal_set_query_overlay import (
+    GoalSetQueryOverlay,
+    QueryAttachment,
+)
+from inequality_mechanisms.graphs.sampled_q_query_overlay import (
+    SampledQQueryAttachment,
+    SampledQQueryOverlay,
+    assert_identical_sampled_q_query_overlays,
+)
+from inequality_mechanisms.graphs.sampled_q_roadmap import (
+    FrozenQSampleBank,
+    SampledQRoadmapGraph,
+    assert_identical_sampled_q_graphs,
+    embed_paired_sampled_q_roadmaps,
+    embed_sampled_q_roadmap,
+    freeze_reusable_q_sample_bank,
+)
+from inequality_mechanisms.graphs.query_overlay import (
+    QueryNode,
+    QueryOverlayGraph,
+    ResolvedQueryEndpoint,
+    resolve_query_endpoint,
+)
 from inequality_mechanisms.graphs.validation import (
     ConstrainedInputGraph,
     configuration_is_valid,
@@ -50,23 +72,35 @@ __all__ = [
     "ConstrainedInputSearchAdapter",
     "EdgeTraceV2",
     "EmbeddedPlanningGraph",
+    "FrozenQSampleBank",
+    "GoalSetQueryOverlay",
     "GraphTopology",
     "GridNode",
     "KNOWN_COST_TYPES",
     "LatticeConnectivity",
     "MonotonicOutputGraph",
     "PeriodicGrid2D",
+    "QueryAttachment",
+    "QueryNode",
+    "QueryOverlayGraph",
+    "ResolvedQueryEndpoint",
+    "SampledQQueryAttachment",
+    "SampledQQueryOverlay",
+    "SampledQRoadmapGraph",
     "SamplingDomain",
     "SamplingSpecification",
     "SharedQPairInvariantError",
     "SharedQPairInvariantReport",
     "TensorGridTopology",
     "TransitionParameterization",
-    "QueryNode",
-    "QueryOverlayGraph",
     "UniformOutputLattice",
     "assert_identical_query_overlays",
+    "assert_identical_sampled_q_graphs",
+    "assert_identical_sampled_q_query_overlays",
     "assert_shared_q_pair_invariants",
+    "embed_paired_sampled_q_roadmaps",
+    "embed_sampled_q_roadmap",
+    "freeze_reusable_q_sample_bank",
     "build_edge_cost",
     "build_edge_trace_v2",
     "compute_axis_spacing_statistics",
@@ -77,6 +111,7 @@ __all__ = [
     "interpolate_input_segment",
     "output_euclidean_cost",
     "output_euclidean_edge_cost",
+    "resolve_query_endpoint",
     "uniform_edge_cost",
     "wrapped_input_displacement",
 ]

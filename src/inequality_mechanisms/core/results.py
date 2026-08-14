@@ -7,8 +7,11 @@ from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import Any
 
+import numpy as np
+
+from inequality_mechanisms.core.goal_residuals import GoalResidualReport
 from inequality_mechanisms.core.goals import GoalResidual
-from inequality_mechanisms.core.state import PhysicalState
+from inequality_mechanisms.core.state import PhysicalState, StateCandidate
 
 
 class PlanningStatus(StrEnum):
@@ -67,6 +70,20 @@ class PlanningResult:
     state_validity_checks: int | None = None
     motion_validity_checks: int | None = None
     collision_checks: int | None = None
+    selected_goal_candidate: StateCandidate | None = None
+    goal_residuals: GoalResidualReport | None = None
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "planner_metrics", dict(self.planner_metrics))
+        if (
+            self.selected_goal_candidate is not None
+            and self.selected_goal_state is not None
+        ):
+            cand_state = self.selected_goal_candidate.state
+            if not (
+                np.allclose(cand_state.u, self.selected_goal_state.u)
+                and np.allclose(cand_state.q, self.selected_goal_state.q)
+            ):
+                raise ValueError(
+                    "selected_goal_candidate.state must match selected_goal_state"
+                )

@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
-"""Generate the Sprint V3.6B planar-2R visual audit HTML tree."""
+"""Generate the Sprint V3.6C planar-2R closeout HTML package (V3-638).
+
+Writes only under the freeze-allowed closeout root. Canonical committed
+artifact generation from a clean revision remains V3-639.
+"""
 
 from __future__ import annotations
 
@@ -16,41 +20,63 @@ if str(ROOT / "src") not in sys.path:
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from inequality_mechanisms.audits.html_report import (
+from inequality_mechanisms.audits.artifact_freeze import (  # noqa: E402
+    assert_v3_6c_output_allowed,
+)
+from inequality_mechanisms.audits.html_report import (  # noqa: E402
     DEFAULT_OWNERSHIP,
     build_manifest,
     write_architecture_html,
     write_index_html,
     write_trial_html,
 )
-from inequality_mechanisms.audits.metrics import edge_bundle_to_jsonable
-from inequality_mechanisms.audits.planar2r_visual import (
+from inequality_mechanisms.audits.metrics import edge_bundle_to_jsonable  # noqa: E402
+from inequality_mechanisms.audits.planar2r_visual import (  # noqa: E402
     attach_composites,
     assert_shared_wq_wx,
     compute_mechanism_edge_metrics,
+    freeze_shared_q_sampled_pair,
     load_audit_config,
     native_trace_connector,
+    pack_actuator_metric_on_q_panels,
     paired_delta,
     provenance_block,
     resolve_audit_trials,
     run_planner_for_trial,
 )
-from inequality_mechanisms.benchmarks.free_space_bank import build_bank_arms
-from inequality_mechanisms.benchmarks.free_space_bank_v2 import (
+from inequality_mechanisms.audits.trajectory_evaluation import (  # noqa: E402
+    SCHEMA_VERSION as CTE_SCHEMA,
+)
+from inequality_mechanisms.benchmarks.free_space_bank import build_bank_arms  # noqa: E402
+from inequality_mechanisms.benchmarks.free_space_bank_v2 import (  # noqa: E402
     load_free_space_bank_v2,
     resolve_free_space_tasks_v2,
 )
-from inequality_mechanisms.benchmarks.smoke_lattice_2r import build_paired_lattice_arms
-from inequality_mechanisms.graphs.topology import LatticeConnectivity
-from inequality_mechanisms.visualization.audit_animation import (
+from inequality_mechanisms.benchmarks.smoke_lattice_2r import (  # noqa: E402
+    build_paired_lattice_arms,
+)
+from inequality_mechanisms.graphs.topology import LatticeConnectivity  # noqa: E402
+from inequality_mechanisms.visualization.audit_animation import (  # noqa: E402
     write_lattice_combined_animation,
     write_roadmap_tree_growth_animation,
 )
-from inequality_mechanisms.visualization.audit_graphs import write_graph_panels
-from inequality_mechanisms.visualization.audit_mapping import write_mapping_panels
-from inequality_mechanisms.visualization.audit_search import (
+from inequality_mechanisms.visualization.audit_graphs import write_graph_panels  # noqa: E402
+from inequality_mechanisms.visualization.audit_mapping import write_mapping_panels  # noqa: E402
+from inequality_mechanisms.visualization.audit_search import (  # noqa: E402
     write_direct_comparison,
     write_search_panels,
+)
+
+DEFAULT_CONFIG = ROOT / "configs" / "v3" / "planar2r_closeout_v1.json"
+ARTIFACT_VERSION = "v3_6c_closeout_v1"
+TRACE_SCHEMA = "v3_6c_planner_trace_v1"
+REPORT_TITLE = "V3.6C Planar 2R Free-Space Closeout"
+FREEZE_STATEMENT = (
+    "V3.6C writes only under results/v3_review/v3_6c_planar2r_closeout/. "
+    "Frozen packages under results/v3_review/ matching v3_6_*, v3_6b_*, and "
+    "v3_7_* (including v3_6_free_space, v3_6_free_space_v2, "
+    "v3_6b_planar2r_visual_audit, and v3_7_3r_free_space) must not be "
+    "overwritten."
 )
 
 
@@ -63,14 +89,14 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--config",
         type=Path,
-        default=None,
-        help="Path to planar2r_visual_audit_v1.json",
+        default=DEFAULT_CONFIG,
+        help="Path to planar2r_closeout_v1.json",
     )
     parser.add_argument(
         "--output",
         type=Path,
         default=None,
-        help="Override output directory",
+        help="Override output directory (must pass freeze guard)",
     )
     parser.add_argument(
         "--task-ids",
@@ -93,11 +119,19 @@ def main(argv: list[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
 
-    config = load_audit_config(args.config)
+    config_path = Path(args.config).expanduser().resolve()
+    if not config_path.is_file():
+        raise SystemExit(f"config not found: {config_path}")
+    config = load_audit_config(config_path)
     if args.lattice_shape is not None:
         config.raw["lattice"]["shape"] = list(args.lattice_shape)
 
-    out_root = Path(args.output) if args.output is not None else (ROOT / config.output_dir)
+    if args.output is not None:
+        out_root = Path(args.output)
+    else:
+        out_root = ROOT / str(config.output_dir)
+
+    out_root = assert_v3_6c_output_allowed(out_root)
     if out_root.exists():
         shutil.rmtree(out_root)
     assets_dir = out_root / "assets"
@@ -115,7 +149,6 @@ def main(argv: list[str] | None = None) -> int:
         if tid not in by_id:
             raise SystemExit(f"unknown task id {tid}")
 
-    # Fail-closed resolve for requested tasks (full ten when default).
     if args.task_ids is None:
         resolve_audit_trials(config, sampling_arms=sampling_arms)
 
@@ -123,6 +156,7 @@ def main(argv: list[str] | None = None) -> int:
         shape=config.lattice_shape,
         connectivity=LatticeConnectivity.CHEBYSHEV_1,
     )
+    freeze_shared_q_sampled_pair(config, lattice_arms)
 
     print("computing edge metrics...", flush=True)
     edge_n = int(config.raw["lattice"]["edge_n_samples"])
@@ -148,6 +182,7 @@ def main(argv: list[str] | None = None) -> int:
     }
 
     provenance = provenance_block(config)
+    provenance["architecture_version"] = int(config.raw.get("architecture_version", 3))
     manifest_assets: list[dict[str, Any]] = []
     summary_rows: list[dict[str, Any]] = []
     fractions = tuple(
@@ -178,14 +213,25 @@ def main(argv: list[str] | None = None) -> int:
                     task=task,
                     contract=contract,
                     capture_trace=True,
+                    lattice_arms=lattice_arms,
                 )
                 runs.append(run)
         runs = attach_composites(runs, config=config)
 
-        # Graph panels once per mechanism (use input_linear path overlay if present).
         asset_map: dict[str, str] = {}
         for key, path in mapping_assets.items():
             asset_map[key] = _rel(path, trial_dir)
+
+        metric_assets = pack_actuator_metric_on_q_panels(
+            bundles=bundles,
+            out_dir=trial_assets,
+            task_id=task_id,
+        )
+        for k, p in metric_assets.items():
+            if k == "actuator_metric_shared_log_limits":
+                asset_map[k] = _rel(p, trial_dir)
+            else:
+                asset_map[k] = _rel(p, trial_dir)
 
         for mech in ("fourbar", "gearbox"):
             path_q = None
@@ -209,7 +255,6 @@ def main(argv: list[str] | None = None) -> int:
             for k, p in g_assets.items():
                 asset_map[f"{mech}_{k}"] = _rel(p, trial_dir)
 
-        # Search panels.
         for run in runs:
             connector = None
             if run.planner in ("prm", "rrt_connect"):
@@ -237,7 +282,6 @@ def main(argv: list[str] | None = None) -> int:
         )
         asset_map["path_lengths"] = _rel(path_len, trial_dir)
 
-        # Lattice combined animation.
         lattice_runs = {
             (r.mechanism, r.planner): r
             for r in runs
@@ -255,7 +299,6 @@ def main(argv: list[str] | None = None) -> int:
             asset_map["lattice_combined_anim_contact"] = _rel(anim["contact"], trial_dir)
             asset_map["lattice_combined__contact.png"] = _rel(anim["contact"], trial_dir)
 
-        # Roadmap/tree growth for designated trials.
         growth_html_parts: list[str] = []
         if task_id in config.animation_growth_tasks and not args.skip_animations:
             for mech in ("fourbar", "gearbox"):
@@ -283,12 +326,12 @@ def main(argv: list[str] | None = None) -> int:
                                 growth[ckey], trial_dir
                             )
                     growth_html_parts.append(key)
-            # Placeholder key consumed by trial HTML for growth block.
             if growth_html_parts:
                 asset_map["growth_anims"] = asset_map[growth_html_parts[0]]
-                asset_map["growth_anims_contact"] = asset_map[growth_html_parts[0] + "_contact"]
+                asset_map["growth_anims_contact"] = asset_map[
+                    growth_html_parts[0] + "_contact"
+                ]
 
-        # Deltas.
         deltas: list[dict[str, Any]] = []
         by_key = {(r.mechanism, r.planner): r for r in runs}
         for planner in config.planners:
@@ -355,12 +398,14 @@ def main(argv: list[str] | None = None) -> int:
         out_root / "architecture.html",
         provenance=provenance,
         ownership=DEFAULT_OWNERSHIP,
+        report_title=f"{REPORT_TITLE} — Architecture",
     )
     write_index_html(
         out_root / "index.html",
         provenance=provenance,
         summary_rows=summary_rows,
         task_ids=task_ids,
+        report_title=REPORT_TITLE,
     )
     summary = {
         "audit_id": config.audit_id,
@@ -371,13 +416,33 @@ def main(argv: list[str] | None = None) -> int:
         "no_inference_statement": provenance["no_inference_statement"],
     }
     (out_root / "summary.json").write_text(json.dumps(summary, indent=2), encoding="utf-8")
+    try:
+        config_rel = str(config_path.relative_to(ROOT))
+    except ValueError:
+        config_rel = str(config_path)
     manifest = build_manifest(
         provenance=provenance,
         task_ids=task_ids,
         assets=manifest_assets,
         root=out_root,
+        extra={
+            "status": "generated",
+            "architecture_version": int(config.raw.get("architecture_version", 3)),
+            "artifact_version": ARTIFACT_VERSION,
+            "trace_schema": TRACE_SCHEMA,
+            "metric_schema": {
+                "actuator_metric_on_q": "actuator_metric_on_q",
+                "continuous_trajectory": CTE_SCHEMA,
+            },
+            "config_path": config_rel,
+            "freeze_statement": FREEZE_STATEMENT,
+            "offline": True,
+            "no_cdn": True,
+        },
     )
-    (out_root / "manifest.json").write_text(json.dumps(manifest, indent=2), encoding="utf-8")
+    (out_root / "manifest.json").write_text(
+        json.dumps(manifest, indent=2) + "\n", encoding="utf-8"
+    )
     print(f"wrote {out_root}", flush=True)
     return 0
 

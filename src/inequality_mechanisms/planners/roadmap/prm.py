@@ -14,6 +14,10 @@ from inequality_mechanisms.benchmarks.classification import (
     TASK_INVALID_UNREPRESENTABLE,
     classify_direct_attempt,
 )
+from inequality_mechanisms.core.goal_residuals import (
+    GoalResidualReport,
+    build_goal_residual_report,
+)
 from inequality_mechanisms.core.goals import GoalStateGenerator
 from inequality_mechanisms.core.objectives import ActuatorTravelObjective
 from inequality_mechanisms.core.planner import PlannerCapabilities, PlannerLifecycle
@@ -24,7 +28,7 @@ from inequality_mechanisms.core.results import (
     ResultProvenance,
     Trajectory,
 )
-from inequality_mechanisms.core.state import PhysicalState
+from inequality_mechanisms.core.state import PhysicalState, StateCandidate
 from inequality_mechanisms.planners.sampling_rng import (
     SeededRun,
     make_generator,
@@ -32,12 +36,13 @@ from inequality_mechanisms.planners.sampling_rng import (
 )
 from inequality_mechanisms.planners.sampling_space import (
     direct_connector_available,
+    match_selected_candidate,
     path_cost_u,
     path_length_q,
     path_length_x,
     resolve_connector,
     sample_state_uniform,
-    select_goal_states,
+    select_goal_candidates,
     try_connect,
 )
 
@@ -55,7 +60,8 @@ class PRMPlanner:
     """Basic probabilistic roadmap planner over certified actuator samples.
 
     Builds a roadmap per solve (``BUILD_PER_TASK``), attaches the exact start
-    and goal candidates, then runs Dijkstra. Not Lazy-PRM and not PRM*.
+    and every accepted goal candidate, then runs Dijkstra to the goal set.
+    Not Lazy-PRM and not PRM*.
 
     Opt-in ``trace_sink`` records sample/edge/query/search events for audits
     without changing ordinary planner metrics.
@@ -126,15 +132,27 @@ class PRMPlanner:
             metrics: dict[str, Any],
             preprocess_s: float | None = None,
             query_s: float | None = None,
-            residual: Any = None,
+            residual_state: PhysicalState | None = None,
+            candidate: StateCandidate | None = None,
             state_checks: int | None = None,
             motion_checks: int | None = None,
         ) -> PlanningResult:
             total = time.perf_counter() - t0
+            report: GoalResidualReport | None = None
+            residual = None
+            state_for_residual = residual_state if residual_state is not None else selected
+            if state_for_residual is not None and goal_usable:
+                report = build_goal_residual_report(
+                    problem.goal,
+                    state_for_residual,
+                    candidate=candidate,
+                )
+                residual = report.physical
             return PlanningResult(
                 status=status,
                 trajectory=trajectory,
                 selected_goal_state=selected,
+                selected_goal_candidate=candidate,
                 total_wall_time_s=total,
                 preprocessing_time_s=preprocess_s,
                 query_time_s=query_s,
@@ -144,6 +162,7 @@ class PRMPlanner:
                 path_length_x=length_x,
                 task_class=task_class,
                 final_goal_residual=residual,
+                goal_residuals=report,
                 planner_metrics=metrics,
                 provenance=ResultProvenance(
                     architecture_version=3,
@@ -163,6 +182,8 @@ class PRMPlanner:
                 "accepted_edges": 0,
                 "start_attached": False,
                 "goal_attached": False,
+                "goal_candidate_count": 0,
+                "goal_attachment_count": 0,
                 "expansions": 0,
                 "seed": int(self.seed),
                 "repetition_index": int(self.repetition_index),
@@ -193,7 +214,7 @@ class PRMPlanner:
                 length_u=None,
                 length_q=None,
                 metrics=base_metrics,
-                residual=problem.goal.residual(problem.start) if goal_usable else None,
+                residual_state=problem.start if goal_usable else None,
                 state_checks=1,
             )
 
@@ -207,18 +228,19 @@ class PRMPlanner:
                 length_u=0.0,
                 length_q=0.0,
                 metrics=base_metrics,
-                residual=problem.goal.residual(problem.start),
                 state_checks=1,
                 preprocess_s=0.0,
                 query_s=0.0,
             )
 
-        goals = select_goal_states(
+        goal_candidates = select_goal_candidates(
             problem,
             goal_generator=self.goal_generator,
             max_candidates=self.max_goal_candidates,
             rng=rng,
         )
+        goals = [c.state for c in goal_candidates]
+        base_metrics["roadmap"]["goal_candidate_count"] = len(goal_candidates)
         if not goals:
             return _finish(
                 status=PlanningStatus.INVALID,
@@ -229,7 +251,7 @@ class PRMPlanner:
                 length_u=None,
                 length_q=None,
                 metrics=base_metrics,
-                residual=problem.goal.residual(problem.start),
+                residual_state=problem.start,
                 state_checks=1,
             )
 
@@ -263,6 +285,7 @@ class PRMPlanner:
                     payload={
                         "index": int(sample_i),
                         "u": sample.u.tolist(),
+                        "q": sample.q.tolist(),
                         "accepted": bool(accepted_sample),
                     },
                 )
@@ -298,7 +321,15 @@ class PRMPlanner:
                             family="roadmap",
                             phase="edge",
                             event_type="edge_accept",
-                            payload={"i": int(i), "j": int(j), "dist_u": float(dist)},
+                            payload={
+                                "i": int(i),
+                                "j": int(j),
+                                "dist_u": float(dist),
+                                "u_i": si.u.tolist(),
+                                "q_i": si.q.tolist(),
+                                "u_j": vertices[j].u.tolist(),
+                                "q_j": vertices[j].q.tolist(),
+                            },
                         )
         base_metrics["roadmap"]["attempted_edges"] = attempted
         base_metrics["roadmap"]["accepted_edges"] = accepted
@@ -341,6 +372,10 @@ class PRMPlanner:
                                 "src": int(src),
                                 "dst": int(dst),
                                 "dist_u": float(dist),
+                                "u_src": vertices[src].u.tolist(),
+                                "q_src": vertices[src].q.tolist(),
+                                "u_dst": vertices[dst].u.tolist(),
+                                "q_dst": vertices[dst].q.tolist(),
                             },
                         )
             return attached
@@ -352,6 +387,7 @@ class PRMPlanner:
         for gi in goal_indices:
             goal_links += _attach(gi, sample_ids + [start_idx])
         base_metrics["roadmap"]["goal_attached"] = goal_links > 0
+        base_metrics["roadmap"]["goal_attachment_count"] = int(goal_links)
         if sink is not None:
             sink.record(
                 family="roadmap",
@@ -362,6 +398,10 @@ class PRMPlanner:
                     "goal_indices": list(goal_indices),
                     "start_links": int(start_links),
                     "goal_links": int(goal_links),
+                    "start_u": problem.start.u.tolist(),
+                    "start_q": problem.start.q.tolist(),
+                    "goals_u": [g.u.tolist() for g in goals],
+                    "goals_q": [g.q.tolist() for g in goals],
                 },
             )
 
@@ -383,7 +423,12 @@ class PRMPlanner:
                     family="roadmap",
                     phase="search",
                     event_type="dijkstra_expand",
-                    payload={"node": int(u), "order": int(expansions - 1)},
+                    payload={
+                        "node": int(u),
+                        "order": int(expansions - 1),
+                        "u": vertices[u].u.tolist(),
+                        "q": vertices[u].q.tolist(),
+                    },
                 )
             if u in goal_set:
                 found_goal = u
@@ -407,7 +452,7 @@ class PRMPlanner:
                 length_u=None,
                 length_q=None,
                 metrics=base_metrics,
-                residual=problem.goal.residual(problem.start),
+                residual_state=problem.start,
                 preprocess_s=preprocess_s,
                 query_s=query_s,
                 state_checks=state_checks,
@@ -423,25 +468,31 @@ class PRMPlanner:
         node_ids.reverse()
         states = tuple(vertices[i] for i in node_ids)
         selected = states[-1]
+        selected_cand = match_selected_candidate(goal_candidates, selected)
         cost = path_cost_u(states)
         if sink is not None:
             sink.record(
                 family="roadmap",
                 phase="path",
                 event_type="final_path",
-                payload={"node_ids": list(node_ids), "cost_u": float(cost)},
+                payload={
+                    "node_ids": list(node_ids),
+                    "cost_u": float(cost),
+                    "u": [s.u.tolist() for s in states],
+                    "q": [s.q.tolist() for s in states],
+                },
             )
         return _finish(
             status=PlanningStatus.SUCCESS,
             task_class=task_class,
             trajectory=Trajectory(states=states),
             selected=selected,
+            candidate=selected_cand,
             cost=cost,
             length_u=cost,
             length_q=path_length_q(states),
             length_x=path_length_x(states, robot=problem.robot),
             metrics=base_metrics,
-            residual=problem.goal.residual(selected),
             preprocess_s=preprocess_s,
             query_s=query_s,
             state_checks=state_checks,

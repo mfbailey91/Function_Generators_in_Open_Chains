@@ -1,6 +1,10 @@
 """Version 3 planner-independent core types (Sprint V3.1–V3.2 / ADR-021–026)."""
 
 from inequality_mechanisms.core.constraints import ConstraintSet
+from inequality_mechanisms.core.goal_residuals import (
+    GoalResidualReport,
+    build_goal_residual_report,
+)
 from inequality_mechanisms.core.goals import (
     CartesianDiskGoal,
     ExactOutputGoal,
@@ -67,8 +71,10 @@ __all__ = [
     "FrozenPlanar3RPositionGoalGenerator",
     "GoalConstraint",
     "GoalResidual",
+    "GoalResidualReport",
     "GoalSamplingRequest",
     "GoalStateGenerator",
+    "build_goal_residual_report",
     "IncrementalPlanningObjective",
     "InputLinearMotion",
     "LocalMotion",

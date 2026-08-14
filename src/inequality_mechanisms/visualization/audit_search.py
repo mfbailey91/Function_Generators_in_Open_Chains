@@ -1,4 +1,4 @@
-"""Planner path and exploration panels for V3.6B (V3-625)."""
+"""Planner path and exploration panels for V3.6B / V3.6C (V3-625, V3-635)."""
 
 from __future__ import annotations
 
@@ -8,7 +8,14 @@ from typing import Any, Mapping, Sequence
 import numpy as np
 
 from inequality_mechanisms.audits.planar2r_visual import PlannerRunRecord
+from inequality_mechanisms.core.local_motion import LocalMotionModel
+from inequality_mechanisms.core.state import PhysicalState
 from inequality_mechanisms.graphs.embedded import EmbeddedPlanningGraph
+from inequality_mechanisms.visualization.audit_trace_geometry import (
+    extract_trace_geometry,
+    final_path_samples_from_cte,
+    reconstruct_edge_samples,
+)
 
 
 def _require_matplotlib() -> Any:
@@ -25,6 +32,80 @@ def _path_arrays(run: PlannerRunRecord) -> tuple[np.ndarray | None, np.ndarray |
     return u, q, None
 
 
+def _draw_polyline(ax: Any, samples: np.ndarray | None, *, color: str, lw: float, z: int, alpha: float = 1.0) -> None:
+    if samples is None or samples.size == 0 or samples.shape[0] < 2:
+        return
+    ax.plot(
+        samples[:, 0],
+        samples[:, 1],
+        color=color,
+        linewidth=lw,
+        alpha=alpha,
+        zorder=z,
+    )
+
+
+def _draw_native_trace_panel(
+    ax: Any,
+    *,
+    space: str,
+    vertices_xy: list[np.ndarray],
+    reconstructed: Sequence[Any],
+    path_xy: np.ndarray | None,
+    expand_xy: list[np.ndarray],
+    title: str,
+    xlabel: str,
+    ylabel: str,
+    goal_center: Sequence[float] | None = None,
+    goal_radius: float | None = None,
+) -> None:
+    if vertices_xy:
+        arr = np.asarray(vertices_xy, dtype=np.float64)
+        ax.scatter(arr[:, 0], arr[:, 1], s=8, color="C0", zorder=2, label="vertices")
+    edge_color = "0.55" if space != "X" else "0.45"
+    for rec in reconstructed:
+        if not rec.drawn:
+            continue
+        if space == "U":
+            samples = rec.sample_u
+        elif space == "Q":
+            samples = rec.sample_q
+        else:
+            samples = rec.sample_x
+        _draw_polyline(ax, samples, color=edge_color, lw=0.9, z=1, alpha=0.85)
+    if expand_xy:
+        earr = np.asarray(expand_xy, dtype=np.float64)
+        ax.scatter(
+            earr[:, 0],
+            earr[:, 1],
+            s=12,
+            c=np.arange(earr.shape[0]),
+            cmap="plasma",
+            zorder=3,
+            label="expand",
+        )
+    if path_xy is not None and path_xy.size:
+        ax.plot(path_xy[:, 0], path_xy[:, 1], color="k", linewidth=1.8, zorder=4, label="path")
+        ax.scatter(path_xy[0, 0], path_xy[0, 1], color="green", s=28, zorder=5)
+        ax.scatter(path_xy[-1, 0], path_xy[-1, 1], color="red", s=28, zorder=5)
+    if space == "X" and goal_center is not None and goal_radius is not None:
+        import matplotlib.pyplot as plt
+
+        circ = plt.Circle(
+            (goal_center[0], goal_center[1]),
+            goal_radius,
+            fill=False,
+            color="C3",
+            linestyle="--",
+        )
+        ax.add_patch(circ)
+    ax.set_title(title)
+    ax.set_xlabel(xlabel)
+    ax.set_ylabel(ylabel)
+    ax.set_aspect("equal", adjustable="datalim")
+    ax.legend(fontsize=7, loc="best")
+
+
 def write_search_panels(
     *,
     graph: EmbeddedPlanningGraph,
@@ -34,6 +115,7 @@ def write_search_panels(
     task_id: str,
     goal_center: Sequence[float] | None = None,
     goal_radius: float | None = None,
+    connector: LocalMotionModel | None = None,
 ) -> dict[str, Path]:
     """Write path overlays and lattice expansion masks for one planner run."""
     plt = _require_matplotlib()
@@ -119,44 +201,93 @@ def write_search_panels(
         plt.close(fig)
         assets["expansion"] = path_out
 
-    # Roadmap / tree final static trace from events.
-    if run.trace_events and planner in ("prm", "rrt_connect"):
+    # Native PRM/RRT synchronized U/Q/X traces (connector-reconstructed edges).
+    if run.trace_events and planner in ("prm", "rrt_connect") and connector is not None:
+        geom = extract_trace_geometry(run.trace_events, planner=planner)
+        reconstructed = reconstruct_edge_samples(
+            geom.edges, connector=connector, robot=robot
+        )
+        by_key = {v.key: v for v in geom.vertices}
+        cte_u, cte_q, cte_x = final_path_samples_from_cte(run.planner_metrics)
+        path_by_space = {
+            "U": cte_u,
+            "Q": cte_q,
+            "X": cte_x,
+        }
+        # Prefer CTE; otherwise omit path polyline (no silent waypoint chords).
+        expand_by_space: dict[str, list[np.ndarray]] = {"U": [], "Q": [], "X": []}
+        for key in geom.expansion_keys:
+            v = by_key.get(key)
+            if v is None:
+                continue
+            expand_by_space["U"].append(v.u[:2])
+            expand_by_space["Q"].append(v.q[:2])
+            tip = np.asarray(
+                robot.forward_kinematics(
+                    PhysicalState(u=v.u, q=v.q, assembly_state={})
+                ).position,
+                dtype=np.float64,
+            )[:2]
+            expand_by_space["X"].append(tip)
+
+        verts_u = [v.u[:2] for v in geom.vertices]
+        verts_q = [v.q[:2] for v in geom.vertices]
+        verts_x = [
+            np.asarray(
+                robot.forward_kinematics(
+                    PhysicalState(u=v.u, q=v.q, assembly_state={})
+                ).position,
+                dtype=np.float64,
+            )[:2]
+            for v in geom.vertices
+        ]
+        verts_by_space = {"U": verts_u, "Q": verts_q, "X": verts_x}
+        labels = {
+            "U": ("u1", "u2"),
+            "Q": ("q1", "q2"),
+            "X": ("x", "y"),
+        }
+        for space in ("U", "Q", "X"):
+            fig, ax = plt.subplots(figsize=(5.2, 4.8), constrained_layout=True)
+            xlabel, ylabel = labels[space]
+            path_xy = path_by_space[space]
+            if path_xy is not None and path_xy.shape[1] > 2:
+                path_xy = path_xy[:, :2]
+            _draw_native_trace_panel(
+                ax,
+                space=space,
+                vertices_xy=verts_by_space[space],
+                reconstructed=reconstructed,
+                path_xy=path_xy,
+                expand_xy=expand_by_space[space],
+                title=f"{task_id}/{mech}/{planner}: final trace ({space})",
+                xlabel=xlabel,
+                ylabel=ylabel,
+                goal_center=goal_center if space == "X" else None,
+                goal_radius=goal_radius if space == "X" else None,
+            )
+            path_out = out_dir / f"{prefix}__final_trace_{space.lower()}.png"
+            fig.savefig(path_out, dpi=110)
+            plt.close(fig)
+            assets[f"final_trace_{space.lower()}"] = path_out
+        # Backward-compatible key used by V3.6B HTML templates.
+        assets["final_trace"] = assets["final_trace_u"]
+    elif run.trace_events and planner in ("prm", "rrt_connect"):
+        # No connector: fail closed on edges; still emit empty-ish U panel for diagnostics.
         fig, ax = plt.subplots(figsize=(5.2, 4.8), constrained_layout=True)
-        ax.scatter(u_nodes[valid, 0], u_nodes[valid, 1], s=3, color="0.9", zorder=0)
-        if planner == "prm":
-            samples = [
-                e["payload"]["u"]
-                for e in run.trace_events
-                if e.get("event_type") == "sample_accept"
-            ]
-            if samples:
-                s = np.asarray(samples, dtype=np.float64)
-                ax.scatter(s[:, 0], s[:, 1], s=8, color="C0", zorder=2, label="samples")
-            for e in run.trace_events:
-                if e.get("event_type") == "edge_accept":
-                    # endpoints not stored as coords; skip edge draw here
-                    pass
-        else:
-            inserts = [
-                e for e in run.trace_events if e.get("event_type") == "vertex_insert"
-            ]
-            by_tree: dict[str, list[np.ndarray]] = {"start": [], "goal": []}
-            for e in inserts:
-                tree = str(e["payload"].get("tree", "start"))
-                by_tree.setdefault(tree, []).append(np.asarray(e["payload"]["u"], dtype=np.float64))
-            for tree, pts in by_tree.items():
-                if not pts:
-                    continue
-                arr = np.asarray(pts, dtype=np.float64)
-                ax.scatter(arr[:, 0], arr[:, 1], s=8, label=tree, zorder=2)
-        if u_path is not None and u_path.size:
-            ax.plot(u_path[:, 0], u_path[:, 1], color="k", linewidth=1.8, zorder=4)
-        ax.legend(fontsize=8)
-        ax.set_title(f"{task_id}/{mech}/{planner}: final trace (U)")
-        ax.set_aspect("equal", adjustable="datalim")
-        path_out = out_dir / f"{prefix}__final_trace.png"
+        ax.text(
+            0.5,
+            0.5,
+            "connector required for native U/Q/X edges",
+            ha="center",
+            va="center",
+            transform=ax.transAxes,
+        )
+        ax.set_title(f"{task_id}/{mech}/{planner}: final trace (unavailable)")
+        path_out = out_dir / f"{prefix}__final_trace_u.png"
         fig.savefig(path_out, dpi=110)
         plt.close(fig)
+        assets["final_trace_u"] = path_out
         assets["final_trace"] = path_out
 
     # Unavailable marker panel for OMPL when skipped.

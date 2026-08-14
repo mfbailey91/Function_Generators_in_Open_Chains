@@ -249,11 +249,17 @@ only in raw JSON:
 
 ### V3-630 — Closeout contract, activation, and artifact freeze
 
+**WP status:** freeze guard + closeout config/exporter scaffold landed (full
+report generation remains V3-638/V3-639).
+
 Land this sprint contract, completed Gate B findings, decision note, sprint-index
 changes, and ACTIVE_SPRINT authorization. Add a guard that refuses to write into
 frozen `v3_6_*` and `v3_6b_*` result directories from the V3.6C exporter.
 
 ### V3-631 — Goal-candidate identity and residual model
+
+**WP status:** candidate provenance + typed residual report landed (multi-goal
+lattice / RRT multi-root remain V3-632 / V3-633).
 
 Preserve `StateCandidate` provenance through common selection helpers and result
 assembly. Add typed/serialized physical, representation, and attachment
@@ -261,11 +267,16 @@ residuals with explicit failure behavior.
 
 ### V3-632 — Multi-goal graph query
 
+**WP status:** GoalSetQueryOverlay + GraphSearchPlanner.solve_goal_set landed
+(one Dijkstra/A* query over represented goals; call sites updated).
+
 Add a reusable goal-set graph-search contract and query overlay supporting one
 exact start plus all represented goals. Implement Dijkstra and admissible A* to
 that set, with one expansion trace and unambiguous total-work metrics.
 
 ### V3-633 — Roadmap/tree goal parity
+
+**WP status:** multi-root RRTConnect + PRM/RRT shared ordered goal-set parity landed.
 
 Convert RRTConnect to a multi-root goal tree. Verify PRM and RRTConnect consume
 the same ordered frozen candidate set, preserve exact starts, and return selected
@@ -273,11 +284,17 @@ candidate provenance.
 
 ### V3-634 — Continuous trajectory evaluation
 
+**WP status:** continuous evaluator + audit packing wire-up landed.
+
 Implement the shared local-motion reconstruction/evaluation record. Route fresh
 direct, lattice, roadmap, tree, and OMPL audit results through it without
 changing planner objective semantics.
 
 ### V3-635 — Native U/Q/X trace rendering
+
+**WP status:** native PRM/RRT U/Q/X trace payloads + connector-reconstructed
+renderers landed (actuator metric / shared-Q diagnostic / closeout HTML remain
+V3-636–V3-638).
 
 Extend trace payloads and renderers so PRM accepted edges, query search, RRT
 parent edges, roots, and final paths are visible as synchronized physical motions
@@ -285,11 +302,17 @@ in U, Q, and X.
 
 ### V3-636 — Actuator metric on Q
 
+**WP status:** `actuator_metric_on_q` eigenvalues / \(\sqrt{\kappa}\) / shared LogNorm /
+ellipses + tests landed (shared-Q diagnostic / closeout HTML remain V3-637–V3-638).
+
 Rename fresh records/labels, add eigenvalue and directional-ratio diagnostics,
 metric ellipses, and one paired logarithmic scale. Document the interpretation in
 the report.
 
 ### V3-637 — Frozen shared-Q sampled-roadmap diagnostic
+
+**WP status:** reusable Q sample bank + mechanism U-lift + integrated \(w_U\)
+Dijkstra/A* goal-set diagnostic landed (closeout HTML remains V3-638).
 
 Generate one deterministic Q sample set and adjacency per task (or one declared
 reusable bank when task-independent), attach the same exact start and goal set,
@@ -297,6 +320,9 @@ and run Dijkstra/A* with mechanism-specific integrated actuator weights. Keep it
 separate from native PRM rows.
 
 ### V3-638 — Report and regression suite
+
+**WP status:** closeout exporter + family-metric HTML + subset report tests landed
+(canonical package generation remains V3-639).
 
 Add the V3.6C config/exporter/report target, readable family metrics, raw records,
 link checks, print fallbacks, trace noninterference checks, and V1–V3.6B plus

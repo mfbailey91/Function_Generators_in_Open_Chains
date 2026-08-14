@@ -7,6 +7,7 @@ from typing import Any
 
 import numpy as np
 
+from inequality_mechanisms.core.goal_residuals import GoalResidualReport
 from inequality_mechanisms.core.goals import GoalResidual
 from inequality_mechanisms.core.planner import PlannerCapabilities
 from inequality_mechanisms.core.results import (
@@ -15,7 +16,7 @@ from inequality_mechanisms.core.results import (
     ResultProvenance,
     Trajectory,
 )
-from inequality_mechanisms.core.state import PhysicalState
+from inequality_mechanisms.core.state import PhysicalState, StateCandidate
 
 
 def _arr_to_list(x: np.ndarray) -> list[float]:
@@ -39,6 +40,70 @@ def physical_state_from_dict(data: Mapping[str, Any]) -> PhysicalState:
         q=np.asarray(data["q"], dtype=np.float64),
         assembly_state=dict(data.get("assembly_state", {})),
         auxiliary_state=dict(data.get("auxiliary_state", {})),
+    )
+
+
+def goal_residual_to_dict(residual: GoalResidual) -> dict[str, Any]:
+    """Serialize a structured goal residual."""
+    return {
+        "primary": float(residual.primary),
+        "components": None
+        if residual.components is None
+        else _arr_to_list(residual.components),
+        "extras": dict(residual.extras),
+    }
+
+
+def goal_residual_from_dict(data: Mapping[str, Any]) -> GoalResidual:
+    """Deserialize a structured goal residual."""
+    comps = data.get("components")
+    return GoalResidual(
+        primary=float(data["primary"]),
+        components=None if comps is None else np.asarray(comps, dtype=np.float64),
+        extras=dict(data.get("extras", {})),
+    )
+
+
+def state_candidate_to_dict(candidate: StateCandidate) -> dict[str, Any]:
+    """Serialize a state candidate including provenance."""
+    return {
+        "state": physical_state_to_dict(candidate.state),
+        "residual": float(candidate.residual),
+        "provenance": dict(candidate.provenance),
+    }
+
+
+def state_candidate_from_dict(data: Mapping[str, Any]) -> StateCandidate:
+    """Deserialize a state candidate."""
+    return StateCandidate(
+        state=physical_state_from_dict(data["state"]),
+        residual=float(data["residual"]),
+        provenance=dict(data.get("provenance", {})),
+    )
+
+
+def goal_residual_report_to_dict(report: GoalResidualReport) -> dict[str, Any]:
+    """Serialize a typed residual report."""
+    return {
+        "physical": None
+        if report.physical is None
+        else goal_residual_to_dict(report.physical),
+        "goal_margin": report.goal_margin,
+        "representation": report.representation,
+        "attachment": report.attachment,
+    }
+
+
+def goal_residual_report_from_dict(data: Mapping[str, Any]) -> GoalResidualReport:
+    """Deserialize a typed residual report."""
+    physical_data = data.get("physical")
+    return GoalResidualReport(
+        physical=None
+        if physical_data is None
+        else goal_residual_from_dict(physical_data),
+        goal_margin=data.get("goal_margin"),
+        representation=data.get("representation"),
+        attachment=data.get("attachment"),
     )
 
 
@@ -78,20 +143,16 @@ def planning_result_to_dict(result: PlanningResult) -> dict[str, Any]:
         }
     residual = None
     if result.final_goal_residual is not None:
-        r = result.final_goal_residual
-        residual = {
-            "primary": float(r.primary),
-            "components": None
-            if r.components is None
-            else _arr_to_list(r.components),
-            "extras": dict(r.extras),
-        }
+        residual = goal_residual_to_dict(result.final_goal_residual)
     return {
         "status": result.status.value,
         "trajectory": traj,
         "selected_goal_state": None
         if result.selected_goal_state is None
         else physical_state_to_dict(result.selected_goal_state),
+        "selected_goal_candidate": None
+        if result.selected_goal_candidate is None
+        else state_candidate_to_dict(result.selected_goal_candidate),
         "setup_time_s": result.setup_time_s,
         "preprocessing_time_s": result.preprocessing_time_s,
         "query_time_s": result.query_time_s,
@@ -106,6 +167,9 @@ def planning_result_to_dict(result: PlanningResult) -> dict[str, Any]:
         "collision_checks": result.collision_checks,
         "task_class": result.task_class,
         "final_goal_residual": residual,
+        "goal_residuals": None
+        if result.goal_residuals is None
+        else goal_residual_report_to_dict(result.goal_residuals),
         "planner_metrics": dict(result.planner_metrics),
         "provenance": {
             "architecture_version": result.provenance.architecture_version,
@@ -130,12 +194,9 @@ def planning_result_from_dict(data: Mapping[str, Any]) -> PlanningResult:
     residual_data = data.get("final_goal_residual")
     residual = None
     if residual_data is not None:
-        comps = residual_data.get("components")
-        residual = GoalResidual(
-            primary=float(residual_data["primary"]),
-            components=None if comps is None else np.asarray(comps, dtype=np.float64),
-            extras=dict(residual_data.get("extras", {})),
-        )
+        residual = goal_residual_from_dict(residual_data)
+    candidate_data = data.get("selected_goal_candidate")
+    report_data = data.get("goal_residuals")
     prov = data["provenance"]
     return PlanningResult(
         status=PlanningStatus(data["status"]),
@@ -143,6 +204,9 @@ def planning_result_from_dict(data: Mapping[str, Any]) -> PlanningResult:
         selected_goal_state=None
         if selected is None
         else physical_state_from_dict(selected),
+        selected_goal_candidate=None
+        if candidate_data is None
+        else state_candidate_from_dict(candidate_data),
         setup_time_s=data.get("setup_time_s"),
         preprocessing_time_s=data.get("preprocessing_time_s"),
         query_time_s=data.get("query_time_s"),
@@ -157,6 +221,9 @@ def planning_result_from_dict(data: Mapping[str, Any]) -> PlanningResult:
         collision_checks=data.get("collision_checks"),
         task_class=data.get("task_class"),
         final_goal_residual=residual,
+        goal_residuals=None
+        if report_data is None
+        else goal_residual_report_from_dict(report_data),
         planner_metrics=dict(data.get("planner_metrics", {})),
         provenance=ResultProvenance(
             architecture_version=int(prov["architecture_version"]),
