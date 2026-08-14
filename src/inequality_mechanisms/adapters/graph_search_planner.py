@@ -28,7 +28,10 @@ from inequality_mechanisms.core.results import (
 )
 from inequality_mechanisms.core.state import PhysicalState, StateCandidate
 from inequality_mechanisms.graphs.embedded import EmbeddedPlanningGraph
-from inequality_mechanisms.graphs.goal_set_query_overlay import GoalSetQueryOverlay
+from inequality_mechanisms.graphs.goal_set_query_overlay import (
+    GoalSetQueryOverlay,
+    IncompleteGoalSetAttachmentError,
+)
 from inequality_mechanisms.graphs.query_overlay import QueryOverlayGraph
 from inequality_mechanisms.planners.sampling_space import match_selected_candidate
 from inequality_mechanisms.search.graph_solver import (
@@ -449,15 +452,69 @@ class GraphSearchPlanner:
                 goal_us=goal_us,
                 dedup_tol=self.q_match_tolerance,
                 edge_n_samples=self.edge_n_samples,
-                require_all_goals=False,
+                require_all_goals=True,
             )
-        except (ValueError, TypeError):
+        except IncompleteGoalSetAttachmentError as exc:
+            failed_candidates: list[dict[str, Any]] = []
+            for failure in exc.failures:
+                record = failure.to_dict()
+                if 0 <= failure.goal_index < len(candidates):
+                    provenance = dict(candidates[failure.goal_index].provenance)
+                    for field in (
+                        "goal_sample_id",
+                        "goal_sample_index",
+                        "goal_sample_point",
+                        "ik_family",
+                        "candidate_generator_id",
+                    ):
+                        if field in provenance:
+                            record[field] = provenance[field]
+                failed_candidates.append(record)
             return self._invalid_result(
                 residual=problem.goal.residual(problem.start),
                 metrics={
                     "graph": {
                         "overlay_used": False,
+                        "search_started": False,
                         "goal_set_cardinality": 0,
+                        "requested_goal_count": int(exc.requested_goal_count),
+                        "attached_goal_candidate_count": int(
+                            exc.attached_goal_count
+                        ),
+                        "unique_goal_node_count": int(
+                            exc.unique_goal_node_count
+                        ),
+                        "goal_set_attachment_complete": False,
+                        "query_failure": (
+                            "incomplete_represented_goal_set_attachment"
+                        ),
+                        "failed_goal_attachments": failed_candidates,
+                        "expansions": 0,
+                        "generated": 0,
+                        "reopened_or_stale": 0,
+                        "expansions_are_total_query_work": True,
+                    }
+                },
+            )
+        except (ValueError, TypeError) as exc:
+            return self._invalid_result(
+                residual=problem.goal.residual(problem.start),
+                metrics={
+                    "graph": {
+                        "overlay_used": False,
+                        "search_started": False,
+                        "goal_set_cardinality": 0,
+                        "requested_goal_count": len(candidates),
+                        "attached_goal_candidate_count": 0,
+                        "unique_goal_node_count": 0,
+                        "goal_set_attachment_complete": False,
+                        "query_failure": "goal_set_overlay_invalid",
+                        "failed_goal_attachments": [
+                            {"goal_index": None, "reason": str(exc)}
+                        ],
+                        "expansions": 0,
+                        "generated": 0,
+                        "reopened_or_stale": 0,
                         "expansions_are_total_query_work": True,
                     }
                 },
@@ -503,10 +560,14 @@ class GraphSearchPlanner:
             "edge_cost_mode": self.edge_cost_mode,
             "connectivity": str(base.topology.connectivity),
             "overlay_used": True,
+            "search_started": True,
             "overlay_start_node_id": start_id,
             "goal_node_ids": list(goal_ids),
             "goal_set_cardinality": len(goal_ids),
+            "unique_goal_node_count": len(goal_ids),
             "requested_goal_count": int(overlay.requested_goal_count),
+            "attached_goal_candidate_count": int(overlay.attached_goal_count),
+            "goal_set_attachment_complete": bool(overlay.attachment_complete),
             "heuristic_name": heuristic_name,
             "attachments": overlay.attachments_as_dicts(),
             "failed_goal_attachments": list(overlay.failed_goal_attachments),

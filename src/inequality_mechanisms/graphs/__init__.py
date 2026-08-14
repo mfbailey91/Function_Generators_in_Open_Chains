@@ -15,6 +15,12 @@ from inequality_mechanisms.graphs.embedded import (
     EmbeddedPlanningGraph,
     UniformOutputLattice,
 )
+from inequality_mechanisms.graphs.goal_set_query_overlay import (
+    GoalAttachmentFailure,
+    GoalSetQueryOverlay,
+    IncompleteGoalSetAttachmentError,
+    QueryAttachment,
+)
 from inequality_mechanisms.graphs.grid import GridNode, PeriodicGrid2D
 from inequality_mechanisms.graphs.output_grid import MonotonicOutputGraph
 from inequality_mechanisms.graphs.pair_invariants import (
@@ -23,22 +29,11 @@ from inequality_mechanisms.graphs.pair_invariants import (
     assert_identical_query_overlays,
     assert_shared_q_pair_invariants,
 )
-from inequality_mechanisms.graphs.sampling import (
-    AxisSpacingStatistics,
-    SamplingDomain,
-    SamplingSpecification,
-    TransitionParameterization,
-    compute_axis_spacing_statistics,
-)
-from inequality_mechanisms.graphs.topology import (
-    GraphTopology,
-    LatticeConnectivity,
-    TensorGridTopology,
-)
-from inequality_mechanisms.graphs.transitions import EdgeTraceV2, build_edge_trace_v2
-from inequality_mechanisms.graphs.goal_set_query_overlay import (
-    GoalSetQueryOverlay,
-    QueryAttachment,
+from inequality_mechanisms.graphs.query_overlay import (
+    QueryNode,
+    QueryOverlayGraph,
+    ResolvedQueryEndpoint,
+    resolve_query_endpoint,
 )
 from inequality_mechanisms.graphs.sampled_q_query_overlay import (
     SampledQQueryAttachment,
@@ -53,12 +48,19 @@ from inequality_mechanisms.graphs.sampled_q_roadmap import (
     embed_sampled_q_roadmap,
     freeze_reusable_q_sample_bank,
 )
-from inequality_mechanisms.graphs.query_overlay import (
-    QueryNode,
-    QueryOverlayGraph,
-    ResolvedQueryEndpoint,
-    resolve_query_endpoint,
+from inequality_mechanisms.graphs.sampling import (
+    AxisSpacingStatistics,
+    SamplingDomain,
+    SamplingSpecification,
+    TransitionParameterization,
+    compute_axis_spacing_statistics,
 )
+from inequality_mechanisms.graphs.topology import (
+    GraphTopology,
+    LatticeConnectivity,
+    TensorGridTopology,
+)
+from inequality_mechanisms.graphs.transitions import EdgeTraceV2, build_edge_trace_v2
 from inequality_mechanisms.graphs.validation import (
     ConstrainedInputGraph,
     configuration_is_valid,
@@ -73,9 +75,11 @@ __all__ = [
     "EdgeTraceV2",
     "EmbeddedPlanningGraph",
     "FrozenQSampleBank",
+    "GoalAttachmentFailure",
     "GoalSetQueryOverlay",
     "GraphTopology",
     "GridNode",
+    "IncompleteGoalSetAttachmentError",
     "KNOWN_COST_TYPES",
     "LatticeConnectivity",
     "MonotonicOutputGraph",

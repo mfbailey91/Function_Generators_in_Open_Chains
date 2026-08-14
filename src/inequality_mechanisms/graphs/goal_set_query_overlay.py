@@ -32,6 +32,49 @@ AttachmentRole = Literal["start", "goal"]
 
 
 @dataclass(frozen=True, slots=True)
+class GoalAttachmentFailure:
+    """Structured failure for one represented goal attachment."""
+
+    goal_index: int
+    reason: str
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "goal_index": int(self.goal_index),
+            "reason": str(self.reason),
+        }
+
+
+class IncompleteGoalSetAttachmentError(ValueError):
+    """Raised when a complete represented goal set cannot be attached.
+
+    The exception preserves structured failure records so planner adapters can
+    fail closed without discarding the identity of the rejected candidates.
+    """
+
+    def __init__(
+        self,
+        *,
+        requested_goal_count: int,
+        attached_goal_count: int,
+        unique_goal_node_count: int,
+        failures: Sequence[GoalAttachmentFailure],
+    ) -> None:
+        self.requested_goal_count = int(requested_goal_count)
+        self.attached_goal_count = int(attached_goal_count)
+        self.unique_goal_node_count = int(unique_goal_node_count)
+        self.failures = tuple(failures)
+        detail = "; ".join(
+            f"goal_index={failure.goal_index}: {failure.reason}"
+            for failure in self.failures
+        )
+        message = "goal-set overlay failed to attach every represented goal"
+        if detail:
+            message += ": " + detail
+        super().__init__(message)
+
+
+@dataclass(frozen=True, slots=True)
 class QueryAttachment:
     """One start or goal attachment on a goal-set query overlay."""
 
@@ -145,6 +188,7 @@ class GoalSetQueryOverlay:
 
         goal_resolutions: list[tuple[int, ResolvedQueryEndpoint]] = []
         failures: list[str] = []
+        failure_records: list[GoalAttachmentFailure] = []
         for idx, goal_q in enumerate(goals):
             try:
                 resolved = resolve_query_endpoint(
@@ -155,14 +199,33 @@ class GoalSetQueryOverlay:
                     edge_n_samples=self._edge_n_samples,
                 )
             except (ValueError, TypeError) as exc:
-                failures.append(f"goal_index={idx}: {exc}")
-                if require_all_goals:
-                    raise ValueError(
-                        "goal-set overlay failed to attach every represented goal: "
-                        + "; ".join(failures)
-                    ) from exc
+                reason = str(exc)
+                failures.append(f"goal_index={idx}: {reason}")
+                failure_records.append(
+                    GoalAttachmentFailure(goal_index=int(idx), reason=reason)
+                )
                 continue
             goal_resolutions.append((idx, resolved))
+
+        if require_all_goals and failure_records:
+            attached_base_nodes = {
+                int(resolved.base_node_id)
+                for _, resolved in goal_resolutions
+                if resolved.base_node_id is not None
+            }
+            attached_overlay_count = sum(
+                resolved.base_node_id is None
+                for _, resolved in goal_resolutions
+            )
+            attached_unique_goal_node_count = (
+                len(attached_base_nodes) + attached_overlay_count
+            )
+            raise IncompleteGoalSetAttachmentError(
+                requested_goal_count=len(goals),
+                attached_goal_count=len(goal_resolutions),
+                unique_goal_node_count=attached_unique_goal_node_count,
+                failures=failure_records,
+            )
 
         if not goal_resolutions:
             detail = "; ".join(failures) if failures else "no goals supplied"
@@ -232,7 +295,11 @@ class GoalSetQueryOverlay:
         self._goal_node_ids = tuple(int(n) for n in goal_node_ids)
         self._attachments = tuple(attachments)
         self._requested_goal_count = len(goals)
+        self._attached_goal_count = len(goal_resolutions)
         self._failed_goal_attachments = tuple(failures)
+        self._attachment_complete = (
+            not failures and len(goal_resolutions) == len(goals)
+        )
 
         self._overlay_nodes = tuple(overlay_nodes)
         self._overlay_idx = {n.node_id: i for i, n in enumerate(self._overlay_nodes)}
@@ -357,6 +424,15 @@ class GoalSetQueryOverlay:
     @property
     def requested_goal_count(self) -> int:
         return int(self._requested_goal_count)
+
+    @property
+    def attached_goal_count(self) -> int:
+        """Number of represented goal candidates successfully attached."""
+        return int(self._attached_goal_count)
+
+    @property
+    def attachment_complete(self) -> bool:
+        return bool(self._attachment_complete)
 
     @property
     def failed_goal_attachments(self) -> tuple[str, ...]:

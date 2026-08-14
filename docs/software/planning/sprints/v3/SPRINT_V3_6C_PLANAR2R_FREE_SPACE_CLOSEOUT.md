@@ -1,12 +1,14 @@
 # Sprint V3.6C — Planar 2R Free-Space Closeout
 
-**Status:** active
-**Reserved work packages:** V3-630–V3-639
-**Code authorization:** V3-630–V3-639 only
+**Status:** active — Gate A corrective amendment
+**Reserved work packages:** V3-630–V3-644
+**Implementation authorization:** V3-640–V3-642 only
+**Closeout authorization:** V3-643–V3-644 only after Gate A implementation acceptance
 **Depends on:** corrected Sprint V3.6 evidence; Sprint V3.6A; Sprint V3.6B and its completed Gate B review; ADR-021–026
 **Blocks:** architecture-final Sprint V3.7 acceptance and Sprint V3.8 activation
 **Decision note:** [`V3_6C_CLOSEOUT_DECISIONS.md`](../../../architecture/notes/V3_6C_CLOSEOUT_DECISIONS.md)
 **Gate B findings:** [`V3_6B_GATE_B_REVIEW_FINDINGS.md`](../../../architecture/notes/V3_6B_GATE_B_REVIEW_FINDINGS.md)
+**Gate A corrective review:** [`V3_6C_GATE_A_CORRECTIVE_REVIEW.md`](../../../architecture/notes/V3_6C_GATE_A_CORRECTIVE_REVIEW.md)
 **New report target:** `results/v3_review/v3_6c_planar2r_closeout/`
 
 ## Sprint intent
@@ -335,6 +337,50 @@ Commit implementation first. From that clean revision, generate
 Update the Gate B disposition and ACTIVE_SPRINT only after the new report is
 reviewed. Do not automatically activate V3.7.
 
+### V3-640 — Complete represented-goal attachment
+
+**WP status:** authorized by Gate A review.
+
+Require the production lattice goal-set query to attach every represented
+candidate before search begins. Preserve structured failed-candidate identity,
+return an explicit invalid-query reason, and report requested, attached, and
+unique goal counts. Partial overlays remain lower-level diagnostics only.
+
+### V3-641 — Canonical native-PRM query edges
+
+**WP status:** authorized by Gate A review.
+
+Canonicalize native-PRM query edge identity by undirected node pair. Validate,
+insert, and trace each physical query edge once while preserving role-level
+start/goal attachment accounting. Report unique query attempts, accepted edges,
+and duplicate role reuses separately from roadmap-construction work.
+
+### V3-642 — Corrective report and regression gate
+
+**WP status:** authorized by Gate A review.
+
+Expose the new PRM query metrics in HTML, add fail-closed lattice and canonical
+PRM regression fixtures, run focused and full regression/static checks, and
+commit implementation without generated results.
+
+### V3-643 — Clean corrective generation and review
+
+**WP status:** blocked on V3-640–V3-642 acceptance.
+
+From the clean corrective implementation commit, regenerate the canonical
+`results/v3_review/v3_6c_planar2r_closeout/` package. The prior package is a
+review candidate rather than frozen accepted evidence; Git history preserves it.
+Verify complete lattice goal attachment and unique PRM query-edge traces across
+all ten tasks. Commit generated evidence separately.
+
+### V3-644 — Gate B disposition and no authorization
+
+**WP status:** blocked on manual V3-643 review.
+
+Record the final Gate A/Gate B disposition, test evidence, implementation and
+artifact SHAs, and the status of every V3.6B finding. Return `ACTIVE_SPRINT` to
+no authorization. Any V3.7 activation requires a separate planning commit.
+
 ## Proposed source targets
 
 ```text
@@ -405,6 +451,14 @@ without coupling audit behavior into core planner contracts.
     implementation revision, config, task IDs, trace schema, metric schema, and
     artifact version.
 13. V1, V2, V3.0–V3.6B, and provisional V3.7 regressions remain green.
+14. Production lattice goal-set planning fails before search when any declared
+    represented candidate cannot attach, and the failure retains candidate
+    identity.
+15. Successful lattice rows report complete candidate attachment; unique goal
+    nodes remain separately counted when candidates deduplicate.
+16. Native PRM validates, inserts, and traces each canonical undirected query
+    edge once; role attachment counts and unique physical query-edge work remain
+    separately readable.
 
 ## Exit criteria
 
