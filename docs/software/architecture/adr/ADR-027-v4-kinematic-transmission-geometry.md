@@ -1,6 +1,6 @@
 # ADR-027 — Kinematic transmission geometry as a shared differential layer
 
-- **Status:** Accepted for Version 4 planning; implementation held pending explicit sprint activation
+- **Status:** Accepted; V4.0 geometry kernel implemented. Later Version 4 columns remain unauthorized until `ACTIVE_SPRINT.md` explicitly activates them
 - **Applies to:** Version 4
 - **Related:** ADR-001, ADR-014, ADR-021, ADR-022, ADR-024, ADR-026; [V4_PROJECT_PLAN.md](../../V4_PROJECT_PLAN.md)
 - **Supersedes:** nothing; frozen Version 1–3 evidence retains its declared contracts

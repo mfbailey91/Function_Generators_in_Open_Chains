@@ -3,8 +3,8 @@
 V4-001 through V4-005, V4-007, and V4-008 land the differential protocol,
 algebra, metric and mobility identities, geometry snapshots, fresh audit
 migration, duality/potential-gradient tests, and the deterministic
-geometry-core smoke report. Jacobian finite-difference helpers remain
-unauthorized until later V4.0 work packages.
+geometry-core smoke report. Sprint V4.0 is closed. Jacobian finite-difference
+helpers (V4-006) remain unauthorized until a later sprint activates them.
 """
 
 from inequality_mechanisms.transmission_geometry.differential import (
