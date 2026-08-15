@@ -18,6 +18,13 @@ from inequality_mechanisms.core.trajectory_metrics import (
     path_metrics_from_states,
 )
 from inequality_mechanisms.graphs.embedded import EmbeddedPlanningGraph
+from inequality_mechanisms.transmission_geometry.differential import (
+    composite_jacobian,
+)
+from inequality_mechanisms.transmission_geometry.metrics import actuator_metric_on_q
+from inequality_mechanisms.transmission_geometry.protocols import (
+    KinematicTransmissionRobotModel,
+)
 
 EPS = 1e-12
 
@@ -198,9 +205,16 @@ def compute_node_fields(
     assembly_state: Mapping[str, Any] | None = None,
     eps: float = EPS,
 ) -> list[ActuatorMetricOnQRecord]:
-    """Compute ``actuator_metric_on_q`` fields via ``M = Jinv.T @ Jinv`` + ``eigh``."""
+    """Compute ``actuator_metric_on_q`` fields via the V4 geometry kernel.
+
+    ``M_Q`` comes from :func:`actuator_metric_on_q` and ``J_{xu}`` from
+    :func:`composite_jacobian`. Rank-deficient transmissions raise
+    ``DifferentialSingularityError`` rather than using a pseudoinverse.
+    Eigenvalue and ellipse diagnostics remain V3 visualization fields.
+    """
     branch = getattr(robot, "branch", None)
-    if branch is None:
+    v4_robot = isinstance(robot, KinematicTransmissionRobotModel)
+    if branch is None and not v4_robot:
         raise TypeError("robot must expose an operating branch for field metrics")
     assembly = dict(assembly_state or {})
     out: list[ActuatorMetricOnQRecord] = []
@@ -210,13 +224,12 @@ def compute_node_fields(
         q = np.asarray(graph.q_state(node_id), dtype=np.float64)
         u = np.asarray(graph.u_state(node_id), dtype=np.float64)
         state = PhysicalState(u=u, q=q, assembly_state=assembly)
-        j_g = np.asarray(branch.jacobian(u), dtype=np.float64)
-        try:
-            j_g_inv = np.linalg.inv(j_g)
-        except np.linalg.LinAlgError:
-            j_g_inv = np.linalg.pinv(j_g)
-        m_q = j_g_inv.T @ j_g_inv
-        m_q = 0.5 * (m_q + m_q.T)
+        if v4_robot:
+            j_g = np.asarray(robot.jacobian_u_to_q(state), dtype=np.float64)
+        else:
+            assert branch is not None
+            j_g = np.asarray(branch.jacobian(u), dtype=np.float64)
+        m_q = actuator_metric_on_q(j_g)
         evals, evecs = np.linalg.eigh(m_q)
         evals = np.asarray(evals, dtype=np.float64)
         # Guard tiny / non-positive eigenvalues from roundoff.
@@ -228,7 +241,7 @@ def compute_node_fields(
         det_guarded = float(np.prod(evals_pos))
         sqrt_det = float(np.sqrt(max(det_guarded, eps)))
         j_f = np.asarray(robot.jacobian_q_to_x(state), dtype=np.float64)
-        j_ux = j_f @ j_g
+        j_ux = composite_jacobian(j_f, j_g)
         diag = tuple(float(m_q[i, i]) for i in range(m_q.shape[0]))
         evec_cols = tuple(
             tuple(float(x) for x in evecs[:, i]) for i in range(evecs.shape[1])
