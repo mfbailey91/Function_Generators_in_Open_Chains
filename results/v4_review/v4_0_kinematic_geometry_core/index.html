@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"/>
+<title>V4.0 Kinematic Geometry Core Smoke</title>
+<style>
+body { font-family: Georgia, "Times New Roman", serif; margin: 1.2rem; color: #222; }
+table { border-collapse: collapse; width: 100%; margin: 0.6rem 0 1.2rem; font-size: 0.92rem; }
+th, td { border: 1px solid #bbb; padding: 0.35rem 0.45rem; vertical-align: top; }
+th { background: #f3f3f3; }
+img { max-width: 100%; height: auto; border: 1px solid #ddd; margin: 0.25rem 0; }
+.muted { color: #555; }
+code { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 0.85rem; }
+</style></head><body>
+<h1>V4.0 Kinematic Geometry Core Smoke</h1>
+<p><strong>geometry-core verification; no mechanism performance inference.</strong></p>
+<p class="muted">Git <code>3d096e30145fbe09b62a9a4b61c3e79db6e52ac6</code>
+· schema <code>v4.0.geometry_core_smoke.v1</code>
+· grid [17, 17]
+· W_u identity</p>
+<p><a href="manifest.json">manifest.json</a> ·
+<a href="resolved_config.json">resolved_config.json</a> ·
+<a href="geometry_samples.jsonl">geometry_samples.jsonl</a> ·
+<a href="identity_residuals.json">identity_residuals.json</a></p>
+<h2>Transmission maps</h2>
+<p class="muted">Shared-axis q_i(u_i) and dq_i/du_i for the certified crank-rocker
+and its span-matched gearbox. These panels inspect the maps; they do not rank them.</p>
+<figure><img src="figures/geometry_core__shared__q_of_u.png" alt="q_i(u_i) by axis"/><figcaption>q_i(u_i) by axis</figcaption></figure>
+<figure><img src="figures/geometry_core__shared__dqdu_u_of_q.png" alt="dq_i/du_i and u_i(q_i) by axis"/><figcaption>dq_i/du_i and u_i(q_i) by axis</figcaption></figure>
+<h2>Singular values</h2>
+<figure><img src="figures/singular_values.png" alt="Singular values of J_g, J_f, and J_xu on shared scales"/><figcaption>Singular values of J_g, J_f, and J_xu on shared scales</figcaption></figure>
+<h2>Metric and mobility eigenvalues</h2>
+<figure><img src="figures/metric_mobility_eigenvalues.png" alt="Eigenvalues of M_Q^(U) and B_Q^(U) on shared scales"/><figcaption>Eigenvalues of M_Q^(U) and B_Q^(U) on shared scales</figcaption></figure>
+<h2>Identity residuals</h2>
+<table>
+<tr><th>residual</th><th>fourbar max</th><th>span-matched gearbox max</th><th>all max</th></tr>
+<tr><td>metric_mobility</td><td>1.570e-16</td><td>3.140e-16</td><td>3.140e-16</td></tr><tr><td>finite_difference</td><td>6.531e-10</td><td>3.379e-10</td><td>6.531e-10</td></tr><tr><td>virtual_power</td><td>1.110e-16</td><td>1.110e-16</td><td>1.110e-16</td></tr><tr><td>potential_gradient</td><td>3.114e-09</td><td>2.587e-09</td><td>3.114e-09</td></tr>
+</table>
+<p>Gearbox analytic check: ratios [0.4026746694860475, 0.4026746694860475];
+max Jacobian residual 0.000e+00;
+max metric residual 8.882e-16.</p>
+<figure><img src="figures/identity_residuals.png" alt="Metric-mobility, finite-difference, virtual-power, and potential-gradient residuals"/><figcaption>Metric-mobility, finite-difference, virtual-power, and potential-gradient residuals</figcaption></figure>
+</body></html>

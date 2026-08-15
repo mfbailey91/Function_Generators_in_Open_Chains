@@ -1,6 +1,6 @@
 # Sprint V4.0 — Kinematic Geometry Core
 
-- **Status:** planned and blocked; applying the planning patch does not authorize source changes
+- **Status:** completed; V4-000 through V4-005 and V4-007 through V4-009 closed; V4-006 was not implemented and remains unauthorized; V4.1 remains unauthorized
 - **Activation dependency:** Version 3.6C gate formally closed and `ACTIVE_SPRINT.md` separately changed
 - **Reserved work packages:** V4-000–V4-009
 - **Initial mechanism scope:** certified square, full-rank, monotonic gearbox and four-bar branches
@@ -607,6 +607,8 @@ The HTML must show, for both mechanisms on shared scales:
 A reviewer can inspect the kernel numerically and visually before column-specific implementations begin.
 
 ## V4-009 — Closeout and authorization reset
+
+**WP status:** completed — frozen V3 digests verified; smoke regenerated; `ACTIVE_SPRINT` has no code authorization; V4.1 remains unauthorized.
 
 ### Review checklist
 

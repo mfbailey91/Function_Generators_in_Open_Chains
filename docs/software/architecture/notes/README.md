@@ -12,4 +12,5 @@ Design notes preserve useful explorations and deferred alternatives. Promote a n
 - [V3.6B Gate B review findings](V3_6B_GATE_B_REVIEW_FINDINGS.md) (Sprint V3.6B; V3.6C closeout accepted)
 - [V3.6C closeout decisions](V3_6C_CLOSEOUT_DECISIONS.md) (Sprint V3.6C)
 - [V3.6C Gate A corrective review](V3_6C_GATE_A_CORRECTIVE_REVIEW.md) (Sprint V3.6C; Gate A/B accepted)
+- [V4.0 kinematic geometry core closeout](V4_0_KINEMATIC_GEOMETRY_CORE_CLOSEOUT.md) (Sprint V4.0)
 - [S4-12 lifted output-state](S4-12-lifted-output-state.md)
