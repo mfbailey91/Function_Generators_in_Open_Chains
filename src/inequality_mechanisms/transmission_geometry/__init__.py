@@ -1,9 +1,10 @@
 """Kinematic transmission geometry kernel.
 
-V4-001 through V4-005 and V4-007 land the differential protocol, algebra,
-metric and mobility identities, geometry snapshots, fresh audit migration,
-and duality/potential-gradient tests. Jacobian finite-difference helpers
-and smoke artifacts remain unauthorized until later V4.0 work packages.
+V4-001 through V4-005, V4-007, and V4-008 land the differential protocol,
+algebra, metric and mobility identities, geometry snapshots, fresh audit
+migration, duality/potential-gradient tests, and the deterministic
+geometry-core smoke report. Jacobian finite-difference helpers remain
+unauthorized until later V4.0 work packages.
 """
 
 from inequality_mechanisms.transmission_geometry.differential import (
