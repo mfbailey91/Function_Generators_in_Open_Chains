@@ -1,17 +1,18 @@
 # Architecture version matrix
 
-| Concern | Version 1 | Version 2 | Version 3 |
-| --- | --- | --- | --- |
-| Mechanism regime | Full-cycle or potentially noninjective | Certified one-to-one operating branch | Certified monotonic branch initially; noninjective restored later |
-| Planning center | Graph experiment in \(\mathcal U\) | Graph experiment in \(\mathcal Q\) with attached \(u\) | Planner-independent planning problem |
-| Planning node identity | Complete actuator state in \(\mathcal U\) | Output state in \(\mathcal Q\) with unique actuator realization attached | Physical state \((u,q,\text{assembly state},\ldots)\); representation is planner-specific |
-| Duplicate output preimages | Preserved as distinct states | Excluded by branch certification | Excluded on monotonic branch; preserved when noninjective maps return |
-| Input topology | May be periodic | Bounded and nonperiodic in the core study | Same initial branch contract as V2; generalizes with later state models |
-| Primary representation | Input-state graph | Output-state embedded graph | Direct, lattice, roadmap, tree, OMPL, later MoveIt |
-| Local motion | Graph adjacency / edge traces | Four-connected lattice edges | Continuous local-motion models; adjacency is candidate generation |
-| Start / goal | Graph nodes / V1 queries | Lattice attachment; Cartesian goal regions (B) | Exact start; goal as task predicate; attachment residual is diagnostic |
-| Sampling modes | Uniform actuator lattice | Uniform-\(\mathcal U\) mapped to \(\mathcal Q\), plus uniform-\(\mathcal Q\) control | External task banks; planner sampling is backend-specific |
-| Config/result schema | Version 1 | Separate Version 2 schema | Separate Version 3 problem/result schema |
-| Status | Preserved research baseline | Frozen historical experiment lineage | V3.6A dimensional refactor completed; V3.6B planar 2R visual audit completed; provisional 3R free-space retained pending Gate B review / residual V3.7 |
+| Concern | Version 1 | Version 2 | Version 3 | Version 4 |
+| --- | --- | --- | --- | --- |
+| Mechanism regime | Full-cycle or potentially noninjective | Certified one-to-one operating branch | Certified monotonic branch initially; noninjective restored later | Certified monotonic planar-2R branches initially; explicit differential-rank policy |
+| Software center | Graph experiment in \(\mathcal U\) | Graph experiment in \(\mathcal Q\) with attached \(u\) | Planner-independent planning problem | Shared kinematic-transmission geometry consumed by planning, velocity, wrench, and flow columns |
+| Physical state identity | Complete actuator state in \(\mathcal U\) | Output state in \(\mathcal Q\) with unique actuator realization attached | Physical state \((u,q,\text{assembly state},\ldots)\); representation is planner-specific | Reuses the Version 3 physical state; geometry snapshots add differentials, rank, metric, and mobility |
+| Duplicate output preimages | Preserved as distinct states | Excluded by branch certification | Excluded on monotonic branch; preserved when noninjective maps return | Excluded from the initial 2R program; later restoration must retain Version 1/3 physical-state semantics |
+| Input topology | May be periodic | Bounded and nonperiodic in the core study | Same initial branch contract as V2; generalizes with later state models | Same certified bounded branches for the initial four-column study |
+| Primary representation | Input-state graph | Output-state embedded graph | Direct, lattice, roadmap, tree, OMPL, later MoveIt | Shared \(Q\) atlas with complete \(U/Q/X\) geometry plus column-specific solvers/controllers |
+| Differential center | Mechanism Jacobian used locally | Mechanism-aware edge costs and branch maps | Robot and mechanism Jacobians available through separate interfaces | One verified \(J_g\), \(J_f\), \(J_{xu}\), metric, mobility, covector, and rank kernel |
+| Local motion | Graph adjacency / edge traces | Four-connected lattice edges | Continuous local-motion models; adjacency is candidate generation | Reuses Version 3 motion contracts for the planning column; other columns use typed local differential/flow results |
+| Start / goal | Graph nodes / V1 queries | Lattice attachment; Cartesian goal regions (B) | Exact start; goal as task predicate; attachment residual is diagnostic | Application task records may contain exact state, Cartesian target, velocity, wrench, or potential specifications |
+| Sampling modes | Uniform actuator lattice | Uniform-\(\mathcal U\) mapped to \(\mathcal Q\), plus uniform-\(\mathcal Q\) control | External task banks; planner sampling is backend-specific | Dense shared-\(Q\) intrinsic atlases plus neutral and application-weighted paired task banks |
+| Config/result schema | Version 1 | Separate Version 2 schema | Separate Version 3 problem/result schema | Separate geometry snapshots and column result schemas joined by stable task/mechanism IDs |
+| Status | Preserved research baseline | Frozen historical experiment lineage | V3.6C planar-2R closeout accepted (`ff9facd` / `8f4781e`); residual 3R free-space remains blocked pending a separate V3.7 activation | Planning accepted under ADR-027; implementation blocked until `ACTIVE_SPRINT.md` explicitly activates V4.0 |
 
-ADR-001 remains authoritative for Version 1. Version 2 may use output-state identity only after the operating branch satisfies the accepted certification contract. Version 3 contracts are accepted under ADRs 021–026 and do not reinterpret frozen Version 2 evidence.
+ADR-001 remains authoritative for Version 1. Version 2 may use output-state identity only after the operating branch satisfies the accepted certification contract. Version 3 contracts are accepted under ADRs 021–026 and do not reinterpret frozen Version 2 evidence. Version 4 builds on Version 3 rather than replacing it; ADR-027 and the V4 sprint documents create no code authorization by themselves.

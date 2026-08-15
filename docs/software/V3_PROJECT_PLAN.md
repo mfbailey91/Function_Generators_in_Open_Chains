@@ -1,6 +1,6 @@
 # Version 3 Project Plan — Planner-Agnostic Mechanism-Aware Motion Planning
 
-**Status:** active architecture; roadmap amended to validate 2R→3R→6R free space before collision routing; V3.6C planar-2R closeout gate active
+**Status:** active architecture; roadmap amended to validate 2R→3R→6R free space before collision routing; V3.6C planar-2R closeout completed; residual V3.7 blocked
 **Predecessor:** Version 2 / Experiment A and bounded Experiment B work
 **Primary decision:** freeze production scaling while the planning formulation is generalized
 **Initial mechanism scope:** certified monotonic transmission branches

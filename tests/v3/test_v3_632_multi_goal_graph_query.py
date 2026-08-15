@@ -8,6 +8,8 @@ import numpy as np
 import pytest
 from tests.graphs_v2._fixtures import affine_1d_branch, fourbar_2d_branch
 
+import inequality_mechanisms.adapters.graph_search_planner as graph_search_module
+import inequality_mechanisms.graphs.goal_set_query_overlay as goal_set_overlay_module
 from inequality_mechanisms.adapters import GraphSearchPlanner
 from inequality_mechanisms.adapters.lattice_edge_cost import (
     resolve_lattice_goal_set_objective,
@@ -220,6 +222,13 @@ def test_dijkstra_astar_agree_on_cost_and_selected_goal() -> None:
     )
     assert a.planner_metrics["graph"]["heuristic_name"] == "input_euclidean_goal_set"
     assert d.planner_metrics["graph"]["heuristic_name"] == "zero"
+    for result in (d, a):
+        metrics = result.planner_metrics["graph"]
+        assert metrics["requested_goal_count"] == len(candidates)
+        assert metrics["attached_goal_candidate_count"] == len(candidates)
+        assert metrics["unique_goal_node_count"] == len(candidates)
+        assert metrics["goal_set_attachment_complete"] is True
+        assert metrics["failed_goal_attachments"] == []
 
 
 def test_goal_set_heuristic_zero_on_goals_and_admissible() -> None:
@@ -401,6 +410,115 @@ def test_fail_closed_empty_candidates_and_empty_overlay() -> None:
             start_q=graph.q_state(start_id),
             goal_qs=[],
         )
+
+
+def test_incomplete_represented_goal_set_fails_closed_with_candidate_identity(
+    monkeypatch,
+) -> None:
+    graph, robot = _fourbar_lattice()
+    topo = graph.topology
+    start_id = topo.node_id((0, 0))
+    goal_ids = [topo.node_id((2, 2)), topo.node_id((4, 4))]
+    start = PhysicalState(
+        u=graph.u_state(start_id),
+        q=graph.q_state(start_id),
+        assembly_state=dict(
+            robot.state_from_input(graph.u_state(start_id)).assembly_state
+        ),
+    )
+    candidates = [
+        _candidate_from_node(graph, robot, gid, index=i, sample_id=f"attach_{i}")
+        for i, gid in enumerate(goal_ids)
+    ]
+    failing_q = np.asarray(candidates[1].state.q, dtype=np.float64)
+    original_resolve = goal_set_overlay_module.resolve_query_endpoint
+
+    def _resolve_with_one_failure(
+        base,
+        *,
+        requested_q,
+        requested_u=None,
+        dedup_tol,
+        edge_n_samples,
+    ):
+        if np.array_equal(np.asarray(requested_q, dtype=np.float64), failing_q):
+            raise ValueError("deliberate unattached represented-goal fixture")
+        return original_resolve(
+            base,
+            requested_q=requested_q,
+            requested_u=requested_u,
+            dedup_tol=dedup_tol,
+            edge_n_samples=edge_n_samples,
+        )
+
+    monkeypatch.setattr(
+        goal_set_overlay_module,
+        "resolve_query_endpoint",
+        _resolve_with_one_failure,
+    )
+
+    # The lower-level overlay retains an explicit partial diagnostic mode.
+    partial = GoalSetQueryOverlay(
+        base=graph,
+        start_q=start.q,
+        start_u=start.u,
+        goal_qs=[candidate.state.q for candidate in candidates],
+        goal_us=[candidate.state.u for candidate in candidates],
+        require_all_goals=False,
+    )
+    assert partial.requested_goal_count == 2
+    assert partial.attached_goal_count == 1
+    assert len(partial.goal_node_ids) == 1
+    assert partial.attachment_complete is False
+    assert partial.failed_goal_attachments == (
+        "goal_index=1: deliberate unattached represented-goal fixture",
+    )
+
+    tip = np.asarray(
+        robot.forward_kinematics(candidates[0].state).position, dtype=np.float64
+    )
+    problem = _problem_from_start_goal(
+        robot,
+        start,
+        CartesianDiskGoal(center=tip, radius=2.0, robot=robot),
+    )
+
+    def _unexpected_solver_backend(_name):
+        raise AssertionError(
+            "graph search must not start for an incomplete goal set"
+        )
+
+    monkeypatch.setattr(
+        graph_search_module,
+        "_solver_backend",
+        _unexpected_solver_backend,
+    )
+    result = GraphSearchPlanner(
+        graph=graph, algorithm="dijkstra", edge_cost_mode="endpoint"
+    ).solve_goal_set(problem, candidates)
+
+    assert result.status is PlanningStatus.INVALID
+    metrics = result.planner_metrics["graph"]
+    assert metrics["search_started"] is False
+    assert metrics["requested_goal_count"] == 2
+    assert metrics["attached_goal_candidate_count"] == 1
+    assert metrics["unique_goal_node_count"] == 1
+    assert metrics["goal_set_attachment_complete"] is False
+    assert metrics["query_failure"] == "incomplete_represented_goal_set_attachment"
+    assert metrics["expansions"] == 0
+    assert metrics["generated"] == 0
+    assert metrics["reopened_or_stale"] == 0
+    assert metrics["failed_goal_attachments"] == [
+        {
+            "goal_index": 1,
+            "reason": "deliberate unattached represented-goal fixture",
+            "goal_sample_id": "attach_1",
+            "goal_sample_index": 1,
+            "goal_sample_point": candidates[1].provenance["goal_sample_point"],
+            "ik_family": "lattice_fixture",
+            "candidate_generator_id": "v3_632_test",
+        }
+    ]
 
 
 def test_exact_output_goal_solve_smoke_unchanged() -> None:

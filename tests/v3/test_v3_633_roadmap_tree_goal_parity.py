@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
 from typing import Any
 
 import numpy as np
@@ -23,9 +24,39 @@ from inequality_mechanisms.core import (
     PlanningProblem,
     PlanningStatus,
 )
+from inequality_mechanisms.core.local_motion import LocalMotion
 from inequality_mechanisms.kinematics.planar_2r import Planar2R
 from inequality_mechanisms.planners import PRMPlanner, RRTConnectPlanner
 from inequality_mechanisms.planners.sampling_space import select_goal_candidates
+
+
+class CountingScene:
+    """Wrap a free-space scene and count ``motion_is_valid`` calls."""
+
+    def __init__(
+        self,
+        inner: FreeSpaceScene,
+        *,
+        reject_end_u: np.ndarray | None = None,
+    ) -> None:
+        self._inner = inner
+        self.motion_checks = 0
+        self.reject_end_u = (
+            None
+            if reject_end_u is None
+            else np.asarray(reject_end_u, dtype=np.float64)
+        )
+
+    def state_is_valid(self, state: Any) -> bool:
+        return self._inner.state_is_valid(state)
+
+    def motion_is_valid(self, motion: LocalMotion) -> bool:
+        self.motion_checks += 1
+        if self.reject_end_u is not None:
+            for endpoint in (motion.start, motion.end):
+                if np.allclose(endpoint.u, self.reject_end_u, rtol=0.0, atol=1e-12):
+                    return False
+        return self._inner.motion_is_valid(motion)
 
 
 def _ordered_far_near_problem() -> tuple[
@@ -260,6 +291,100 @@ def test_trace_sink_noninterference_rrt_and_prm() -> None:
     assert any(e.event_type == "query_attach" for e in sink2.events)
     attach = next(e for e in sink2.events if e.event_type == "query_attach")
     assert len(attach.payload["goal_indices"]) == len(cands)
+
+
+def test_prm_query_edges_are_canonical_and_traced_once() -> None:
+    _robot, problem, generator, cands = _ordered_far_near_problem()
+    scene = CountingScene(problem.scene)
+    problem = replace(problem, scene=scene)
+    sink = ListPlannerTraceSink()
+    result = PRMPlanner(
+        seed=23,
+        n_samples=0,
+        k_neighbors=1,
+        max_edge_u=10.0,
+        max_goal_candidates=16,
+        goal_generator=generator,
+        trace_sink=sink,
+    ).solve(problem)
+
+    assert result.status is PlanningStatus.SUCCESS
+    roadmap = result.planner_metrics["roadmap"]
+    goal_count = len(cands)
+    assert roadmap["start_attachment_count"] == goal_count
+    assert roadmap["goal_attachment_count"] == goal_count
+    assert roadmap["query_unique_edges_attempted"] == goal_count
+    assert roadmap["query_unique_edges_accepted"] == goal_count
+    assert roadmap["query_duplicate_edge_reuses"] == goal_count
+    assert roadmap["attempted_edges"] == 0
+    assert result.motion_validity_checks == goal_count
+    assert scene.motion_checks == goal_count
+
+    attach_edges = [
+        event
+        for event in sink.events
+        if event.family == "roadmap"
+        and event.phase == "query"
+        and event.event_type == "attach_edge"
+    ]
+    assert len(attach_edges) == goal_count
+    pairs = [
+        tuple(sorted((int(event.payload["src"]), int(event.payload["dst"]))))
+        for event in attach_edges
+    ]
+    assert len(pairs) == len(set(pairs))
+    pair_set = set(pairs)
+    assert all(
+        tuple(event.payload["edge_key"]) in pair_set for event in attach_edges
+    )
+
+
+def test_prm_classifies_after_failed_then_successful_direct_goal() -> None:
+    _robot, problem, generator, cands = _ordered_far_near_problem()
+    assert len(cands) >= 2
+    fail_u = np.asarray(cands[0].state.u, dtype=np.float64)
+    scene = CountingScene(problem.scene, reject_end_u=fail_u)
+    problem = replace(problem, scene=scene)
+    sink = ListPlannerTraceSink()
+    result = PRMPlanner(
+        seed=23,
+        n_samples=0,
+        k_neighbors=1,
+        max_edge_u=10.0,
+        max_goal_candidates=16,
+        goal_generator=generator,
+        trace_sink=sink,
+    ).solve(problem)
+
+    assert result.status is PlanningStatus.SUCCESS
+    roadmap = result.planner_metrics["roadmap"]
+    goal_count = len(cands)
+    assert roadmap["direct_connector_available"] is True
+    assert result.selected_goal_candidate is not None
+    assert result.selected_goal_candidate.provenance["goal_sample_id"] != cands[
+        0
+    ].provenance["goal_sample_id"]
+    assert roadmap["start_attachment_count"] == goal_count - 1
+    assert roadmap["goal_attachment_count"] == goal_count - 1
+    assert roadmap["query_unique_edges_attempted"] == goal_count
+    assert roadmap["query_unique_edges_accepted"] == goal_count - 1
+    assert roadmap["query_duplicate_edge_reuses"] == goal_count
+    assert result.motion_validity_checks == goal_count
+    assert scene.motion_checks == goal_count
+
+    attach_edges = [
+        event
+        for event in sink.events
+        if event.family == "roadmap"
+        and event.phase == "query"
+        and event.event_type == "attach_edge"
+    ]
+    assert len(attach_edges) == goal_count - 1
+    pairs = [
+        tuple(sorted((int(event.payload["src"]), int(event.payload["dst"]))))
+        for event in attach_edges
+    ]
+    assert len(pairs) == len(set(pairs))
 
 
 def test_seed_reproducibility_multi_root_rrt() -> None:

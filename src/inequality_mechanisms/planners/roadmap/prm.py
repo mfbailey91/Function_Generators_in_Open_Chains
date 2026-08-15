@@ -35,7 +35,6 @@ from inequality_mechanisms.planners.sampling_rng import (
     seed_provenance_extras,
 )
 from inequality_mechanisms.planners.sampling_space import (
-    direct_connector_available,
     match_selected_candidate,
     path_cost_u,
     path_length_q,
@@ -45,6 +44,22 @@ from inequality_mechanisms.planners.sampling_space import (
     select_goal_candidates,
     try_connect,
 )
+
+
+def _canonical_physical_pair_key(
+    connector: Any, a: PhysicalState, b: PhysicalState
+) -> tuple[Any, ...]:
+    """Return an undirected physical-edge key for one connector policy."""
+    policy = str(getattr(connector, "model_id", type(connector).__name__))
+    ua = tuple(np.asarray(a.u, dtype=np.float64).reshape(-1).tolist())
+    ub = tuple(np.asarray(b.u, dtype=np.float64).reshape(-1).tolist())
+    qa = tuple(np.asarray(a.q, dtype=np.float64).reshape(-1).tolist())
+    qb = tuple(np.asarray(b.q, dtype=np.float64).reshape(-1).tolist())
+    left: tuple[Any, ...] = (ua, qa)
+    right: tuple[Any, ...] = (ub, qb)
+    if right < left:
+        left, right = right, left
+    return (policy, left, right)
 
 
 def _goal_usable(problem: PlanningProblem) -> bool:
@@ -181,9 +196,13 @@ class PRMPlanner:
                 "attempted_edges": 0,
                 "accepted_edges": 0,
                 "start_attached": False,
+                "start_attachment_count": 0,
                 "goal_attached": False,
                 "goal_candidate_count": 0,
                 "goal_attachment_count": 0,
+                "query_unique_edges_attempted": 0,
+                "query_unique_edges_accepted": 0,
+                "query_duplicate_edge_reuses": 0,
                 "expansions": 0,
                 "seed": int(self.seed),
                 "repetition_index": int(self.repetition_index),
@@ -255,7 +274,29 @@ class PRMPlanner:
                 state_checks=1,
             )
 
-        direct_succeeded, direct_checks = direct_connector_available(problem, goals)
+        connector = resolve_connector(problem)
+        physical_edge_cache: dict[tuple[Any, ...], bool] = {}
+        motion_checks = 0
+
+        def _cached_try_connect(a: PhysicalState, b: PhysicalState) -> bool:
+            nonlocal motion_checks
+            key = _canonical_physical_pair_key(connector, a, b)
+            cached = physical_edge_cache.get(key)
+            if cached is not None:
+                return cached
+            motion_checks += 1
+            connected = bool(try_connect(connector, problem, a, b))
+            physical_edge_cache[key] = connected
+            return connected
+
+        # ADR-026 classification: no PRM attachment-distance threshold.
+        # Cache start–goal evaluations so query attachment does not recheck.
+        direct_succeeded = False
+        for goal_state in goals:
+            connected = _cached_try_connect(problem.start, goal_state)
+            if connected and problem.goal.satisfied(goal_state):
+                direct_succeeded = True
+                break
         base_metrics["roadmap"]["direct_connector_available"] = direct_succeeded
         task_class = classify_direct_attempt(
             start_valid=True,
@@ -264,7 +305,6 @@ class PRMPlanner:
             candidates_representable=True,
             connector_succeeded=direct_succeeded,
         )
-        connector = resolve_connector(problem)
         assembly = dict(problem.start.assembly_state)
 
         t_pre = time.perf_counter()
@@ -297,7 +337,6 @@ class PRMPlanner:
         adj: list[list[tuple[int, float]]] = [[] for _ in range(len(vertices))]
         attempted = 0
         accepted = 0
-        motion_checks = direct_checks
         for i, si in enumerate(vertices):
             dists = [
                 (j, float(np.linalg.norm(si.u - vertices[j].u)))
@@ -311,8 +350,7 @@ class PRMPlanner:
                 if j < i:
                     continue  # undirected: connect once
                 attempted += 1
-                motion_checks += 1
-                if try_connect(connector, problem, si, vertices[j]):
+                if _cached_try_connect(si, vertices[j]):
                     accepted += 1
                     adj[i].append((j, dist))
                     adj[j].append((i, dist))
@@ -347,19 +385,41 @@ class PRMPlanner:
             adj.append([])
             goal_indices.append(gi)
 
+        # Query attachment may encounter a direct start-goal pair twice: once
+        # from the start role and once from the goal role. Validate and insert
+        # each physical undirected pair exactly once, while allowing both roles
+        # to count an already accepted edge as an attachment.
+        query_edge_results: dict[tuple[int, int], bool] = {}
+        query_unique_edges_attempted = 0
+        query_unique_edges_accepted = 0
+        query_duplicate_edge_reuses = 0
+
         def _attach(src: int, dsts: list[int]) -> int:
             attached = 0
-            nonlocal motion_checks
+            nonlocal query_unique_edges_attempted
+            nonlocal query_unique_edges_accepted, query_duplicate_edge_reuses
             for dst in dsts:
-                dist = float(np.linalg.norm(vertices[src].u - vertices[dst].u))
-                if dist > self.max_edge_u and src != start_idx:
-                    # Still allow start/goal attachment within 2x max for query.
-                    if dist > 2.0 * self.max_edge_u:
-                        continue
-                elif dist > 2.0 * self.max_edge_u:
+                if src == dst:
                     continue
-                motion_checks += 1
-                if try_connect(connector, problem, vertices[src], vertices[dst]):
+                dist = float(np.linalg.norm(vertices[src].u - vertices[dst].u))
+                # Allow query attachments within 2x the roadmap edge limit.
+                if dist > 2.0 * self.max_edge_u:
+                    continue
+
+                edge_key = (src, dst) if src < dst else (dst, src)
+                if edge_key in query_edge_results:
+                    query_duplicate_edge_reuses += 1
+                    if query_edge_results[edge_key]:
+                        attached += 1
+                    continue
+
+                query_unique_edges_attempted += 1
+                connected = _cached_try_connect(
+                    vertices[src], vertices[dst]
+                )
+                query_edge_results[edge_key] = bool(connected)
+                if connected:
+                    query_unique_edges_accepted += 1
                     adj[src].append((dst, dist))
                     adj[dst].append((src, dist))
                     attached += 1
@@ -371,6 +431,7 @@ class PRMPlanner:
                             payload={
                                 "src": int(src),
                                 "dst": int(dst),
+                                "edge_key": list(edge_key),
                                 "dist_u": float(dist),
                                 "u_src": vertices[src].u.tolist(),
                                 "q_src": vertices[src].q.tolist(),
@@ -383,11 +444,21 @@ class PRMPlanner:
         sample_ids = list(range(start_idx))
         start_links = _attach(start_idx, sample_ids + goal_indices)
         base_metrics["roadmap"]["start_attached"] = start_links > 0
+        base_metrics["roadmap"]["start_attachment_count"] = int(start_links)
         goal_links = 0
         for gi in goal_indices:
             goal_links += _attach(gi, sample_ids + [start_idx])
         base_metrics["roadmap"]["goal_attached"] = goal_links > 0
         base_metrics["roadmap"]["goal_attachment_count"] = int(goal_links)
+        base_metrics["roadmap"]["query_unique_edges_attempted"] = int(
+            query_unique_edges_attempted
+        )
+        base_metrics["roadmap"]["query_unique_edges_accepted"] = int(
+            query_unique_edges_accepted
+        )
+        base_metrics["roadmap"]["query_duplicate_edge_reuses"] = int(
+            query_duplicate_edge_reuses
+        )
         if sink is not None:
             sink.record(
                 family="roadmap",
@@ -398,6 +469,15 @@ class PRMPlanner:
                     "goal_indices": list(goal_indices),
                     "start_links": int(start_links),
                     "goal_links": int(goal_links),
+                    "query_unique_edges_attempted": int(
+                        query_unique_edges_attempted
+                    ),
+                    "query_unique_edges_accepted": int(
+                        query_unique_edges_accepted
+                    ),
+                    "query_duplicate_edge_reuses": int(
+                        query_duplicate_edge_reuses
+                    ),
                     "start_u": problem.start.u.tolist(),
                     "start_q": problem.start.q.tolist(),
                     "goals_u": [g.u.tolist() for g in goals],

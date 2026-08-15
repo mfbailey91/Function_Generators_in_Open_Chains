@@ -1,11 +1,9 @@
 # V3.6B Gate B review findings
 
-**Status:** review complete — discrepancies assigned to Sprint V3.6C
+**Status:** review complete — V3.6C closeout accepted; residual V3.7 not activated
 **Sprint reviewed:** V3.6B (V3-620–V3-629)
 **Artifact reviewed:** `results/v3_review/v3_6b_planar2r_visual_audit/`
-**Follow-up:** [Sprint V3.6C — Planar 2R Free-Space Closeout](../../planning/sprints/v3/SPRINT_V3_6C_PLANAR2R_FREE_SPACE_CLOSEOUT.md)
-**Does not activate V3.7.** Architecture-final V3.7 remains blocked until the
-V3.6C exit criteria pass and ACTIVE_SPRINT separately authorizes reconciliation.
+**Follow-up:** [Sprint V3.6C](../../planning/sprints/v3/SPRINT_V3_6C_PLANAR2R_FREE_SPACE_CLOSEOUT.md) closeout accepted. Architecture-final V3.7 remains blocked until ACTIVE_SPRINT separately authorizes residual reconciliation.
 
 ## Gate B §8 findings
 
@@ -127,10 +125,31 @@ dependencies.
 4. **Frozen artifacts remain provenance.** Corrections must write a new V3.6C
    package rather than overwrite V3.6 or V3.6B outputs.
 
+## V3.6C closeout disposition
+
+Inspected accepted package [`results/v3_review/v3_6c_planar2r_closeout/`](../../../../results/v3_review/v3_6c_planar2r_closeout/) (implementation `ff9facd`, artifact `8f4781e`). Focused HTML/raw-record review: `near_0`, `near_3`, `far_2`.
+
+| Finding | Closeout | Notes |
+| --- | --- | --- |
+| 1 Shared-Q vs native roadmap | corrected as designed | Native PRM remains a roadmap-family control; shared-Q sampled roadmap is a separately labeled diagnostic. |
+| 2 Native U-only traces | corrected | PRM/RRT final traces and required growth contact sheets exist in U, Q, and X. |
+| 3 Continuous trajectory vs chords | corrected | Path lengths match rebuilt local-motion evaluation in raw records. |
+| 4 Multi-goal lattice / A* | corrected | One query attaches all nine represented candidates (`goal_set_attachment_complete=true`); Dijkstra/A* costs agree; A* expansions are total query work and smaller than Dijkstra. |
+| 5 RRT first-goal-only | corrected | `goal_root_count=9` on both mechanisms; selected roots are not the first candidate (`near_0`/`near_3`: `boundary_135deg` index 4; `far_2`: `boundary_0deg` index 1). |
+| 6 Lost selected-goal provenance | corrected | Direct, lattice, PRM, and RRT rows expose `selected_goal_sample_id`. |
+| 7 Unreadable family metrics / missing Q/X edges | corrected | Trial HTML includes lattice attachment completeness and unique PRM query-edge metrics; traces retain canonical `edge_key`. |
+| 8 Dimensional seams | unchanged pass | Planar-2R audit helpers remain audit-owned. |
+| Cross-cut residuals | corrected | Physical vs attachment residuals remain separately named. |
+| Cross-cut `actuator_metric_on_q` | corrected | Named metric and shared-scale panels present on trial pages. |
+| Cross-cut PRM free-space role | interpretive, not a blocker | Native PRM costs match input-linear on the three inspected tasks (direct query edge valid). Unique query edges plus role reuses are reported. |
+| Cross-cut freeze | corrected | Frozen V3.6 / V3.6B / provisional V3.7 packages were not rewritten. |
+
+OMPL bindings were unavailable (`ompl_available=false`), matching the prior V3-639 candidate. Skipped OMPL rows are an explicit adapter-control gap, not a change of task or planner settings.
+
 ## Disposition
 
 - [x] Gate B review complete
 - [x] Discrepancies entered as explicit V3.6C blockers
-- [ ] V3.6C corrections and tests complete
-- [ ] V3.6C report reviewed and accepted
+- [x] V3.6C corrections and tests complete
+- [x] V3.6C report reviewed and accepted
 - [ ] ACTIVE_SPRINT may separately activate residual V3.7

@@ -49,6 +49,10 @@ def test_family_metrics_html_labels_prm_and_shared_q_separately() -> None:
                     "expansions": 12,
                     "generated": 20,
                     "reopened_or_stale": 1,
+                    "requested_goal_count": 4,
+                    "attached_goal_candidate_count": 4,
+                    "unique_goal_node_count": 4,
+                    "goal_set_attachment_complete": True,
                     "goal_set_cardinality": 4,
                     "path_node_ids": [0, 1, 2],
                     "expansions_are_total_query_work": True,
@@ -65,7 +69,11 @@ def test_family_metrics_html_labels_prm_and_shared_q_separately() -> None:
                     "attempted_edges": 10,
                     "accepted_edges": 8,
                     "start_attached": True,
+                    "start_attachment_count": 4,
                     "goal_attachment_count": 3,
+                    "query_unique_edges_attempted": 11,
+                    "query_unique_edges_accepted": 9,
+                    "query_duplicate_edge_reuses": 3,
                     "expansions": 5,
                 }
             },
@@ -108,6 +116,12 @@ def test_family_metrics_html_labels_prm_and_shared_q_separately() -> None:
     assert "not native PRM" in html
     assert "shared_q_sampled_dijkstra" in html
     assert "PRM (native roadmap-family control)" in html
+    assert "attached candidates" in html
+    assert "unique goal nodes" in html
+    assert "attachment complete" in html
+    assert "query unique attempted" in html
+    assert "query unique accepted" in html
+    assert "duplicate pair reuses" in html
 
 
 def test_closeout_mini_report_layout_and_labels(tmp_path, monkeypatch) -> None:
@@ -177,6 +191,7 @@ def test_closeout_mini_report_layout_and_labels(tmp_path, monkeypatch) -> None:
     assert "contact-sheet" in trial_html
     assert "physical residual" in trial_html
     assert "expansions_are_total_query_work" in trial_html
+    assert "attachment complete" in trial_html
     assert "vertices" in trial_html
     assert "goal-root count" in trial_html
     assert "not native PRM" in trial_html
