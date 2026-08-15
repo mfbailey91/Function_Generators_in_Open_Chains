@@ -35,7 +35,6 @@ from inequality_mechanisms.planners.sampling_rng import (
     seed_provenance_extras,
 )
 from inequality_mechanisms.planners.sampling_space import (
-    direct_connector_available,
     match_selected_candidate,
     path_cost_u,
     path_length_q,
@@ -45,6 +44,22 @@ from inequality_mechanisms.planners.sampling_space import (
     select_goal_candidates,
     try_connect,
 )
+
+
+def _canonical_physical_pair_key(
+    connector: Any, a: PhysicalState, b: PhysicalState
+) -> tuple[Any, ...]:
+    """Return an undirected physical-edge key for one connector policy."""
+    policy = str(getattr(connector, "model_id", type(connector).__name__))
+    ua = tuple(np.asarray(a.u, dtype=np.float64).reshape(-1).tolist())
+    ub = tuple(np.asarray(b.u, dtype=np.float64).reshape(-1).tolist())
+    qa = tuple(np.asarray(a.q, dtype=np.float64).reshape(-1).tolist())
+    qb = tuple(np.asarray(b.q, dtype=np.float64).reshape(-1).tolist())
+    left: tuple[Any, ...] = (ua, qa)
+    right: tuple[Any, ...] = (ub, qb)
+    if right < left:
+        left, right = right, left
+    return (policy, left, right)
 
 
 def _goal_usable(problem: PlanningProblem) -> bool:
@@ -259,7 +274,29 @@ class PRMPlanner:
                 state_checks=1,
             )
 
-        direct_succeeded, direct_checks = direct_connector_available(problem, goals)
+        connector = resolve_connector(problem)
+        physical_edge_cache: dict[tuple[Any, ...], bool] = {}
+        motion_checks = 0
+
+        def _cached_try_connect(a: PhysicalState, b: PhysicalState) -> bool:
+            nonlocal motion_checks
+            key = _canonical_physical_pair_key(connector, a, b)
+            cached = physical_edge_cache.get(key)
+            if cached is not None:
+                return cached
+            motion_checks += 1
+            connected = bool(try_connect(connector, problem, a, b))
+            physical_edge_cache[key] = connected
+            return connected
+
+        # ADR-026 classification: no PRM attachment-distance threshold.
+        # Cache start–goal evaluations so query attachment does not recheck.
+        direct_succeeded = False
+        for goal_state in goals:
+            connected = _cached_try_connect(problem.start, goal_state)
+            if connected and problem.goal.satisfied(goal_state):
+                direct_succeeded = True
+                break
         base_metrics["roadmap"]["direct_connector_available"] = direct_succeeded
         task_class = classify_direct_attempt(
             start_valid=True,
@@ -268,7 +305,6 @@ class PRMPlanner:
             candidates_representable=True,
             connector_succeeded=direct_succeeded,
         )
-        connector = resolve_connector(problem)
         assembly = dict(problem.start.assembly_state)
 
         t_pre = time.perf_counter()
@@ -301,7 +337,6 @@ class PRMPlanner:
         adj: list[list[tuple[int, float]]] = [[] for _ in range(len(vertices))]
         attempted = 0
         accepted = 0
-        motion_checks = direct_checks
         for i, si in enumerate(vertices):
             dists = [
                 (j, float(np.linalg.norm(si.u - vertices[j].u)))
@@ -315,8 +350,7 @@ class PRMPlanner:
                 if j < i:
                     continue  # undirected: connect once
                 attempted += 1
-                motion_checks += 1
-                if try_connect(connector, problem, si, vertices[j]):
+                if _cached_try_connect(si, vertices[j]):
                     accepted += 1
                     adj[i].append((j, dist))
                     adj[j].append((i, dist))
@@ -362,7 +396,7 @@ class PRMPlanner:
 
         def _attach(src: int, dsts: list[int]) -> int:
             attached = 0
-            nonlocal motion_checks, query_unique_edges_attempted
+            nonlocal query_unique_edges_attempted
             nonlocal query_unique_edges_accepted, query_duplicate_edge_reuses
             for dst in dsts:
                 if src == dst:
@@ -380,9 +414,8 @@ class PRMPlanner:
                     continue
 
                 query_unique_edges_attempted += 1
-                motion_checks += 1
-                connected = try_connect(
-                    connector, problem, vertices[src], vertices[dst]
+                connected = _cached_try_connect(
+                    vertices[src], vertices[dst]
                 )
                 query_edge_results[edge_key] = bool(connected)
                 if connected:
