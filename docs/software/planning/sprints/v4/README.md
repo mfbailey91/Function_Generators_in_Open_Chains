@@ -1,6 +1,6 @@
 # Version 4 — Kinematic Transmission Geometry
 
-**Status:** planned; no Version 4 source work is active until `ACTIVE_SPRINT.md` explicitly says so.
+**Status:** Sprint V4.0 is active for **V4-000 only**. V4-001–V4-009 remain unauthorized until `ACTIVE_SPRINT.md` expands the range.
 
 Version 4 keeps the planar 2R robot as a controlled exploratory system and broadens the mechanism study from graph planning into four sibling effect columns:
 
@@ -23,7 +23,7 @@ The governing architecture is [ADR-027](../../../architecture/adr/ADR-027-v4-kin
 
 | Sprint | Status | Scope |
 | --- | --- | --- |
-| [V4.0](SPRINT_V4_0_KINEMATIC_GEOMETRY_CORE.md) | planned / blocked | Extract and verify the shared differential, metric, mobility, rank, and duality kernel. |
+| [V4.0](SPRINT_V4_0_KINEMATIC_GEOMETRY_CORE.md) | active / V4-000 only | Extract and verify the shared differential, metric, mobility, rank, and duality kernel. |
 | V4.1 | not yet drafted | Canonical planar-2R intrinsic geometry atlas and null controls. |
 | V4.2 | not yet drafted | Differential IK, actuator-rate limits, velocity sets, and tracking. |
 | V4.3 | not yet drafted | Static wrench polygons, directional margins, and terminal capability. |

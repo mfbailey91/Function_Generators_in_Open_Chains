@@ -1,6 +1,6 @@
 # Sprint V4.0 — Kinematic Geometry Core
 
-- **Status:** planned and blocked; applying the planning patch does not authorize source changes
+- **Status:** active; V4-000 authorized; V4-001–V4-009 remain unauthorized
 - **Activation dependency:** Version 3.6C gate formally closed and `ACTIVE_SPRINT.md` separately changed
 - **Reserved work packages:** V4-000–V4-009
 - **Initial mechanism scope:** certified square, full-rank, monotonic gearbox and four-bar branches
