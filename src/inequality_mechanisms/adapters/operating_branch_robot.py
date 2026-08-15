@@ -15,6 +15,9 @@ from inequality_mechanisms.mechanisms.operating_branch import (
     BranchInverseError,
     OperatingBranch,
 )
+from inequality_mechanisms.transmission_geometry.protocols import (
+    DEFAULT_STATE_TOLERANCE,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -150,6 +153,57 @@ class OperatingBranchRobotModel:
                 "for jacobian_q_to_x"
             )
         return np.asarray(self.kinematic_model.jacobian(state.q), dtype=np.float64)
+
+    def jacobian_u_to_q(self, state: PhysicalState) -> NDArray[np.float64]:
+        """Return the transmission Jacobian ``J_g = dq/du`` at ``state``.
+
+        Parameters
+        ----------
+        state :
+            Certified physical state on this operating branch.
+
+        Returns
+        -------
+        ndarray
+            New finite ``float64`` matrix of shape ``(dof, input_dim)``.
+
+        Raises
+        ------
+        ValueError
+            If ``state`` has the wrong dimension, is inconsistent with
+            ``g(u)``, or lies outside the certified branch.
+        """
+        input_dim = int(self.branch.mechanism.input_dim)
+        output_dim = int(self.dof)
+        if state.u.shape != (input_dim,):
+            raise ValueError(
+                f"jacobian_u_to_q requires u shape ({input_dim},), "
+                f"got {state.u.shape}"
+            )
+        if state.q.shape != (output_dim,):
+            raise ValueError(
+                f"jacobian_u_to_q requires q shape ({output_dim},), "
+                f"got {state.q.shape}"
+            )
+        if not self.validate_state(state, DEFAULT_STATE_TOLERANCE):
+            raise ValueError(
+                "state is inconsistent with the transmission map g(u)"
+            )
+        if not self.state_within_limits(state):
+            raise ValueError("state is outside the certified operating branch")
+        j_g = np.array(
+            self.branch.jacobian(state.u),
+            dtype=np.float64,
+            copy=True,
+        )
+        if j_g.shape != (output_dim, input_dim):
+            raise ValueError(
+                "branch.jacobian must return shape "
+                f"({output_dim}, {input_dim}), got {j_g.shape}"
+            )
+        if not np.all(np.isfinite(j_g)):
+            raise ValueError("branch.jacobian must return a finite matrix")
+        return j_g
 
     def state_within_limits(self, state: PhysicalState) -> bool:
         """Return True when ``u`` and ``q`` lie in the certified branch ranges."""

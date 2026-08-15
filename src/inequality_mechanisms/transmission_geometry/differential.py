@@ -6,7 +6,9 @@ Rank-deficient inputs are reported, not inverted or silently regularized.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
+from typing import Any
 
 import numpy as np
 from numpy.typing import ArrayLike, NDArray
@@ -27,6 +29,38 @@ class RankReport:
     tolerance: float
     full_rank: bool
     condition_number: float | None
+
+    def to_dict(self) -> dict[str, Any]:
+        """Return a JSON-friendly rank-report record."""
+        return {
+            "shape": [int(self.shape[0]), int(self.shape[1])],
+            "rank": int(self.rank),
+            "required_full_rank": int(self.required_full_rank),
+            "singular_values": [float(value) for value in self.singular_values],
+            "tolerance": float(self.tolerance),
+            "full_rank": bool(self.full_rank),
+            "condition_number": (
+                None
+                if self.condition_number is None
+                else float(self.condition_number)
+            ),
+        }
+
+    @classmethod
+    def from_dict(cls, data: Mapping[str, Any]) -> RankReport:
+        """Restore a rank report from :meth:`to_dict` output."""
+        condition = data["condition_number"]
+        return cls(
+            shape=(int(data["shape"][0]), int(data["shape"][1])),
+            rank=int(data["rank"]),
+            required_full_rank=int(data["required_full_rank"]),
+            singular_values=tuple(
+                float(value) for value in data["singular_values"]
+            ),
+            tolerance=float(data["tolerance"]),
+            full_rank=bool(data["full_rank"]),
+            condition_number=None if condition is None else float(condition),
+        )
 
 
 def default_rank_tolerance(
