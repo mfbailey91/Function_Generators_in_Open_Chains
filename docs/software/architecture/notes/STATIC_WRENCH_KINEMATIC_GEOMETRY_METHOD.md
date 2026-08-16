@@ -1,6 +1,6 @@
 # Static Wrench Capability from Kinematic Geometry
 
-**Status:** method contract for V3.6E–V3.6F; no code authorization
+**Status:** method contract for closed V3.6E–V3.6F; consume V4.0 kernel
 **Scope:** planar 2R, rigid, ideal, gravity-free, normalized actuator torque limits
 **Kernel rule:** on this branch, \(J_g\), \(J_f\), \(J_{xu}\), rank, metric, and virtual-power identities come from V4.0 `inequality_mechanisms.transmission_geometry` ([ADR-027](../adr/ADR-027-v4-kinematic-transmission-geometry.md)). This note specifies the gravity-free static wrench set and atlas views; it does not authorize a second Jacobian implementation. Version 4 wrench software, if later activated, remains Sprint V4.3.
 

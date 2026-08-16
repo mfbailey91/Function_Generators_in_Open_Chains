@@ -1,6 +1,6 @@
 # Sprint V3.6F — Static Wrench Atlas and Biological Documentation
 
-**Status:** drafted; no code authorization
+**Status:** completed; V3-670–V3-679 closed
 **Reserved work packages:** V3-670–V3-679
 **Depends on:** accepted V3.6D registry; accepted V3.6E math core; no-authorization state
 **Blocks:** architecture-final V3.7 activation

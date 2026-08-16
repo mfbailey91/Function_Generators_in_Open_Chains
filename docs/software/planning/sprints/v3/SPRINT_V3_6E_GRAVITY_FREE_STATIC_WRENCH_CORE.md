@@ -1,6 +1,6 @@
 # Sprint V3.6E — Gravity-Free Static Wrench Core
 
-**Status:** drafted; no code authorization
+**Status:** completed; V3-660–V3-669 closed
 **Reserved work packages:** V3-660–V3-669
 **Depends on:** accepted V3.6D artifact, no-authorization state, and the closed V4.0 `transmission_geometry` kernel
 **Blocks:** V3.6F and architecture-final V3.7 activation

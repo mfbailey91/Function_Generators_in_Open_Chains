@@ -1,6 +1,6 @@
 # Sprint V3.6D — Canonical Span Corpus
 
-**Status:** active; V3-650–V3-659 authorized
+**Status:** completed; V3-650–V3-659 closed
 **Reserved work packages:** V3-650–V3-659
 **Depends on:** accepted V3.6C Gate A corrective closeout through V3-644; no-authorization repository state
 **Blocks:** V3.6E, V3.6F, and architecture-final V3.7 activation

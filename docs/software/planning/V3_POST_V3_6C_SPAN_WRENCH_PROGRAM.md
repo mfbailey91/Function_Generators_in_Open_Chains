@@ -1,6 +1,6 @@
 # Post-V3.6C Program — Canonical Joint Spans and Gravity-Free Static Wrench Geometry
 
-**Status:** drafted; blocked. V3.6C Gate A closeout is accepted. This branch has since closed V4.0 and V4.1. Do not start V3-650–V3-679 until `ACTIVE_SPRINT.md` separately authorizes a named sprint.
+**Status:** V3.6D–F completed on this branch after closed V4.0/V4.1. Do not start V4.2, V4.3, or residual V3.7 until `ACTIVE_SPRINT.md` separately authorizes a named sprint.
 **Program:** V3.6D–V3.6F
 **Reserved work packages:** V3-650–V3-679
 **Prepared against repository main:** `db967ab31af8acab83d113812bab748384374234`

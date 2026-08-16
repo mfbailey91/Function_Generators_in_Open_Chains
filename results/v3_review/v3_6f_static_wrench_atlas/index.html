@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"/>
+<title>V3.6F Gravity-Free Static Wrench Atlas</title>
+<style>
+body { font-family: Georgia, "Times New Roman", serif; margin: 1.2rem; color: #222; }
+table { border-collapse: collapse; width: 100%; margin: 0.6rem 0 1.2rem; font-size: 0.92rem; }
+th, td { border: 1px solid #bbb; padding: 0.35rem 0.45rem; vertical-align: top; }
+th { background: #f3f3f3; }
+img { max-width: 100%; height: auto; border: 1px solid #ddd; margin: 0.25rem 0; }
+.muted { color: #555; }
+code { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 0.85rem; }
+.banner { background: #f7f1e8; border: 1px solid #d9c7a3; padding: 0.7rem 0.9rem; }
+.js-only { display: none; }
+@media print {
+  .no-print { display: none !important; }
+  .print-only { display: block !important; }
+}
+</style></head><body>
+<h1>V3.6F Gravity-Free Static Wrench Atlas</h1>
+<div class="banner">
+<p><strong>Intrinsic kinematic geometry plus ideal virtual work.</strong>
+Normalized actuator torque box <code>[1, 1]</code>. Gravity, payload, inertia,
+and structural limits are excluded; they are not implemented options.
+This package does not overwrite V4.1 and is not Sprint V4.3.</p>
+<p>Default view: isotropic-capacity heatmap. Directional maps and exact polygons
+are secondary. Paired four-bar/gearbox panels share color limits and Q samples.</p>
+</div>
+<p class="muted"><a href="print.html">Print fallback</a> ·
+<a href="methods.md">Methods</a> ·
+<a href="biological_trace.md">Biological range trace</a> ·
+<a href="manifest.json">manifest.json</a></p>
+<h2>Seventeen-case matrix</h2>
+<table>
+<tr><th>case</th><th>J1</th><th>J2</th><th>membership</th><th>J1 status</th><th>J2 status</th></tr>
+<tr><td><a href="cases/span_j1_095_j2_095/index.html">span_j1_095_j2_095</a></td><td>95</td><td>95</td><td>core_span_sweep</td><td>certified_primary</td><td>certified_primary</td></tr><tr><td><a href="cases/span_j1_095_j2_145/index.html">span_j1_095_j2_145</a></td><td>95</td><td>145</td><td>core_span_sweep</td><td>certified_primary</td><td>certified_primary</td></tr><tr><td><a href="cases/span_j1_095_j2_175/index.html">span_j1_095_j2_175</a></td><td>95</td><td>175</td><td>core_span_sweep</td><td>certified_primary</td><td>boundary_stress_only</td></tr><tr><td><a href="cases/span_j1_135_j2_135/index.html">span_j1_135_j2_135</a></td><td>135</td><td>135</td><td>biological_refinement</td><td>certified_primary</td><td>certified_primary</td></tr><tr><td><a href="cases/span_j1_135_j2_145/index.html">span_j1_135_j2_145</a></td><td>135</td><td>145</td><td>biological_refinement</td><td>certified_primary</td><td>certified_primary</td></tr><tr><td><a href="cases/span_j1_135_j2_150/index.html">span_j1_135_j2_150</a></td><td>135</td><td>150</td><td>biological_refinement</td><td>certified_primary</td><td>certified_primary</td></tr><tr><td><a href="cases/span_j1_145_j2_095/index.html">span_j1_145_j2_095</a></td><td>145</td><td>95</td><td>core_span_sweep</td><td>certified_primary</td><td>certified_primary</td></tr><tr><td><a href="cases/span_j1_145_j2_135/index.html">span_j1_145_j2_135</a></td><td>145</td><td>135</td><td>biological_refinement</td><td>certified_primary</td><td>certified_primary</td></tr><tr><td><a href="cases/span_j1_145_j2_145/index.html">span_j1_145_j2_145</a></td><td>145</td><td>145</td><td>core_span_sweep, biological_refinement</td><td>certified_primary</td><td>certified_primary</td></tr><tr><td><a href="cases/span_j1_145_j2_150/index.html">span_j1_145_j2_150</a></td><td>145</td><td>150</td><td>biological_refinement</td><td>certified_primary</td><td>certified_primary</td></tr><tr><td><a href="cases/span_j1_145_j2_175/index.html">span_j1_145_j2_175</a></td><td>145</td><td>175</td><td>core_span_sweep</td><td>certified_primary</td><td>boundary_stress_only</td></tr><tr><td><a href="cases/span_j1_150_j2_135/index.html">span_j1_150_j2_135</a></td><td>150</td><td>135</td><td>biological_refinement</td><td>certified_primary</td><td>certified_primary</td></tr><tr><td><a href="cases/span_j1_150_j2_145/index.html">span_j1_150_j2_145</a></td><td>150</td><td>145</td><td>biological_refinement</td><td>certified_primary</td><td>certified_primary</td></tr><tr><td><a href="cases/span_j1_150_j2_150/index.html">span_j1_150_j2_150</a></td><td>150</td><td>150</td><td>biological_refinement</td><td>certified_primary</td><td>certified_primary</td></tr><tr><td><a href="cases/span_j1_175_j2_095/index.html">span_j1_175_j2_095</a></td><td>175</td><td>95</td><td>core_span_sweep</td><td>boundary_stress_only</td><td>certified_primary</td></tr><tr><td><a href="cases/span_j1_175_j2_145/index.html">span_j1_175_j2_145</a></td><td>175</td><td>145</td><td>core_span_sweep</td><td>boundary_stress_only</td><td>certified_primary</td></tr><tr><td><a href="cases/span_j1_175_j2_175/index.html">span_j1_175_j2_175</a></td><td>175</td><td>175</td><td>core_span_sweep</td><td>boundary_stress_only</td><td>boundary_stress_only</td></tr>
+</table>
+<h2>Default scalar heatmaps</h2>
+<figure><img src="cases/span_j1_095_j2_095/figures/scalar.png" alt="span_j1_095_j2_095 scalar"/><figcaption>span_j1_095_j2_095</figcaption></figure><figure><img src="cases/span_j1_095_j2_145/figures/scalar.png" alt="span_j1_095_j2_145 scalar"/><figcaption>span_j1_095_j2_145</figcaption></figure><figure><img src="cases/span_j1_095_j2_175/figures/scalar.png" alt="span_j1_095_j2_175 scalar"/><figcaption>span_j1_095_j2_175</figcaption></figure><figure><img src="cases/span_j1_135_j2_135/figures/scalar.png" alt="span_j1_135_j2_135 scalar"/><figcaption>span_j1_135_j2_135</figcaption></figure><figure><img src="cases/span_j1_135_j2_145/figures/scalar.png" alt="span_j1_135_j2_145 scalar"/><figcaption>span_j1_135_j2_145</figcaption></figure><figure><img src="cases/span_j1_135_j2_150/figures/scalar.png" alt="span_j1_135_j2_150 scalar"/><figcaption>span_j1_135_j2_150</figcaption></figure><figure><img src="cases/span_j1_145_j2_095/figures/scalar.png" alt="span_j1_145_j2_095 scalar"/><figcaption>span_j1_145_j2_095</figcaption></figure><figure><img src="cases/span_j1_145_j2_135/figures/scalar.png" alt="span_j1_145_j2_135 scalar"/><figcaption>span_j1_145_j2_135</figcaption></figure><figure><img src="cases/span_j1_145_j2_145/figures/scalar.png" alt="span_j1_145_j2_145 scalar"/><figcaption>span_j1_145_j2_145</figcaption></figure><figure><img src="cases/span_j1_145_j2_150/figures/scalar.png" alt="span_j1_145_j2_150 scalar"/><figcaption>span_j1_145_j2_150</figcaption></figure><figure><img src="cases/span_j1_145_j2_175/figures/scalar.png" alt="span_j1_145_j2_175 scalar"/><figcaption>span_j1_145_j2_175</figcaption></figure><figure><img src="cases/span_j1_150_j2_135/figures/scalar.png" alt="span_j1_150_j2_135 scalar"/><figcaption>span_j1_150_j2_135</figcaption></figure><figure><img src="cases/span_j1_150_j2_145/figures/scalar.png" alt="span_j1_150_j2_145 scalar"/><figcaption>span_j1_150_j2_145</figcaption></figure><figure><img src="cases/span_j1_150_j2_150/figures/scalar.png" alt="span_j1_150_j2_150 scalar"/><figcaption>span_j1_150_j2_150</figcaption></figure><figure><img src="cases/span_j1_175_j2_095/figures/scalar.png" alt="span_j1_175_j2_095 scalar"/><figcaption>span_j1_175_j2_095</figcaption></figure><figure><img src="cases/span_j1_175_j2_145/figures/scalar.png" alt="span_j1_175_j2_145 scalar"/><figcaption>span_j1_175_j2_145</figcaption></figure><figure><img src="cases/span_j1_175_j2_175/figures/scalar.png" alt="span_j1_175_j2_175 scalar"/><figcaption>span_j1_175_j2_175</figcaption></figure>
+</body></html>

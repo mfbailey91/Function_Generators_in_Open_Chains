@@ -14,9 +14,9 @@ Version 3 builds a planner-agnostic mechanism-aware motion-planning framework. V
 8. [Sprint V3.6A — Dimensional-Generalization Refactor](SPRINT_V3_6A_DIMENSIONAL_GENERALIZATION_REFACTOR.md) (completed)
 9. [Sprint V3.6B — Planar 2R Mechanism and Planner Visual Audit](SPRINT_V3_6B_PLANAR2R_VISUAL_AUDIT.md) (completed)
 10. [Sprint V3.6C — Planar 2R Free-Space Closeout](SPRINT_V3_6C_PLANAR2R_FREE_SPACE_CLOSEOUT.md) (completed)
-11. [Sprint V3.6D — Canonical Span Corpus](SPRINT_V3_6D_CANONICAL_SPAN_CORPUS.md) (active; V3-650–V3-659)
-12. [Sprint V3.6E — Gravity-Free Static Wrench Core](SPRINT_V3_6E_GRAVITY_FREE_STATIC_WRENCH_CORE.md) (drafted; blocked)
-13. [Sprint V3.6F — Static Wrench Atlas and Biological Docs](SPRINT_V3_6F_STATIC_WRENCH_ATLAS_AND_BIOLOGICAL_DOCS.md) (drafted; blocked)
+11. [Sprint V3.6D — Canonical Span Corpus](SPRINT_V3_6D_CANONICAL_SPAN_CORPUS.md) (completed)
+12. [Sprint V3.6E — Gravity-Free Static Wrench Core](SPRINT_V3_6E_GRAVITY_FREE_STATIC_WRENCH_CORE.md) (completed)
+13. [Sprint V3.6F — Static Wrench Atlas and Biological Docs](SPRINT_V3_6F_STATIC_WRENCH_ATLAS_AND_BIOLOGICAL_DOCS.md) (completed)
 14. [Sprint V3.7 — Planar 3R Free-Space Implementation](SPRINT_V3_7_3R_PLANAR_FREE_SPACE.md) (completed provisional / pre-gate; residual reconciliation drafted / blocked)
 15. [Sprint V3.8 — 6R Spatial Free-Space Planning](SPRINT_V3_8_6R_SPATIAL_FREE_SPACE.md) (drafted; not activated)
 16. [Sprint V3.9 — Cross-DOF Free-Space Architecture Closeout](SPRINT_V3_9_CROSS_DOF_FREE_SPACE_CLOSEOUT.md) (drafted; not activated)
@@ -25,7 +25,7 @@ Version 3 builds a planner-agnostic mechanism-aware motion-planning framework. V
 19. [Sprint V3.12 — MoveIt Application Adapter](SPRINT_V3_12_MOVEIT_APPLICATION_ADAPTER.md) (drafted; not activated)
 20. [Sprint V3.13 — Production Mechanism Populations](SPRINT_V3_13_PRODUCTION_MECHANISM_POPULATIONS.md) (drafted; not activated)
 
-V3.6B and V3.6C are completed. V3.6D–F are drafted/blocked span-corpus and gravity-free wrench contracts ([program](../../V3_POST_V3_6C_SPAN_WRENCH_PROGRAM.md)); they grant no code authorization and are not Sprint V4.3. Residual V3.7 remains blocked until a separate ACTIVE_SPRINT activation. The post-V3.6 gate is:
+V3.6B and V3.6C are completed. V3.6D–F are completed span-corpus and gravity-free wrench contracts ([program](../../V3_POST_V3_6C_SPAN_WRENCH_PROGRAM.md)); they are not Sprint V4.3. Residual V3.7 remains blocked until a separate ACTIVE_SPRINT activation. The post-V3.6 gate is:
 
 \[
 \boxed{
@@ -37,7 +37,7 @@ V3.6B and V3.6C are completed. V3.6D–F are drafted/blocked span-corpus and gra
 \rightarrow
 \text{2R closeout corrections}
 \rightarrow
-\text{canonical spans / gravity-free wrench (drafted)}
+\text{canonical spans / gravity-free wrench (completed)}
 \rightarrow
 3R\ \text{(architecture-final)}
 \rightarrow
@@ -68,9 +68,9 @@ V2 evidence freeze
                           │                 └── V3.6A dimensional refactor (completed)
                           │                       └── V3.6B planar 2R visual audit (completed)
                           │                             └── V3.6C planar 2R closeout (completed)
-                          │                                   └── V3.6D canonical span corpus (drafted / blocked)
-                          │                                         └── V3.6E gravity-free wrench core (drafted / blocked)
-                          │                                               └── V3.6F wrench atlas / biological docs (drafted / blocked)
+                          │                                   └── V3.6D canonical span corpus (completed)
+                          │                                         └── V3.6E gravity-free wrench core (completed)
+                          │                                               └── V3.6F wrench atlas / biological docs (completed)
                           │                                                     └── V3.7 residual / architecture-final 3R (drafted / blocked)
                           │                                                           └── V3.8 6R spatial free space
                           │                                                                 └── V3.9 cross-DOF closeout
