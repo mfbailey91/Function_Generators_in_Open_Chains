@@ -13,4 +13,5 @@ Design notes preserve useful explorations and deferred alternatives. Promote a n
 - [V3.6C closeout decisions](V3_6C_CLOSEOUT_DECISIONS.md) (Sprint V3.6C)
 - [V3.6C Gate A corrective review](V3_6C_GATE_A_CORRECTIVE_REVIEW.md) (Sprint V3.6C; Gate A/B accepted)
 - [V4.0 kinematic geometry core closeout](V4_0_KINEMATIC_GEOMETRY_CORE_CLOSEOUT.md) (Sprint V4.0)
+- [V4.1 planar-2R intrinsic geometry atlas closeout](V4_1_PLANAR2R_GEOMETRY_ATLAS_CLOSEOUT.md) (Sprint V4.1)
 - [S4-12 lifted output-state](S4-12-lifted-output-state.md)

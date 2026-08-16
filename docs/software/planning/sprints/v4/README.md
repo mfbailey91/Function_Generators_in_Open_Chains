@@ -1,6 +1,6 @@
 # Version 4 — Kinematic Transmission Geometry
 
-**Status:** Sprint V4.0 is **completed**. There is no Version 4 source-code authorization until `ACTIVE_SPRINT.md` separately activates a later sprint. V4.1 remains drafted / blocked.
+**Status:** Sprint V4.1 is **completed**. There is no Version 4 source-code authorization until `ACTIVE_SPRINT.md` separately activates a later sprint. V4.2 remains unauthorized.
 
 Version 4 keeps the planar 2R robot as a controlled exploratory system and broadens the mechanism study from graph planning into four sibling effect columns:
 
@@ -24,7 +24,7 @@ The governing architecture is [ADR-027](../../../architecture/adr/ADR-027-v4-kin
 | Sprint | Status | Scope |
 | --- | --- | --- |
 | [V4.0](SPRINT_V4_0_KINEMATIC_GEOMETRY_CORE.md) | completed | Extract and verify the shared differential, metric, mobility, rank, and duality kernel. |
-| [V4.1](SPRINT_V4_1_PLANAR2R_GEOMETRY_ATLAS.md) | drafted / blocked | Canonical planar-2R intrinsic geometry atlas and null controls. |
+| [V4.1](SPRINT_V4_1_PLANAR2R_GEOMETRY_ATLAS.md) | completed | Canonical planar-2R intrinsic geometry atlas and null controls. [Cursor execution roadmap](V4_1_CURSOR_IMPLEMENTATION_ROADMAP.md). |
 | V4.2 | not yet drafted | Differential IK, actuator-rate limits, velocity sets, and tracking. |
 | V4.3 | not yet drafted | Static wrench polygons, directional margins, and terminal capability. |
 | V4.4 | not yet drafted | Potential functions, coordinate controls, ODE integration, and flow atlases. |

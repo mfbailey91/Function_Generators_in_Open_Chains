@@ -1,11 +1,12 @@
 # Sprint V4.1 — Planar-2R Intrinsic Geometry Atlas
 
-- **Status:** drafted / blocked until Sprint V4.0 closes and `ACTIVE_SPRINT.md` separately authorizes V4-100–V4-108
+- **Status:** completed; V4-100 through V4-108 closed; V4.2 remains unauthorized
 - **Activation dependency:** V4-001–V4-009 implemented; Gate V4-A closed; explicit active-sprint change
 - **Reserved work packages:** V4-100–V4-108
 - **Initial mechanism scope:** canonical certified monotonic crank-rocker pair, span-matched affine gearbox, and identity-gearbox null control
 - **Initial robot scope:** planar 2R
 - **Fresh artifact target:** `results/v4_review/v4_1_planar2r_geometry_atlas/`
+- **Cursor execution:** [V4.1 Cursor implementation roadmap](V4_1_CURSOR_IMPLEMENTATION_ROADMAP.md)
 
 ## 1. Sprint purpose
 
@@ -145,6 +146,7 @@ results/v4_review/v4_1_planar2r_geometry_atlas/
 ```
 
 - Continue to refuse every `results/v3_review/` package and every other `results/v4_review/` package, including the V4.0 smoke root unless a test explicitly reads it.
+- Add a required digest lock for the retained V4.0 smoke package. Canonical-path regeneration/`rmtree` of that package is forbidden after freeze.
 
 ### Tests
 

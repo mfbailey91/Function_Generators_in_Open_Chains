@@ -1,6 +1,6 @@
 # Version 4 Project Plan — Kinematic Transmission Geometry in Planar 2R
 
-- **Status:** V4.0 geometry kernel closed; no source-code authorization until `ACTIVE_SPRINT.md` explicitly activates a later sprint
+- **Status:** V4.0 geometry kernel and V4.1 atlas closed; no source-code authorization until `ACTIVE_SPRINT.md` explicitly activates a later sprint
 - **Predecessor:** Version 3 planner-independent physical-state and motion-planning contracts
 - **Immediate dependency:** formal Version 3.6C gate disposition and a separate active-sprint transition
 - **Initial robot:** planar 2R open chain

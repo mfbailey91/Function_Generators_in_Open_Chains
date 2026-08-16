@@ -37,7 +37,11 @@ The kernel lives in `inequality_mechanisms.transmission_geometry`. Fresh V3 audi
 
 ## Explicitly out of scope
 
-V4.0 did not implement differential IK, wrench polytopes, potential-flow ODEs, Monte Carlo, 3R, 6R, obstacles, or MoveIt. V4-006 remains available as a later helper extraction; it is not required to consume the kernel.
+V4.0 did not implement differential IK, wrench polytopes, potential-flow ODEs, Monte Carlo, 3R, 6R, obstacles, or MoveIt. Deferred hardening (not V4.1 kernel rewrites unless an atlas failure blocks the sprint):
+
+- `geometry_snapshot(..., state_tolerance=)` is only partially honored because `OperatingBranchRobotModel.jacobian_u_to_q` re-validates with hard-coded `1e-9`. Preferred later fix: pass the declared tolerance through the differential query.
+- `pullback_metric` does not SPD-check a user-provided `target_metric`. Tighten that contract before Sprint V4.4; do not rename the operation to a bilinear-form pullback.
+- V4-006 reusable Jacobian finite-difference helpers remain deferred as a production API. Independent \(J_g\), \(J_f\), and \(J_{xu}\) checks belong under V4.1 tests (V4-107).
 
 ## Authorization
 
