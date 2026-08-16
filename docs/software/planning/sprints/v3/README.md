@@ -14,7 +14,7 @@ Version 3 builds a planner-agnostic mechanism-aware motion-planning framework. V
 8. [Sprint V3.6A — Dimensional-Generalization Refactor](SPRINT_V3_6A_DIMENSIONAL_GENERALIZATION_REFACTOR.md) (completed)
 9. [Sprint V3.6B — Planar 2R Mechanism and Planner Visual Audit](SPRINT_V3_6B_PLANAR2R_VISUAL_AUDIT.md) (completed)
 10. [Sprint V3.6C — Planar 2R Free-Space Closeout](SPRINT_V3_6C_PLANAR2R_FREE_SPACE_CLOSEOUT.md) (completed)
-11. [Sprint V3.6D — Canonical Span Corpus](SPRINT_V3_6D_CANONICAL_SPAN_CORPUS.md) (drafted; blocked)
+11. [Sprint V3.6D — Canonical Span Corpus](SPRINT_V3_6D_CANONICAL_SPAN_CORPUS.md) (active; V3-650–V3-659)
 12. [Sprint V3.6E — Gravity-Free Static Wrench Core](SPRINT_V3_6E_GRAVITY_FREE_STATIC_WRENCH_CORE.md) (drafted; blocked)
 13. [Sprint V3.6F — Static Wrench Atlas and Biological Docs](SPRINT_V3_6F_STATIC_WRENCH_ATLAS_AND_BIOLOGICAL_DOCS.md) (drafted; blocked)
 14. [Sprint V3.7 — Planar 3R Free-Space Implementation](SPRINT_V3_7_3R_PLANAR_FREE_SPACE.md) (completed provisional / pre-gate; residual reconciliation drafted / blocked)
