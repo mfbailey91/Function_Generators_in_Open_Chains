@@ -1,6 +1,6 @@
 # Sprint V4.2 — Span-Controlled Mechanism Corpus and Geometry Atlas Extension
 
-- **Status:** drafted / blocked; V4-200–V4-208 reserved; unauthorized until `ACTIVE_SPRINT.md` names that range
+- **Status:** in progress; `ACTIVE_SPRINT.md` authorizes V4-200–V4-208 only
 - **Depends on:** closed V4.0; closed V4.1 (V4-100–V4-108); frozen V3.6D registry; no-authorization predecessor
 - **Blocks:** V4.3 activation
 - **Reserved work packages:** V4-200–V4-208

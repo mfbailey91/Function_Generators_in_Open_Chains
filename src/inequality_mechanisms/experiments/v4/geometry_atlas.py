@@ -97,10 +97,22 @@ def evaluate_atlas_sample(
     arm: AtlasArm,
     sample: SharedQSample,
     *,
-    config: Planar2RGeometryAtlasConfig,
+    config: Planar2RGeometryAtlasConfig | None = None,
     revision: str | None,
+    mechanism_pair_id: str | None = None,
+    config_digest: str | None = None,
 ) -> AtlasRow:
     """Call the V4.0 snapshot builder at the unique inverse of ``sample.q``."""
+    pair_id = mechanism_pair_id
+    digest = config_digest
+    if pair_id is None:
+        if config is None:
+            raise TypeError("evaluate_atlas_sample requires config or mechanism_pair_id")
+        pair_id = config.mechanism_pair_id
+    if digest is None:
+        if config is None:
+            raise TypeError("evaluate_atlas_sample requires config or config_digest")
+        digest = config.digest()
     q = np.asarray(sample.q, dtype=np.float64)
     try:
         candidates = arm.robot.states_from_output(q)
@@ -121,10 +133,10 @@ def evaluate_atlas_sample(
         return AtlasRow(
             q_sample_id=sample.q_sample_id,
             mechanism_id=arm.mechanism_id,
-            mechanism_pair_id=config.mechanism_pair_id,
+            mechanism_pair_id=pair_id,
             grid_index=sample.grid_index,
             snapshot=None,
-            config_digest=config.digest(),
+            config_digest=digest,
             git_revision=revision,
             failure_code=exc.failure_code,
             failure_message=str(exc),
@@ -133,10 +145,10 @@ def evaluate_atlas_sample(
         return AtlasRow(
             q_sample_id=sample.q_sample_id,
             mechanism_id=arm.mechanism_id,
-            mechanism_pair_id=config.mechanism_pair_id,
+            mechanism_pair_id=pair_id,
             grid_index=sample.grid_index,
             snapshot=None,
-            config_digest=config.digest(),
+            config_digest=digest,
             git_revision=revision,
             failure_code="invalid_physical_state",
             failure_message=str(exc),
@@ -144,10 +156,10 @@ def evaluate_atlas_sample(
     return AtlasRow(
         q_sample_id=sample.q_sample_id,
         mechanism_id=arm.mechanism_id,
-        mechanism_pair_id=config.mechanism_pair_id,
+        mechanism_pair_id=pair_id,
         grid_index=sample.grid_index,
         snapshot=snapshot,
-        config_digest=config.digest(),
+        config_digest=digest,
         git_revision=revision,
         failure_code=None,
         failure_message=None,

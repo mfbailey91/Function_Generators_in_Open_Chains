@@ -1,4 +1,4 @@
-"""V4.1 planar-2R intrinsic geometry atlas experiment package."""
+"""V4 planar-2R geometry atlas experiment package."""
 
 from inequality_mechanisms.experiments.v4.atlas_config import (
     DEFAULT_CONFIG_REL,
@@ -23,11 +23,20 @@ from inequality_mechanisms.experiments.v4.shared_q_atlas import (
     SharedQSampleBank,
     build_shared_q_bank,
 )
+from inequality_mechanisms.experiments.v4.span_controlled_atlas_config import (
+    DEFAULT_CONFIG_REL as SPAN_ATLAS_CONFIG_REL,
+    FROZEN_V3_6D_DIGEST,
+    SpanControlledAtlasConfig,
+    V4SpanAtlasConfigError,
+    load_span_atlas_config,
+)
 
 __all__ = [
     "DEFAULT_CONFIG_REL",
+    "FROZEN_V3_6D_DIGEST",
     "NO_INFERENCE_STATEMENT",
     "SCHEMA_VERSION",
+    "SPAN_ATLAS_CONFIG_REL",
     "AtlasArm",
     "AtlasControlError",
     "AtlasRecordError",
@@ -35,9 +44,12 @@ __all__ = [
     "Planar2RGeometryAtlasConfig",
     "SharedQSample",
     "SharedQSampleBank",
+    "SpanControlledAtlasConfig",
     "V4AtlasConfigError",
+    "V4SpanAtlasConfigError",
     "build_atlas_arms",
     "build_shared_q_bank",
     "evaluate_atlas_sample",
     "load_atlas_config",
+    "load_span_atlas_config",
 ]
