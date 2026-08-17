@@ -15,6 +15,7 @@ Design notes preserve useful explorations and deferred alternatives. Promote a n
 - [V4.0 kinematic geometry core closeout](V4_0_KINEMATIC_GEOMETRY_CORE_CLOSEOUT.md) (Sprint V4.0)
 - [V4.1 planar-2R intrinsic geometry atlas closeout](V4_1_PLANAR2R_GEOMETRY_ATLAS_CLOSEOUT.md) (Sprint V4.1)
 - [V3.6D canonical span corpus closeout](V3_6D_SPAN_CORPUS_CLOSEOUT.md) (Sprint V3.6D)
+- [V3.6D canonical span corpus review](V3_6D_SPAN_CORPUS_REVIEW.md) (Sprint V3.6D; post-closeout defect-first review)
 - [V3.6E gravity-free static wrench core closeout](V3_6E_STATIC_WRENCH_CORE_CLOSEOUT.md) (Sprint V3.6E)
 - [V3.6F static wrench atlas closeout](V3_6F_STATIC_WRENCH_ATLAS_CLOSEOUT.md) (Sprint V3.6F)
 - [Static wrench kinematic geometry method](STATIC_WRENCH_KINEMATIC_GEOMETRY_METHOD.md) (V3.6E–F method contract; consume V4.0 kernel)

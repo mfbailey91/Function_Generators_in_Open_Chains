@@ -3,6 +3,7 @@
 **Disposition:** generated; non-inferential span registry
 **Package:** [`results/v3_review/v3_6d_span_corpus/`](../../../../results/v3_review/v3_6d_span_corpus/)
 **Work packages closed:** V3-650 through V3-659
+**Post-closeout review:** [V3.6D canonical span corpus review](V3_6D_SPAN_CORPUS_REVIEW.md) (scientific exit criteria met; no regeneration authorized)
 
 ## Review conclusion
 
