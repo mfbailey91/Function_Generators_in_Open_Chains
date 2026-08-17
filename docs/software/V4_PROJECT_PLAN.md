@@ -1,6 +1,6 @@
 # Version 4 Project Plan — Kinematic Transmission Geometry in Planar 2R
 
-- **Status:** V4.0 geometry kernel and V4.1 atlas closed; no source-code authorization until `ACTIVE_SPRINT.md` explicitly activates a later sprint
+- **Status:** V4.0 geometry kernel and V4.1 atlas closed; V4.2/V4.3 drafted and unauthorized until `ACTIVE_SPRINT.md` explicitly activates an exact work-package range
 - **Predecessor:** Version 3 planner-independent physical-state and motion-planning contracts
 - **Immediate dependency:** formal Version 3.6C gate disposition and a separate active-sprint transition
 - **Initial robot:** planar 2R open chain
@@ -462,12 +462,13 @@ Cross-column reports join records by stable identifiers:
 | --- | --- | --- |
 | **V4.0** | Kinematic geometry core | Can every column consume one verified \(J_g/J_f/J_{xu}\), metric, mobility, and duality implementation? |
 | **V4.1** | Planar-2R intrinsic geometry atlas | What fields does the canonical gearbox/four-bar pair induce over the same \(Q/X\) domain? |
-| **V4.2** | Inverse instantaneous kinematics and velocity capability | How does the transmission change actuator-rate demand, conditioning, saturation, and trackable Cartesian velocity? |
-| **V4.3** | Static wrench capability | How does the transmission change exact planar wrench sets and terminal directional force margin? |
-| **V4.4** | Potential fields and continuous flow | How does the transmission precondition descent, convergence, basins, and actuator travel under coordinate controls? |
-| **V4.5** | Application task corpus and integrated 2R report | Do the four columns tell a coherent application-conditioned story on one frozen task bank? |
-| **V4.6** | Paired mechanism population and Monte Carlo | Which transmission descriptors predict column-specific effects across a controlled mechanism population? |
-| **V4.7** | Cross-column trade space and paper-ready closeout | Which benefits are robust, which are tradeoffs, and which claims are justified before increasing DOF? |
+| **V4.2** | Span-controlled geometry-atlas extension | What fields does the frozen V3.6D span family induce on shared mounted \(Q\) grids with gearbox and identity controls? |
+| **V4.3** | Intrinsic gravity-free static wrench | How does that family redistribute a normalized torque box into planar endpoint force capacity on V4.2 snapshots? |
+| **V4.4** | Inverse instantaneous kinematics and velocity capability | How does the transmission change actuator-rate demand, conditioning, saturation, and trackable Cartesian velocity? |
+| **V4.5** | Potential fields and continuous flow | How does the transmission precondition descent, convergence, basins, and actuator travel under coordinate controls? |
+| **V4.6** | Application task corpus and integrated 2R report | Do the four columns tell a coherent application-conditioned story on one frozen task bank? |
+| **V4.7** | Paired mechanism population and Monte Carlo | Which transmission descriptors predict column-specific effects across a controlled mechanism population? |
+| **V4.8** | Cross-column trade space and paper-ready closeout | Which benefits are robust, which are tradeoffs, and which claims are justified before increasing DOF? |
 
 Trajectory optimization is a later synthesis layer. It is not required to establish the first four columns.
 
@@ -477,21 +478,21 @@ Trajectory optimization is a later synthesis layer. It is not required to establ
 
 V4.0 must close before any velocity, wrench, or flow implementation begins.
 
-### Gate V4-B — deterministic canonical pair
+### Gate V4-B — deterministic controls before population
 
-V4.1–V4.4 must each pass analytic/control tests on one frozen gearbox/four-bar pair before any population study.
+V4.1 (legacy pair), V4.2 (span family), V4.3 (wrench on V4.2 snapshots), and V4.4 (velocity) must each pass analytic/control tests before any population study.
 
 ### Gate V4-C — application contract
 
-V4.5 freezes the neutral and application-weighted task banks before V4.6 Monte Carlo.
+V4.6 freezes the neutral and application-weighted task banks before V4.7 Monte Carlo.
 
 ### Gate V4-D — inference
 
-V4.6 must predeclare estimands, exclusions, paired statistics, and confirmation policy before production execution.
+V4.7 must predeclare estimands, exclusions, paired statistics, and confirmation policy before production execution.
 
 ### Gate V4-E — dimensional decision
 
-V4.7 decides which questions require 3R redundancy, spatial 6R, obstacles, dynamics, or hardware. It does not assume every column must immediately scale in the same way.
+V4.8 decides which questions require 3R redundancy, spatial 6R, obstacles, dynamics, or hardware. It does not assume every column must immediately scale in the same way.
 
 ## 12. Artifact policy
 
@@ -571,7 +572,7 @@ The planned Version 3 dimensional roadmap remains documented. Version 4 reorders
 
 ## 15. Version 4 exit claim
 
-If V4.0–V4.7 close successfully, the project may claim:
+If V4.0–V4.8 close successfully, the project may claim:
 
 > On a controlled planar 2R open chain, a kinematic transmission has been treated as a common geometric layer whose effects were measured consistently in global planning, instantaneous velocity generation, static wrench capability, and continuous potential flow. Deterministic controls and paired mechanism populations identify both application-specific benefits and cross-column tradeoffs without treating one solver representation as the theory itself.
 

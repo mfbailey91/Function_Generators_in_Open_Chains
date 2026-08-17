@@ -6,6 +6,7 @@
 **Config digest:** `6cf6abf50418f84f2c779d8cd7987f882e6f12454ab053fe3a06decd2a8ca1ac`
 **Work packages closed:** V4-100 through V4-108
 **Grid:** \(33\times 33\) shared \(Q\) (1089 samples, 3267 rows, 0 failed)
+**Later drafting:** [Post-V4.1 span/wrench program](../../planning/V4_POST_V4_1_SPAN_WRENCH_PROGRAM.md) does not reopen this package. No V4.1 defect review or regeneration is authorized by that program.
 
 ## Review conclusion
 
