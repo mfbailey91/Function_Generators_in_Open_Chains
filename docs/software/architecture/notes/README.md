@@ -14,6 +14,7 @@ Design notes preserve useful explorations and deferred alternatives. Promote a n
 - [V3.6C Gate A corrective review](V3_6C_GATE_A_CORRECTIVE_REVIEW.md) (Sprint V3.6C; Gate A/B accepted)
 - [V4.0 kinematic geometry core closeout](V4_0_KINEMATIC_GEOMETRY_CORE_CLOSEOUT.md) (Sprint V4.0)
 - [V4.1 planar-2R intrinsic geometry atlas closeout](V4_1_PLANAR2R_GEOMETRY_ATLAS_CLOSEOUT.md) (Sprint V4.1)
+- [Post-V4.0 span/static-wrench planning bundle superseded](V4_POST_V4_0_SPAN_STATIC_WRENCH_BUNDLE_SUPERSEDED.md) (do not apply; V4.1 + V3.6D–F own the scope)
 - [V3.6D canonical span corpus closeout](V3_6D_SPAN_CORPUS_CLOSEOUT.md) (Sprint V3.6D)
 - [V3.6D canonical span corpus review](V3_6D_SPAN_CORPUS_REVIEW.md) (Sprint V3.6D; post-closeout defect-first review)
 - [V3.6E gravity-free static wrench core closeout](V3_6E_STATIC_WRENCH_CORE_CLOSEOUT.md) (Sprint V3.6E)

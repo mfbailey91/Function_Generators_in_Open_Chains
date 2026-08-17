@@ -9,7 +9,7 @@ Version 4 keeps the planar 2R robot as a controlled exploratory system and broad
 3. static wrench capability;
 4. potential fields and continuous flow.
 
-A Version 3 span/wrench insert ([V3.6D–F program](../../V3_POST_V3_6C_SPAN_WRENCH_PROGRAM.md)) is completed after V3.6C/V4.0/V4.1. It is not Sprint V4.3 and must not fork a second Jacobian/wrench kernel. Later V4.3 should consume the V3.6E API.
+A Version 3 span/wrench insert ([V3.6D–F program](../../V3_POST_V3_6C_SPAN_WRENCH_PROGRAM.md)) is completed after V3.6C/V4.0/V4.1. It is not Sprint V4.3 and must not fork a second Jacobian/wrench kernel. Later V4.3 should consume the V3.6E API. The local post-V4.0 span/wrench planning bundle is [superseded](../../../architecture/notes/V4_POST_V4_0_SPAN_STATIC_WRENCH_BUNDLE_SUPERSEDED.md); it is not the V4.2 contract.
 
 All columns consume the same transmission geometry:
 
