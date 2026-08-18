@@ -53,6 +53,10 @@ from inequality_mechanisms.mechanisms.operating_branch import (
     fixed_ratio_gearbox_branch,
     unit_gearbox_branch,
 )
+from inequality_mechanisms.mechanisms.output_mounting import (
+    MountedOutputMechanism,
+    mount_operating_branch,
+)
 from inequality_mechanisms.mechanisms.population import (
     CrankRockerPopulationSpec,
     follower_range,
@@ -80,6 +84,7 @@ __all__ = [
     "MonotoneTableAxisInverse",
     "MonotonicBox2D",
     "MonotonicSector",
+    "MountedOutputMechanism",
     "OperatingBranch",
     "PlanarFourBar",
     "UnitGearbox",
@@ -100,6 +105,7 @@ __all__ = [
     "match_equivalent_gearbox",
     "match_planar_fourbar_axis",
     "monotonic_box_for_independent_fourbars",
+    "mount_operating_branch",
     "open_axis_independent_fourbars",
     "output_space_from_fourbar_follower_ranges",
     "primary_monotonic_sector",
