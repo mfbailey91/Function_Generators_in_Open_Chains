@@ -1,6 +1,6 @@
 # Version 4 — Kinematic Transmission Geometry
 
-**Status:** Sprint V4.1 is **completed**. Sprint V4.2 is **completed**. Sprint V4.2A is **completed**. Sprint V4.2B is **drafted / blocked** as the corrective gate. Sprint V4.3 remains **drafted / blocked behind V4.2B**. Authorization is only the range named in `ACTIVE_SPRINT.md`.
+**Status:** Sprint V4.1 is **completed**. Sprint V4.2 is **completed**. Sprint V4.2A is **completed**. Sprint V4.2B is **active** as the corrective gate. Sprint V4.3 remains **drafted / blocked behind V4.2B**. Authorization is only the range named in `ACTIVE_SPRINT.md`.
 
 Version 4 keeps the planar 2R robot as a controlled exploratory system and broadens the mechanism study from graph planning into four sibling effect columns:
 
@@ -29,7 +29,7 @@ The governing architecture is [ADR-027](../../../architecture/adr/ADR-027-v4-kin
 | [V4.1](SPRINT_V4_1_PLANAR2R_GEOMETRY_ATLAS.md) | completed | Canonical planar-2R intrinsic geometry atlas and null controls. [Cursor execution roadmap](V4_1_CURSOR_IMPLEMENTATION_ROADMAP.md). |
 | [V4.2](SPRINT_V4_2_SPAN_CONTROLLED_GEOMETRY_ATLAS.md) | completed / historical | Original span-controlled geometry-atlas extension (V4-200–V4-208); retained, not overwritten. |
 | [V4.2A](SPRINT_V4_2A_SPAN_CONTROLLED_VISUAL_AUDIT.md) | completed / historical | Original span-controlled visual audit (V4-210–V4-219); retained, not overwritten. |
-| [V4.2B](SPRINT_V4_2B_SPAN_CONTROLLED_ATLAS_CORRECTIVE_CLOSEOUT.md) | drafted / blocked | Mounted-coordinate, common-topology, finite-edge, complete-artifact, and clean-provenance corrective closeout (V4-220–V4-229). [Cursor guide](V4_2B_CURSOR_IMPLEMENTATION_GUIDE.md). |
+| [V4.2B](SPRINT_V4_2B_SPAN_CONTROLLED_ATLAS_CORRECTIVE_CLOSEOUT.md) | active | Mounted-coordinate, common-topology, finite-edge, complete-artifact, and clean-provenance corrective closeout (V4-220–V4-229). [Cursor guide](V4_2B_CURSOR_IMPLEMENTATION_GUIDE.md). |
 | [V4.3](SPRINT_V4_3_INTRINSIC_STATIC_WRENCH.md) | drafted / blocked behind V4.2B | Intrinsic gravity-free wrench atlas on frozen corrected V4.2B snapshots; consumes V3.6E (V4-300–V4-309). |
 | V4.4 | not yet drafted | Differential IK, actuator-rate limits, velocity sets, and tracking. |
 | V4.5 | not yet drafted | Potential functions, coordinate controls, ODE integration, and flow atlases. |
