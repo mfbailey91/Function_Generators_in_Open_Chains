@@ -99,3 +99,49 @@ def test_all_unavailable_routes_return_found_false() -> None:
     )
     assert result.found is False
     assert result.selected_goal_node_id is None
+
+
+def _compile_single_edge(weight: float):
+    from inequality_mechanisms.adapters.finite_search_edges import (
+        compile_finite_neighbors,
+    )
+
+    raw = TinyGraph(2, {0: (1,), 1: ()})
+    return compile_finite_neighbors(raw, lambda _u, _v: weight)
+
+
+def test_positive_infinity_is_omitted_as_unavailable_local_motion() -> None:
+    compiled = _compile_single_edge(math.inf)
+    assert compiled.rejected_candidates[(0, 1)]["candidate_edge_status"] == (
+        "unavailable_local_motion"
+    )
+    assert 1 not in tuple(compiled.graph.neighbors(0))
+
+
+def test_nan_edge_cost_raises() -> None:
+    with pytest.raises(ValueError, match="NaN"):
+        _compile_single_edge(math.nan)
+
+
+def test_negative_infinity_edge_cost_raises() -> None:
+    with pytest.raises(ValueError, match="negative infinity"):
+        _compile_single_edge(-math.inf)
+
+
+def test_finite_negative_edge_cost_raises() -> None:
+    with pytest.raises(ValueError, match="negative"):
+        _compile_single_edge(-1.0)
+
+
+def test_zero_edge_cost_is_admitted() -> None:
+    compiled = _compile_single_edge(0.0)
+    assert compiled.rejected_candidates == {}
+    assert tuple(compiled.graph.neighbors(0)) == (1,)
+    assert compiled.edge_cost(0, 1) == pytest.approx(0.0)
+
+
+def test_positive_finite_edge_cost_is_admitted() -> None:
+    compiled = _compile_single_edge(2.5)
+    assert compiled.rejected_candidates == {}
+    assert tuple(compiled.graph.neighbors(0)) == (1,)
+    assert compiled.edge_cost(0, 1) == pytest.approx(2.5)
