@@ -87,6 +87,11 @@ def canonical_v4_2_retained_root() -> Path:
     return (CANONICAL_REPO_ROOT / V4_2_ALLOWED_OUTPUT_REL).resolve()
 
 
+def canonical_v4_2a_retained_root() -> Path:
+    """Committed V4.2A visual-audit package in this repository (never monkeypatched)."""
+    return (CANONICAL_REPO_ROOT / V4_2A_ALLOWED_OUTPUT_REL).resolve()
+
+
 def _is_under(path: Path, parent: Path) -> bool:
     path_r = path.resolve()
     parent_r = parent.resolve()
@@ -367,6 +372,33 @@ def v4_1_atlas_package_digest() -> tuple[str, int]:
     return digest_git_tracked_paths(paths)
 
 
+def v4_2_git_tracked_package_digest() -> tuple[str, int]:
+    """Digest git-tracked files of the retained V4.2 span-atlas package.
+
+    Excludes gitignored on-disk files such as ``geometry_samples.jsonl``.
+    Do not replace :func:`v4_2_atlas_package_digest`, which hashes the
+    on-disk tree for V4.2A generation before/after equality.
+    """
+    prefix = f"{V4_2_ALLOWED_OUTPUT_REL.as_posix()}/"
+    paths = [
+        rel
+        for rel in git_ls_files(V4_2_ALLOWED_OUTPUT_REL.as_posix())
+        if rel.startswith(prefix) or rel == V4_2_ALLOWED_OUTPUT_REL.as_posix()
+    ]
+    return digest_git_tracked_paths(paths)
+
+
+def v4_2a_git_tracked_package_digest() -> tuple[str, int]:
+    """Digest git-tracked files of the retained V4.2A visual-audit package."""
+    prefix = f"{V4_2A_ALLOWED_OUTPUT_REL.as_posix()}/"
+    paths = [
+        rel
+        for rel in git_ls_files(V4_2A_ALLOWED_OUTPUT_REL.as_posix())
+        if rel.startswith(prefix) or rel == V4_2A_ALLOWED_OUTPUT_REL.as_posix()
+    ]
+    return digest_git_tracked_paths(paths)
+
+
 def digest_directory_tree(root: Path) -> tuple[str, int]:
     """Return SHA-256 of sorted relative paths and per-file hashes under ``root``."""
     base = Path(root).resolve()
@@ -413,6 +445,7 @@ __all__ = [
     "canonical_v4_0_retained_root",
     "canonical_v4_1_retained_root",
     "canonical_v4_2_retained_root",
+    "canonical_v4_2a_retained_root",
     "digest_directory_tree",
     "digest_git_tracked_paths",
     "git_ls_files",
@@ -423,4 +456,6 @@ __all__ = [
     "v4_0_smoke_package_digest",
     "v4_1_atlas_package_digest",
     "v4_2_atlas_package_digest",
+    "v4_2_git_tracked_package_digest",
+    "v4_2a_git_tracked_package_digest",
 ]

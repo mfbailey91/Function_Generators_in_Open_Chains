@@ -16,6 +16,7 @@ Design notes preserve useful explorations and deferred alternatives. Promote a n
 - [V4.1 planar-2R intrinsic geometry atlas closeout](V4_1_PLANAR2R_GEOMETRY_ATLAS_CLOSEOUT.md) (Sprint V4.1)
 - [V4.2 span-controlled geometry atlas closeout](V4_2_SPAN_CONTROLLED_GEOMETRY_ATLAS_CLOSEOUT.md) (Sprint V4.2)
 - [V4.2A span-controlled visual planning audit closeout](V4_2A_SPAN_CONTROLLED_VISUAL_AUDIT_CLOSEOUT.md) (Sprint V4.2A)
+- [V4.2B Phase 0 baseline freeze](V4_2B_PHASE0_BASELINE.md) (Sprint V4.2B; freeze snapshot, not closeout)
 - [Post-V4.0 span/static-wrench planning bundle superseded](V4_POST_V4_0_SPAN_STATIC_WRENCH_BUNDLE_SUPERSEDED.md) (do not apply; live draft is the post-V4.1 program)
 - [V3.6D canonical span corpus closeout](V3_6D_SPAN_CORPUS_CLOSEOUT.md) (Sprint V3.6D)
 - [V3.6D canonical span corpus review](V3_6D_SPAN_CORPUS_REVIEW.md) (Sprint V3.6D; post-closeout defect-first review)
