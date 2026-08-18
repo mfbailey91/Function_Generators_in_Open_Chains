@@ -1,0 +1,269 @@
+{
+  "schema_version": "v3.planar2r.span_wrench_program.v1",
+  "program_id": "v3_6d_to_v3_6f_span_wrench",
+  "scope": {
+    "model": "intrinsic_kinematic_geometry_static_virtual_work",
+    "included": [
+      "rigid_transmission_kinematics",
+      "rigid_planar2r_kinematics",
+      "symmetric_normalized_actuator_torque_box",
+      "gravity_free_static_force_capability"
+    ],
+    "excluded": [
+      "gravity",
+      "payload",
+      "inertia",
+      "coriolis",
+      "impact",
+      "friction",
+      "backlash",
+      "compliance",
+      "losses",
+      "passive_torque",
+      "thermal_limits",
+      "structural_limits",
+      "contact_friction_cones"
+    ]
+  },
+  "robot": {
+    "kinematic_model": "planar2r",
+    "link_lengths": [
+      1.0,
+      1.0
+    ],
+    "joint_centers_deg": [
+      0.0,
+      0.0
+    ]
+  },
+  "span_definitions": {
+    "core_span_sweep_deg": [
+      95,
+      145,
+      175
+    ],
+    "biological_refinement_deg": [
+      135,
+      145,
+      150
+    ],
+    "legacy_regression_span_approx_deg": 78.041,
+    "legacy_in_scientific_case_registry": false
+  },
+  "synthesis": {
+    "unique_target_spans_deg": [
+      95,
+      135,
+      145,
+      150,
+      175
+    ],
+    "target_is_usable_q_span": true,
+    "target_span_tolerance_deg": 0.25,
+    "center_deg": 0.0,
+    "certificate_profile": "canonical_monotonic_branch_v1_to_be_frozen_at_v3_650",
+    "near_limit_policy": [
+      "certified_primary",
+      "boundary_stress_only",
+      "unsupported_under_certificate"
+    ],
+    "deterministic_seed": 650
+  },
+  "case_groups": {
+    "core_span_sweep": {
+      "j1_spans_deg": [
+        95,
+        145,
+        175
+      ],
+      "j2_spans_deg": [
+        95,
+        145,
+        175
+      ]
+    },
+    "biological_refinement": {
+      "j1_spans_deg": [
+        135,
+        145,
+        150
+      ],
+      "j2_spans_deg": [
+        135,
+        145,
+        150
+      ]
+    }
+  },
+  "unique_cases": [
+    {
+      "case_id": "span_j1_095_j2_095",
+      "span_j1_deg": 95,
+      "span_j2_deg": 95,
+      "memberships": [
+        "core_span_sweep"
+      ]
+    },
+    {
+      "case_id": "span_j1_095_j2_145",
+      "span_j1_deg": 95,
+      "span_j2_deg": 145,
+      "memberships": [
+        "core_span_sweep"
+      ]
+    },
+    {
+      "case_id": "span_j1_095_j2_175",
+      "span_j1_deg": 95,
+      "span_j2_deg": 175,
+      "memberships": [
+        "core_span_sweep"
+      ]
+    },
+    {
+      "case_id": "span_j1_135_j2_135",
+      "span_j1_deg": 135,
+      "span_j2_deg": 135,
+      "memberships": [
+        "biological_refinement"
+      ]
+    },
+    {
+      "case_id": "span_j1_135_j2_145",
+      "span_j1_deg": 135,
+      "span_j2_deg": 145,
+      "memberships": [
+        "biological_refinement"
+      ]
+    },
+    {
+      "case_id": "span_j1_135_j2_150",
+      "span_j1_deg": 135,
+      "span_j2_deg": 150,
+      "memberships": [
+        "biological_refinement"
+      ]
+    },
+    {
+      "case_id": "span_j1_145_j2_095",
+      "span_j1_deg": 145,
+      "span_j2_deg": 95,
+      "memberships": [
+        "core_span_sweep"
+      ]
+    },
+    {
+      "case_id": "span_j1_145_j2_135",
+      "span_j1_deg": 145,
+      "span_j2_deg": 135,
+      "memberships": [
+        "biological_refinement"
+      ]
+    },
+    {
+      "case_id": "span_j1_145_j2_145",
+      "span_j1_deg": 145,
+      "span_j2_deg": 145,
+      "memberships": [
+        "core_span_sweep",
+        "biological_refinement"
+      ]
+    },
+    {
+      "case_id": "span_j1_145_j2_150",
+      "span_j1_deg": 145,
+      "span_j2_deg": 150,
+      "memberships": [
+        "biological_refinement"
+      ]
+    },
+    {
+      "case_id": "span_j1_145_j2_175",
+      "span_j1_deg": 145,
+      "span_j2_deg": 175,
+      "memberships": [
+        "core_span_sweep"
+      ]
+    },
+    {
+      "case_id": "span_j1_150_j2_135",
+      "span_j1_deg": 150,
+      "span_j2_deg": 135,
+      "memberships": [
+        "biological_refinement"
+      ]
+    },
+    {
+      "case_id": "span_j1_150_j2_145",
+      "span_j1_deg": 150,
+      "span_j2_deg": 145,
+      "memberships": [
+        "biological_refinement"
+      ]
+    },
+    {
+      "case_id": "span_j1_150_j2_150",
+      "span_j1_deg": 150,
+      "span_j2_deg": 150,
+      "memberships": [
+        "biological_refinement"
+      ]
+    },
+    {
+      "case_id": "span_j1_175_j2_095",
+      "span_j1_deg": 175,
+      "span_j2_deg": 95,
+      "memberships": [
+        "core_span_sweep"
+      ]
+    },
+    {
+      "case_id": "span_j1_175_j2_145",
+      "span_j1_deg": 175,
+      "span_j2_deg": 145,
+      "memberships": [
+        "core_span_sweep"
+      ]
+    },
+    {
+      "case_id": "span_j1_175_j2_175",
+      "span_j1_deg": 175,
+      "span_j2_deg": 175,
+      "memberships": [
+        "core_span_sweep"
+      ]
+    }
+  ],
+  "static_wrench": {
+    "task_dimension": 2,
+    "task_vector": [
+      "Fx",
+      "Fy"
+    ],
+    "normalized_actuator_torque_limits": [
+      1.0,
+      1.0
+    ],
+    "primary_scalar": "wrench_inscribed_radius",
+    "directions": [
+      "positive_x",
+      "positive_y",
+      "radial",
+      "tangential"
+    ],
+    "exact_regular_representation": "torque_box_mapped_force_parallelogram",
+    "rank_deficient_policy": "typed_hrep_and_unbounded_ideal_direction_mask"
+  },
+  "visualization": {
+    "default_view": "scalar_heatmap",
+    "polygon_overlay": "sparse_decimated_grid",
+    "paired_mechanism_shared_color_scale": true,
+    "source_values_clipped": false,
+    "show_physical_and_normalized_q_axes": true
+  },
+  "artifact_targets": {
+    "v3_6d": "results/v3_review/v3_6d_span_corpus/",
+    "v3_6e": "results/v3_review/v3_6e_static_wrench_core/",
+    "v3_6f": "results/v3_review/v3_6f_static_wrench_atlas/"
+  }
+}

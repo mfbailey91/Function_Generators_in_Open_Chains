@@ -1406,6 +1406,14 @@ is small, providing fine output resolution.
 
 The same low-speed region offers high ideal torque amplification. A terminal cost can reward ending in a state that is useful for the next action.
 
+The gravity-free planar 2R force set is the exact actuator torque-box image
+
+$$
+\mathcal W(u)=\{w=[F_x,F_y]^\mathsf T:\lvert J_{xu}(u)^\mathsf T w\rvert\le\bar\tau_u\},
+$$
+
+with normalized $\bar\tau_u=[1,1]^\mathsf T$. Regular states are parallelograms obtained by mapping torque-box corners; rank-deficient states keep the H-representation and a typed unbounded ideal direction rather than a clipped fake polygon. The primary scalar field is the inscribed isotropic radius $r_{\mathrm{iso}}$. This is kinematic geometry plus virtual work, not a gravity, payload, or structural-strength model, and it is not a claim about biological joint strength. See [ADR-028](../../software/architecture/adr/ADR-028-gravity-free-static-wrench.md) and the [method note](../../software/architecture/notes/STATIC_WRENCH_KINEMATIC_GEOMETRY_METHOD.md).
+
 ### 14.4 Ballistic tasks
 
 For a throw, kick, or strike, trajectory optimization may guide the mechanism into a high-speed region near release.

@@ -58,14 +58,31 @@ class LatticeSmokeArm:
     robot: OperatingBranchRobotModel
 
 
-def build_paired_lattice_arms(
+def build_paired_lattice_arms_from_branches(
+    fourbar: OperatingBranch,
+    gearbox: OperatingBranch,
     *,
     shape: tuple[int, int] = (6, 6),
     connectivity: LatticeConnectivity | str = LatticeConnectivity.CHEBYSHEV_1,
 ) -> dict[MechanismName, LatticeSmokeArm]:
-    """Build four-bar and span-matched gearbox graphs on one shared lattice."""
-    fourbar = _fourbar_2d_branch()
-    gearbox = equivalent_gearbox_branch(fourbar, name="span_matched_gearbox")
+    """Build four-bar and gearbox graphs on one shared lattice from given branches.
+
+    Parameters
+    ----------
+    fourbar :
+        Certified four-bar operating branch.
+    gearbox :
+        Span-matched gearbox over the same usable U/Q intervals.
+    shape :
+        Uniform-Q lattice shape.
+    connectivity :
+        Lattice adjacency.
+
+    Returns
+    -------
+    dict[MechanismName, LatticeSmokeArm]
+        Paired arms sharing identical Q nodes and adjacency.
+    """
     shared = UniformOutputLattice.from_output_space(
         fourbar.output_space,
         shape=shape,
@@ -87,6 +104,19 @@ def build_paired_lattice_arms(
             robot=OperatingBranchRobotModel(branch=gearbox),
         ),
     }
+
+
+def build_paired_lattice_arms(
+    *,
+    shape: tuple[int, int] = (6, 6),
+    connectivity: LatticeConnectivity | str = LatticeConnectivity.CHEBYSHEV_1,
+) -> dict[MechanismName, LatticeSmokeArm]:
+    """Build four-bar and span-matched gearbox graphs on one shared lattice."""
+    fourbar = _fourbar_2d_branch()
+    gearbox = equivalent_gearbox_branch(fourbar, name="span_matched_gearbox")
+    return build_paired_lattice_arms_from_branches(
+        fourbar, gearbox, shape=shape, connectivity=connectivity
+    )
 
 
 def _on_lattice_problem(
@@ -227,6 +257,7 @@ __all__ = [
     "COST_TOL",
     "LatticeSmokeArm",
     "build_paired_lattice_arms",
+    "build_paired_lattice_arms_from_branches",
     "run_lattice_query",
     "run_lattice_smoke_pack",
 ]

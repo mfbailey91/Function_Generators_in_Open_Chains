@@ -22,6 +22,7 @@ from inequality_mechanisms.adapters import planar_2r_operating_branch_robot
 from inequality_mechanisms.audits.v4_artifact_guard import (
     V4_0_ALLOWED_OUTPUT_REL,
     allowed_v4_0_output_root,
+    assert_not_overwriting_retained_v4_0,
     assert_v4_0_output_allowed,
     prepare_v4_0_output_dir,
 )
@@ -667,6 +668,7 @@ def generate_geometry_core_smoke(output: Path) -> Path:
         Resolved output directory after writing the package.
     """
     resolved = assert_v4_0_output_allowed(Path(output))
+    assert_not_overwriting_retained_v4_0(resolved)
     if resolved.exists():
         shutil.rmtree(resolved)
     resolved = prepare_v4_0_output_dir(resolved)

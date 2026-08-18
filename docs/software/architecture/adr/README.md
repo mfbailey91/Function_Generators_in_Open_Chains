@@ -25,4 +25,6 @@ ADR-001 remains accepted for Version 1 noninjective/full-cycle planning. Version
 | [024](ADR-024-v3-local-motion-and-cost.md) | V3 local motion and cost contract | V3 (accepted) |
 | [025](ADR-025-v3-planner-capabilities-and-adapters.md) | V3 planner capabilities and adapters | V3 (accepted) |
 | [026](ADR-026-v3-benchmark-classification-and-metrics.md) | V3 benchmark classification and metrics | V3 (accepted) |
-| [027](ADR-027-v4-kinematic-transmission-geometry.md) | Kinematic transmission geometry as a shared differential layer | V4 (accepted for planning; implementation held) |
+| [027](ADR-027-v4-kinematic-transmission-geometry.md) | Kinematic transmission geometry as a shared differential layer | V4 (accepted; V4.0/V4.1 implemented) |
+| [028](ADR-028-gravity-free-static-wrench.md) | Gravity-free static wrench from kinematic geometry | V3.6E/F accepted; drafted V4.3 consumes this API (unauthorized) |
+| [029](ADR-029-mounted-output-coordinate.md) | Mounted output coordinates are the robot joint coordinates | V3.6D consumers / V4.2B+ (accepted) |

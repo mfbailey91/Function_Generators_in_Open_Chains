@@ -28,15 +28,6 @@ KERNEL_DIR = REPO_ROOT / "src" / "inequality_mechanisms" / "transmission_geometr
 AUDIT_METRICS = REPO_ROOT / "src" / "inequality_mechanisms" / "audits" / "metrics.py"
 ACTIVE_SPRINT = REPO_ROOT / "docs" / "software" / "planning" / "ACTIVE_SPRINT.md"
 V4_README = REPO_ROOT / "docs" / "software" / "planning" / "sprints" / "v4" / "README.md"
-V4_1_SPRINT = (
-    REPO_ROOT
-    / "docs"
-    / "software"
-    / "planning"
-    / "sprints"
-    / "v4"
-    / "SPRINT_V4_1_PLANAR2R_GEOMETRY_ATLAS.md"
-)
 SMOKE_ROOT = REPO_ROOT / V4_0_ALLOWED_OUTPUT_REL
 PINV_PATHS = (
     *sorted(KERNEL_DIR.glob("*.py")),
@@ -140,20 +131,26 @@ def test_v4_0_smoke_package_is_non_inferential() -> None:
     assert (SMOKE_ROOT / "identity_residuals.json").is_file()
 
 
-def test_active_sprint_has_no_authorization_and_does_not_activate_v41() -> None:
+def test_v4_0_closeout_did_not_auto_authorize_later_columns() -> None:
+    closeout = (
+        REPO_ROOT
+        / "docs"
+        / "software"
+        / "architecture"
+        / "notes"
+        / "V4_0_KINEMATIC_GEOMETRY_CORE_CLOSEOUT.md"
+    ).read_text(encoding="utf-8")
     active = ACTIVE_SPRINT.read_text(encoding="utf-8")
     v4_readme = V4_README.read_text(encoding="utf-8")
-    v4_1 = V4_1_SPRINT.read_text(encoding="utf-8")
+    assert "V4.0 completion does not authorize later sprints" in closeout
     assert "**Code authorization:** none" in active
-    assert "V4-100" not in active
-    assert "SPRINT_V4_1" in active or "V4.1" in active
-    assert "no code authorization" in active.lower() or "none" in active.lower()
-    assert "drafted / blocked" in v4_1
+    assert "V4.2" in active
+    assert "no code authorization" in active.lower()
     assert "completed" in v4_readme.lower()
-    assert "V4-100" not in v4_readme
+    assert "V4-200" not in active
 
 
-def test_v4_1_output_remains_forbidden() -> None:
+def test_v4_1_output_remains_forbidden_to_v4_0_writer() -> None:
     path = (REPO_ROOT / "results" / "v4_review" / "v4_1_planar2r_geometry_atlas").resolve()
     with pytest.raises(ArtifactPathForbiddenError, match="unauthorized V4"):
         from inequality_mechanisms.audits.v4_artifact_guard import (

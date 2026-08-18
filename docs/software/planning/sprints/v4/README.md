@@ -1,6 +1,6 @@
 # Version 4 — Kinematic Transmission Geometry
 
-**Status:** Sprint V4.0 is **completed**. There is no Version 4 source-code authorization until `ACTIVE_SPRINT.md` separately activates a later sprint. V4.1 remains drafted / blocked.
+**Status:** Sprint V4.1 is **completed**. Sprint V4.2 is **completed**. Sprint V4.2A is **completed**. Sprint V4.2B is **active** as the corrective gate. Sprint V4.3 remains **drafted / blocked behind V4.2B**. Authorization is only the range named in `ACTIVE_SPRINT.md`.
 
 Version 4 keeps the planar 2R robot as a controlled exploratory system and broadens the mechanism study from graph planning into four sibling effect columns:
 
@@ -8,6 +8,8 @@ Version 4 keeps the planar 2R robot as a controlled exploratory system and broad
 2. inverse instantaneous kinematics and velocity capability;
 3. static wrench capability;
 4. potential fields and continuous flow.
+
+A Version 3 span/wrench insert ([V3.6D–F program](../../V3_POST_V3_6C_SPAN_WRENCH_PROGRAM.md)) is completed after V3.6C/V4.0/V4.1. Sprint V4.2 consumed the V3.6D registry and is closed; Sprint V4.2A is a closed sibling visual-planning audit. Review found that their registry-consumption path retained native follower-angle offsets in the robot joint coordinate, along with bounded paired-graph, artifact, and provenance defects. The accepted [V4.2B amendment](../../V4_2B_CORRECTIVE_PROGRAM_AMENDMENT.md) inserts a fresh corrective closeout before drafted V4.3 may consume span snapshots. The local post-V4.0 span/wrench planning bundle is [superseded](../../../architecture/notes/V4_POST_V4_0_SPAN_STATIC_WRENCH_BUNDLE_SUPERSEDED.md); do not apply it.
 
 All columns consume the same transmission geometry:
 
@@ -17,20 +19,23 @@ All columns consume the same transmission geometry:
 J_{xu}=J_fJ_g.
 \]
 
-The governing architecture is [ADR-027](../../../architecture/adr/ADR-027-v4-kinematic-transmission-geometry.md), and the program roadmap is [V4_PROJECT_PLAN.md](../../../V4_PROJECT_PLAN.md).
+The governing architecture is [ADR-027](../../../architecture/adr/ADR-027-v4-kinematic-transmission-geometry.md), the mounted-coordinate correction is [ADR-029](../../../architecture/adr/ADR-029-mounted-output-coordinate.md), and the program roadmap is [V4_PROJECT_PLAN.md](../../../V4_PROJECT_PLAN.md) as amended by V4.2B.
 
 ## Planned sequence
 
 | Sprint | Status | Scope |
 | --- | --- | --- |
 | [V4.0](SPRINT_V4_0_KINEMATIC_GEOMETRY_CORE.md) | completed | Extract and verify the shared differential, metric, mobility, rank, and duality kernel. |
-| [V4.1](SPRINT_V4_1_PLANAR2R_GEOMETRY_ATLAS.md) | drafted / blocked | Canonical planar-2R intrinsic geometry atlas and null controls. |
-| V4.2 | not yet drafted | Differential IK, actuator-rate limits, velocity sets, and tracking. |
-| V4.3 | not yet drafted | Static wrench polygons, directional margins, and terminal capability. |
-| V4.4 | not yet drafted | Potential functions, coordinate controls, ODE integration, and flow atlases. |
-| V4.5 | not yet drafted | Frozen neutral/application task banks and integrated four-column report. |
-| V4.6 | not yet drafted | Paired mechanism population, calibration, pilot, production, and confirmation. |
-| V4.7 | not yet drafted | Cross-column trade-space closeout and dimensional next-step decision. |
+| [V4.1](SPRINT_V4_1_PLANAR2R_GEOMETRY_ATLAS.md) | completed | Canonical planar-2R intrinsic geometry atlas and null controls. [Cursor execution roadmap](V4_1_CURSOR_IMPLEMENTATION_ROADMAP.md). |
+| [V4.2](SPRINT_V4_2_SPAN_CONTROLLED_GEOMETRY_ATLAS.md) | completed / historical | Original span-controlled geometry-atlas extension (V4-200–V4-208); retained, not overwritten. |
+| [V4.2A](SPRINT_V4_2A_SPAN_CONTROLLED_VISUAL_AUDIT.md) | completed / historical | Original span-controlled visual audit (V4-210–V4-219); retained, not overwritten. |
+| [V4.2B](SPRINT_V4_2B_SPAN_CONTROLLED_ATLAS_CORRECTIVE_CLOSEOUT.md) | active | Mounted-coordinate, common-topology, finite-edge, complete-artifact, and clean-provenance corrective closeout (V4-220–V4-229). [Cursor guide](V4_2B_CURSOR_IMPLEMENTATION_GUIDE.md). |
+| [V4.3](SPRINT_V4_3_INTRINSIC_STATIC_WRENCH.md) | drafted / blocked behind V4.2B | Intrinsic gravity-free wrench atlas on frozen corrected V4.2B snapshots; consumes V3.6E (V4-300–V4-309). |
+| V4.4 | not yet drafted | Differential IK, actuator-rate limits, velocity sets, and tracking. |
+| V4.5 | not yet drafted | Potential functions, coordinate controls, ODE integration, and flow atlases. |
+| V4.6 | not yet drafted | Frozen neutral/application task banks and integrated four-column report. |
+| V4.7 | not yet drafted | Paired mechanism population, calibration, pilot, production, and confirmation. |
+| V4.8 | not yet drafted | Cross-column trade-space closeout and dimensional next-step decision. |
 
 ## Execution rule
 

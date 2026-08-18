@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"/><title>V4.2A Architecture (span_j1_135_j2_145)</title>
+<style>
+@media print {
+  .anim-live { display: none !important; }
+  .contact-sheet { display: block !important; }
+  .section { break-before: page; page-break-before: always; }
+  a[href]::after { content: ""; }
+}
+@media screen {
+  .contact-sheet.fallback-only { display: none; }
+}
+body { font-family: Georgia, "Times New Roman", serif; margin: 1.2rem; color: #222; }
+nav a { margin-right: 0.8rem; }
+table { border-collapse: collapse; width: 100%; margin: 0.6rem 0 1.2rem; font-size: 0.92rem; }
+th, td { border: 1px solid #bbb; padding: 0.35rem 0.45rem; vertical-align: top; }
+th { background: #f3f3f3; }
+img { max-width: 100%; height: auto; border: 1px solid #ddd; margin: 0.25rem 0; }
+.muted { color: #555; }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0.8rem; }
+code, pre { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 0.85rem; }
+</style></head><body>
+<nav><a href="index.html">Index</a></nav>
+<h1>Architecture and provenance</h1>
+<p class="muted">This audit does not support inferential statistics, stochastic repetition estimates, or ranking mechanisms by a hidden composite. Static print panels are authoritative; animations are supplementary. Failures remain in the report; tasks are not replaced after seeing outcomes.</p>
+<h2>Call chain</h2>
+<pre>config → audits.planar2r_visual.resolve/run
+ → audits.metrics (w_U/w_Q/w_X, fields)
+ → audits.traces (opt-in PlannerTraceSink)
+ → visualization.audit_* panels/animations
+ → audits.html_report</pre>
+<h2>Config / environment</h2>
+<table>
+<tr><th>Field</th><th>Value</th></tr>
+<tr><td>audit_id</td><td>planar2r_span_controlled_visual_audit_v1</td></tr>
+<tr><td>config_path</td><td>/Users/mikebailey/Documents/Function_Generators_in_Open_Chains/configs/v4/planar2r_span_controlled_visual_audit_v1.json</td></tr>
+<tr><td>git_revision</td><td>ce9afb8f37cf86c82931c194144a2c239e6b762e</td></tr>
+<tr><td>python</td><td>3.14.0</td></tr>
+<tr><td>numpy</td><td>2.5.1</td></tr>
+<tr><td>ompl_available</td><td>False</td></tr>
+<tr><td>ompl_version</td><td></td></tr>
+<tr><td>seed</td><td>7</td></tr>
+<tr><td>delta</td><td>delta_z = z_fourbar - z_gearbox</td></tr>
+</table>
+<h2>Source ownership</h2>
+<table><tr><th>Concern</th><th>Owner</th><th>Module</th></tr><tr><td>task semantics / shared start_q</td><td>free_space_bank_v2</td><td>benchmarks/free_space_bank_v2.py</td></tr><tr><td>physical state / FK</td><td>OperatingBranchRobotModel</td><td>adapters/operating_branch_robot.py</td></tr><tr><td>local motion / edge weights</td><td>audits.metrics + lattice_edge_cost</td><td>audits/metrics.py</td></tr><tr><td>planner traces</td><td>audits.traces</td><td>audits/traces.py</td></tr><tr><td>metrics / composite diagnostic</td><td>audits.metrics</td><td>audits/metrics.py</td></tr><tr><td>HTML assembly</td><td>audits.html_report</td><td>audits/html_report.py</td></tr><tr><td>span case realization / V3.6D consume</td><td>span_cases.realize_span_case</td><td>experiments/span_cases.py</td></tr><tr><td>V4.2A artifact path guard</td><td>v4_artifact_guard</td><td>audits/v4_artifact_guard.py</td></tr></table>
+</body></html>

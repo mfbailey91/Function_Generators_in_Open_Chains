@@ -66,6 +66,10 @@ Relevant less as proof of a four-bar elbow and more as evidence that linked surg
 **[16] Thakur et al. — physical artificial intelligence.**  
 A recent broad framing source. It is useful for vocabulary and field positioning, but it should not replace the more specific mechanism, morphology, and planning literature above.
 
+#### Force polytopes and gravity-free static capability
+
+The software now records an exact planar 2R force polygon from a symmetric actuator torque box under ideal virtual work, $\tau_u=J_{xu}^\mathsf T w$. This is a kinematic-geometry dual of the existing actuator-travel metric, not a dynamics, gravity, or biological-strength model. Rank loss is typed (`unbounded_ideal_direction`) rather than clipped. Primary visualization is the inscribed isotropic radius; directional $+x/+y$/radial/tangential capacities and sparse exact polygons remain inspectable. Scope and limitations: [ADR-028](../../software/architecture/adr/ADR-028-gravity-free-static-wrench.md), [method note](../../software/architecture/notes/STATIC_WRENCH_KINEMATIC_GEOMETRY_METHOD.md), and the [biological range trace](BIOLOGICAL_JOINT_RANGE_REFERENCE_TRACE.md).
+
 ### 19.2 Conceptual framing and narrative order
 
 The literature should be read through a two-view structure that also organizes the paper's explanation.
