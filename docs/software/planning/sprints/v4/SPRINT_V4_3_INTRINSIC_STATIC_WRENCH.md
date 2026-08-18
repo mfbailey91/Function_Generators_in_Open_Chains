@@ -1,6 +1,6 @@
 # Sprint V4.3 — Intrinsic Gravity-Free Static-Wrench Capability and Atlas
 
-- **Status:** drafted / blocked; V4-300–V4-309 reserved; unauthorized until V4.2 closes and `ACTIVE_SPRINT.md` names this range
+- **Status:** drafted / blocked; V4-300–V4-309 reserved; unauthorized until `ACTIVE_SPRINT.md` names this range (V4.2 and V4.2A are closed; this sprint is not auto-started)
 - **Depends on:** frozen V4.2 snapshot banks; accepted V3.6E API; no-authorization predecessor
 - **Blocks:** V4.4 velocity / differential IK
 - **Reserved work packages:** V4-300–V4-309

@@ -291,8 +291,22 @@ def resolve_audit_trials(
     *,
     sampling_arms: Mapping[MechanismName, SamplingSmokeArm] | None = None,
     lattice_shape: tuple[int, int] | None = None,
+    lattice_arms: Mapping[MechanismName, LatticeSmokeArm] | None = None,
 ) -> tuple[ResolvedTrialRecord, ...]:
-    """Resolve the ten frozen tasks and fail closed on pair mismatches."""
+    """Resolve the ten frozen tasks and fail closed on pair mismatches.
+
+    Parameters
+    ----------
+    config :
+        Loaded visual-audit configuration.
+    sampling_arms :
+        Optional paired sampling arms. Defaults to the V3.6B bank pair.
+    lattice_shape :
+        Optional lattice shape override.
+    lattice_arms :
+        Optional paired lattice arms. Defaults to the V3.6B smoke pair.
+        Span-family audits pass per-case lattices here.
+    """
     bank_path = config.path.parent / str(config.raw["source_bank"]["contract_path"])
     contract = load_free_space_bank_v2(bank_path)
     arms = dict(sampling_arms) if sampling_arms is not None else build_bank_arms(contract.base_bank)
@@ -303,16 +317,20 @@ def resolve_audit_trials(
         raise ValueError(f"missing audit tasks in bank: {missing}")
 
     shape = lattice_shape if lattice_shape is not None else config.lattice_shape
-    lattice_arms = build_paired_lattice_arms(
-        shape=shape,
-        connectivity=LatticeConnectivity.CHEBYSHEV_1,
+    used_lattice = (
+        dict(lattice_arms)
+        if lattice_arms is not None
+        else build_paired_lattice_arms(
+            shape=shape,
+            connectivity=LatticeConnectivity.CHEBYSHEV_1,
+        )
     )
     out: list[ResolvedTrialRecord] = []
     for tid in config.task_ids:
         task = by_id[tid]
         cands = {mech: _goal_candidates(arms[mech], task, contract) for mech in ("fourbar", "gearbox")}
         assert_pair_invariants(
-            lattice_arms=lattice_arms,
+            lattice_arms=used_lattice,
             sampling_arms=arms,
             task=task,
             candidates_by_mech=cands,

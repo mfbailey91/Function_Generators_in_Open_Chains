@@ -4,9 +4,11 @@ V4.0 historically wrote only under ``results/v4_review/v4_0_kinematic_geometry_c
 That package is now retained evidence: canonical-path overwrites are forbidden.
 V4.1 writers may write only under ``results/v4_review/v4_1_planar2r_geometry_atlas/``.
 V4.2 writers may write only under ``results/v4_review/v4_2_span_controlled_geometry_atlas/``.
+V4.2A writers may write only under ``results/v4_review/v4_2a_span_controlled_visual_audit/``.
 
 Every package under ``results/v3_review/`` remains frozen. Other
-``results/v4_review/`` packages stay unauthorized.
+``results/v4_review/`` packages stay unauthorized. The closed V4.2
+geometry atlas is retained evidence for V4.2A writers.
 """
 
 from __future__ import annotations
@@ -28,6 +30,8 @@ V4_1_ALLOWED_PACKAGE = "v4_1_planar2r_geometry_atlas"
 V4_1_ALLOWED_OUTPUT_REL = Path("results") / "v4_review" / V4_1_ALLOWED_PACKAGE
 V4_2_ALLOWED_PACKAGE = "v4_2_span_controlled_geometry_atlas"
 V4_2_ALLOWED_OUTPUT_REL = Path("results") / "v4_review" / V4_2_ALLOWED_PACKAGE
+V4_2A_ALLOWED_PACKAGE = "v4_2a_span_controlled_visual_audit"
+V4_2A_ALLOWED_OUTPUT_REL = Path("results") / "v4_review" / V4_2A_ALLOWED_PACKAGE
 
 # Accepted V3 closeout packages that V3.6C could write, but V4 must not.
 FROZEN_V3_CLOSEOUT_PACKAGES: frozenset[str] = frozenset(
@@ -63,6 +67,11 @@ def allowed_v4_2_output_root() -> Path:
     return (REPO_ROOT / V4_2_ALLOWED_OUTPUT_REL).resolve()
 
 
+def allowed_v4_2a_output_root() -> Path:
+    """Absolute allowed V4.2A visual-audit output root (may be monkeypatched)."""
+    return (REPO_ROOT / V4_2A_ALLOWED_OUTPUT_REL).resolve()
+
+
 def canonical_v4_0_retained_root() -> Path:
     """Committed V4.0 smoke package in this repository (never monkeypatched)."""
     return (CANONICAL_REPO_ROOT / V4_0_ALLOWED_OUTPUT_REL).resolve()
@@ -71,6 +80,11 @@ def canonical_v4_0_retained_root() -> Path:
 def canonical_v4_1_retained_root() -> Path:
     """Committed V4.1 atlas package in this repository (never monkeypatched)."""
     return (CANONICAL_REPO_ROOT / V4_1_ALLOWED_OUTPUT_REL).resolve()
+
+
+def canonical_v4_2_retained_root() -> Path:
+    """Committed V4.2 span-atlas package in this repository (never monkeypatched)."""
+    return (CANONICAL_REPO_ROOT / V4_2_ALLOWED_OUTPUT_REL).resolve()
 
 
 def _is_under(path: Path, parent: Path) -> bool:
@@ -229,6 +243,47 @@ def assert_v4_2_output_allowed(path: Path) -> Path:
     )
 
 
+def assert_v4_2a_output_allowed(path: Path) -> Path:
+    """Resolve ``path`` and assert it is under the V4.2A audit output root.
+
+    V4.2A writers must reject the retained V4.0 smoke package, the frozen
+    V4.1 atlas, the frozen V4.2 geometry atlas, every V3 review package,
+    sibling V4 packages, and arbitrary paths.
+    """
+    resolved = Path(path).expanduser().resolve()
+    allowed = allowed_v4_2a_output_root()
+    if _is_under(resolved, allowed):
+        return resolved
+
+    _refuse_v3(resolved, writer="V4.2A", allowed=allowed)
+
+    v4_package = _v4_review_package_name(resolved)
+    if v4_package == V4_0_ALLOWED_PACKAGE:
+        raise ArtifactPathForbiddenError(
+            "Refusing to write into frozen V4.0 retained evidence "
+            f"at {resolved}. V4.2A may write only under {allowed}."
+        )
+    if v4_package == V4_1_ALLOWED_PACKAGE:
+        raise ArtifactPathForbiddenError(
+            "Refusing to write into frozen V4.1 retained evidence "
+            f"at {resolved}. V4.2A may write only under {allowed}."
+        )
+    if v4_package == V4_2_ALLOWED_PACKAGE:
+        raise ArtifactPathForbiddenError(
+            "Refusing to write into frozen V4.2 retained evidence "
+            f"at {resolved}. V4.2A may write only under {allowed}."
+        )
+    if v4_package is not None and v4_package != V4_2A_ALLOWED_PACKAGE:
+        raise ArtifactPathForbiddenError(
+            f"Refusing to write into unauthorized V4 package {v4_package!r} "
+            f"at {resolved}. V4.2A may write only under {allowed}."
+        )
+
+    raise ArtifactPathForbiddenError(
+        f"V4.2A output path {resolved} is not under the allowed root {allowed}."
+    )
+
+
 def prepare_v4_0_output_dir(path: Path) -> Path:
     """Assert ``path`` is allowed and create the directory from a clean tree.
 
@@ -251,6 +306,13 @@ def prepare_v4_1_output_dir(path: Path) -> Path:
 def prepare_v4_2_output_dir(path: Path) -> Path:
     """Assert ``path`` is the V4.2 span-atlas root and create the directory."""
     resolved = assert_v4_2_output_allowed(path)
+    resolved.mkdir(parents=True, exist_ok=True)
+    return resolved
+
+
+def prepare_v4_2a_output_dir(path: Path) -> Path:
+    """Assert ``path`` is the V4.2A visual-audit root and create the directory."""
+    resolved = assert_v4_2a_output_allowed(path)
     resolved.mkdir(parents=True, exist_ok=True)
     return resolved
 
@@ -305,6 +367,26 @@ def v4_1_atlas_package_digest() -> tuple[str, int]:
     return digest_git_tracked_paths(paths)
 
 
+def digest_directory_tree(root: Path) -> tuple[str, int]:
+    """Return SHA-256 of sorted relative paths and per-file hashes under ``root``."""
+    base = Path(root).resolve()
+    files = sorted(p for p in base.rglob("*") if p.is_file())
+    digest = hashlib.sha256()
+    for path in files:
+        rel = path.relative_to(base).as_posix()
+        file_hash = hashlib.sha256(path.read_bytes()).hexdigest()
+        digest.update(rel.encode("utf-8"))
+        digest.update(b"\0")
+        digest.update(file_hash.encode("ascii"))
+        digest.update(b"\n")
+    return digest.hexdigest(), len(files)
+
+
+def v4_2_atlas_package_digest() -> tuple[str, int]:
+    """Digest on-disk files of the retained V4.2 span-atlas package."""
+    return digest_directory_tree(canonical_v4_2_retained_root())
+
+
 __all__ = [
     "CANONICAL_REPO_ROOT",
     "FROZEN_V3_CLOSEOUT_PACKAGES",
@@ -316,21 +398,29 @@ __all__ = [
     "V4_1_ALLOWED_PACKAGE",
     "V4_2_ALLOWED_OUTPUT_REL",
     "V4_2_ALLOWED_PACKAGE",
+    "V4_2A_ALLOWED_OUTPUT_REL",
+    "V4_2A_ALLOWED_PACKAGE",
     "ArtifactPathForbiddenError",
     "allowed_v4_0_output_root",
     "allowed_v4_1_output_root",
     "allowed_v4_2_output_root",
+    "allowed_v4_2a_output_root",
     "assert_not_overwriting_retained_v4_0",
     "assert_v4_0_output_allowed",
     "assert_v4_1_output_allowed",
     "assert_v4_2_output_allowed",
+    "assert_v4_2a_output_allowed",
     "canonical_v4_0_retained_root",
     "canonical_v4_1_retained_root",
+    "canonical_v4_2_retained_root",
+    "digest_directory_tree",
     "digest_git_tracked_paths",
     "git_ls_files",
     "prepare_v4_0_output_dir",
     "prepare_v4_1_output_dir",
     "prepare_v4_2_output_dir",
+    "prepare_v4_2a_output_dir",
     "v4_0_smoke_package_digest",
     "v4_1_atlas_package_digest",
+    "v4_2_atlas_package_digest",
 ]

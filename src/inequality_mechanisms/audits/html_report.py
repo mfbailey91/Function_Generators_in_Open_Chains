@@ -426,6 +426,8 @@ def write_index_html(
     summary_rows: Sequence[Mapping[str, Any]],
     task_ids: Sequence[str],
     report_title: str = "V3.6B Planar 2R Visual Audit",
+    extra_html: str = "",
+    architecture_href: str = "architecture.html",
 ) -> Path:
     """Write audit index with navigation and compact paired summary."""
     nav = "".join(f'<li><a href="trials/{_esc(t)}/index.html">{_esc(t)}</a></li>' for t in task_ids)
@@ -439,6 +441,7 @@ def write_index_html(
         "</tr>"
         for r in summary_rows
     )
+    extra = extra_html if extra_html else ""
     body = f"""<!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"/><title>{_esc(report_title)}</title>
 <style>{PRINT_CSS}</style></head><body>
@@ -446,8 +449,9 @@ def write_index_html(
 <p><strong>No-inference:</strong> {_esc(provenance.get("no_inference_statement"))}</p>
 <p>Git <code>{_esc(provenance.get("git_revision"))}</code> · seed {_esc(provenance.get("seed"))} ·
 OMPL {_esc(provenance.get("ompl_available"))} ({_esc(provenance.get("ompl_version"))})</p>
-<p><a href="architecture.html">Architecture / provenance</a> ·
+<p><a href="{_esc(architecture_href)}">Architecture / provenance</a> ·
 <a href="manifest.json">manifest.json</a> · <a href="summary.json">summary.json</a></p>
+{extra}
 <h2>Trials</h2>
 <ul>{nav}</ul>
 <h2>Compact paired metric summary (Δ L_U)</h2>

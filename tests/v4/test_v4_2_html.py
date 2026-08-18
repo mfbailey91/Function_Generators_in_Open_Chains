@@ -13,7 +13,7 @@ from inequality_mechanisms.audits.v4_artifact_guard import (
     V4_1_ALLOWED_PACKAGE,
     V4_2_ALLOWED_PACKAGE,
     ArtifactPathForbiddenError,
-    prepare_v4_1_output_dir,
+    assert_v4_2_output_allowed,
     v4_1_atlas_package_digest,
 )
 from inequality_mechanisms.experiments.v4.atlas_config import NO_INFERENCE_STATEMENT
@@ -79,8 +79,8 @@ def test_tmp_v4_2_export_html_and_frozen_v4_1(
     assert (path / "rank_fields.json").is_file()
     assert (path / "cases.json").is_file()
     forbidden = tmp_path / "results" / "v4_review" / V4_1_ALLOWED_PACKAGE
-    with pytest.raises(ArtifactPathForbiddenError):
-        prepare_v4_1_output_dir(forbidden)
+    with pytest.raises(ArtifactPathForbiddenError, match="frozen V4.1"):
+        assert_v4_2_output_allowed(forbidden)
     sha_after, n_after = v4_1_atlas_package_digest()
     assert n_after == n_before
     assert sha_after == sha_before
