@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import numpy as np
@@ -62,6 +63,14 @@ def test_corrective_generator_within_case_q_x_and_identity_jg(tmp_path: Path) ->
     np.testing.assert_allclose(sample["x_fourbar"], sample["x_identity"], atol=1e-12)
     identity_jg = np.asarray(sample["identity_j_g"], dtype=np.float64)
     np.testing.assert_allclose(identity_jg, np.eye(identity_jg.shape[0]), atol=1e-12)
+    manifest = json.loads(
+        (Path(package["output"]) / "manifest.json").read_text(encoding="utf-8")
+    )
+    listed = {row["path"] for row in manifest["files"]}
+    assert "manifest.json" not in listed
+    assert manifest["manifest_inventory_rule"] == "exclude_self"
+    assert "files_digest" in manifest
+    assert len(manifest["files"]) == EXPECTED_CASES + 5
     for root in HISTORICAL_ROOTS:
         marker = root / ".v4_2b_must_not_write"
         assert not marker.exists()

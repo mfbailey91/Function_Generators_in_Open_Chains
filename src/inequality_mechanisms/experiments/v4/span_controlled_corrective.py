@@ -15,10 +15,17 @@ from typing import Any, Mapping
 
 import numpy as np
 
+from inequality_mechanisms.audits.v4_2b_artifact import (
+    MANIFEST_INVENTORY_RULE,
+    files_digest,
+    inventory_required_files,
+)
 from inequality_mechanisms.audits.v4_artifact_guard import (
     CANONICAL_REPO_ROOT,
     REPO_ROOT,
     ArtifactPathForbiddenError,
+    allowed_v4_2b_output_root,
+    assert_v4_2b_output_allowed,
     canonical_v4_0_retained_root,
     canonical_v4_1_retained_root,
     canonical_v4_2_retained_root,
@@ -77,6 +84,15 @@ def _is_under(path: Path, parent: Path) -> bool:
     path_r = path.resolve()
     parent_r = parent.resolve()
     return path_r == parent_r or parent_r in path_r.parents
+
+
+def _resolve_output(output: Path) -> Path:
+    """Allow the V4.2B root or tmp; refuse frozen historical packages."""
+    resolved = Path(output).expanduser().resolve()
+    allowed = allowed_v4_2b_output_root()
+    if _is_under(resolved, allowed):
+        return assert_v4_2b_output_allowed(resolved)
+    return _refuse_historical_output(resolved)
 
 
 def _refuse_historical_output(output: Path) -> Path:
@@ -243,7 +259,7 @@ def generate_span_controlled_corrective_atlas(
     )
     config = load_span_corrective_config(cfg_path)
     target = Path(output) if output is not None else (REPO_ROOT / config.output_dir)
-    resolved = _refuse_historical_output(target)
+    resolved = _resolve_output(target)
     if resolved.exists():
         shutil.rmtree(resolved)
     resolved.mkdir(parents=True, exist_ok=True)
@@ -370,10 +386,8 @@ def generate_span_controlled_corrective_atlas(
             "identity_on_shared_q",
         ],
         "case_ids": [case.case_id for case in cases],
+        "manifest_inventory_rule": MANIFEST_INVENTORY_RULE,
     }
-    (resolved / "manifest.json").write_text(
-        json.dumps(manifest, indent=2), encoding="utf-8"
-    )
     (resolved / "README.md").write_text(_readme_text(manifest), encoding="utf-8")
     write_span_controlled_corrective_html(
         resolved,
@@ -381,6 +395,14 @@ def generate_span_controlled_corrective_atlas(
         registry=registry,
         atlases=atlases,
         manifest=manifest,
+    )
+    files = inventory_required_files(
+        resolved, [atlas.realized.case.case_id for atlas in atlases]
+    )
+    manifest["files"] = files
+    manifest["files_digest"] = files_digest(files)
+    (resolved / "manifest.json").write_text(
+        json.dumps(manifest, indent=2), encoding="utf-8"
     )
     return {
         "output": str(resolved),
