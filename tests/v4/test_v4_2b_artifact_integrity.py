@@ -170,6 +170,8 @@ def _write_mini_package(root: Path, *, n_rows: int = _MINI_ROW_COUNT) -> Path:
         "case_ids": [_MINI_CASE_ID],
         "n_rows": n_rows,
         "n_typed_failures": 0,
+        "source_git_revision": "a" * 40,
+        "source_git_dirty": False,
         "files": files,
         "files_digest": files_digest(files),
     }
@@ -278,4 +280,22 @@ def test_required_file_omission_fails(tmp_path: Path) -> None:
     manifest["files_digest"] = files_digest(manifest["files"])
     _write_manifest(root, manifest)
     with pytest.raises(V4_2BArtifactError, match="required-file omission"):
+        verify_v4_2b_artifact(root)
+
+
+def test_source_git_dirty_true_fails(tmp_path: Path) -> None:
+    root = _write_mini_package(tmp_path / "pkg")
+    manifest = _manifest(root)
+    manifest["source_git_dirty"] = True
+    _write_manifest(root, manifest)
+    with pytest.raises(V4_2BArtifactError, match="source_git_dirty must be false"):
+        verify_v4_2b_artifact(root)
+
+
+def test_malformed_source_git_revision_fails(tmp_path: Path) -> None:
+    root = _write_mini_package(tmp_path / "pkg")
+    manifest = _manifest(root)
+    manifest["source_git_revision"] = "not-a-sha"
+    _write_manifest(root, manifest)
+    with pytest.raises(V4_2BArtifactError, match="40-char hex SHA"):
         verify_v4_2b_artifact(root)

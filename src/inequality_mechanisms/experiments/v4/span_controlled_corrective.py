@@ -26,10 +26,15 @@ from inequality_mechanisms.audits.v4_artifact_guard import (
     ArtifactPathForbiddenError,
     allowed_v4_2b_output_root,
     assert_v4_2b_output_allowed,
+    assert_v4_2b_output_root_empty,
+    assert_v4_2b_source_clean,
     canonical_v4_0_retained_root,
     canonical_v4_1_retained_root,
     canonical_v4_2_retained_root,
     canonical_v4_2a_retained_root,
+    canonical_v4_2b_retained_root,
+    git_rev_parse_head,
+    git_status_porcelain,
 )
 from inequality_mechanisms.experiments.span_cases import (
     generate_span_cases,
@@ -84,6 +89,31 @@ def _is_under(path: Path, parent: Path) -> bool:
     path_r = path.resolve()
     parent_r = parent.resolve()
     return path_r == parent_r or parent_r in path_r.parents
+
+
+def _is_canonical_v4_2b_write(resolved: Path) -> bool:
+    """Return True when ``resolved`` is the retained V4.2B package root."""
+    return _is_under(resolved, canonical_v4_2b_retained_root())
+
+
+def _begin_v4_2b_write(resolved: Path) -> tuple[str, bool]:
+    """Create the output tree and return ``(source_sha, source_git_dirty)``.
+
+    Canonical writes refuse a dirty source tree and a nonempty output
+    root before any mkdir. Pytest ``tmp_path`` destinations keep the
+    existing rmtree policy so a dirty developer tree still works.
+    """
+    if _is_canonical_v4_2b_write(resolved):
+        sha = assert_v4_2b_source_clean()
+        assert_v4_2b_output_root_empty(resolved)
+        resolved.mkdir(parents=True, exist_ok=True)
+        return sha, False
+    porcelain = git_status_porcelain()
+    sha = git_revision() or git_rev_parse_head()
+    if resolved.exists():
+        shutil.rmtree(resolved)
+    resolved.mkdir(parents=True, exist_ok=True)
+    return sha, bool(porcelain.strip())
 
 
 def _resolve_output(output: Path) -> Path:
@@ -260,9 +290,8 @@ def generate_span_controlled_corrective_atlas(
     config = load_span_corrective_config(cfg_path)
     target = Path(output) if output is not None else (REPO_ROOT / config.output_dir)
     resolved = _resolve_output(target)
-    if resolved.exists():
-        shutil.rmtree(resolved)
-    resolved.mkdir(parents=True, exist_ok=True)
+    source_git_revision, source_git_dirty = _begin_v4_2b_write(resolved)
+    revision = source_git_revision
 
     v42_config = load_span_atlas_config(CANONICAL_REPO_ROOT / V4_2_DEFAULT_CONFIG_REL)
     registry = load_locked_v3_6d_registry(v42_config)
@@ -280,7 +309,6 @@ def generate_span_controlled_corrective_atlas(
     cases = generate_span_cases()
     if len(cases) != N_SPAN_CASES:
         raise SpanCorrectiveError(f"expected {N_SPAN_CASES} cases, got {len(cases)}")
-    revision = git_revision()
     atlases: list[SpanCaseAtlas] = []
     comparative_rows: list[dict[str, Any]] = []
     n_arm_rows = 0
@@ -354,6 +382,7 @@ def generate_span_controlled_corrective_atlas(
         "config": config.model_dump(),
         "config_digest": config.digest(),
         "v3_6d_digest": registry.sha256,
+        "v3_6d_registry_digest": registry.sha256,
         "evaluated_grid": list(GRID_SHAPE),
         "n_cases": len(atlases),
         "n_samples": sum(len(atlas.bank.samples) for atlas in atlases),
@@ -361,6 +390,8 @@ def generate_span_controlled_corrective_atlas(
         "n_typed_failures": n_typed,
         "n_silent_drops": n_silent_drops,
         "case_ids": [atlas.realized.case.case_id for atlas in atlases],
+        "source_git_revision": source_git_revision,
+        "source_git_dirty": source_git_dirty,
     }
     (resolved / "resolved_config.json").write_text(
         json.dumps(resolved_config, indent=2), encoding="utf-8"
@@ -369,10 +400,13 @@ def generate_span_controlled_corrective_atlas(
         "schema_version": config.schema_version,
         "package": V4_2B_PACKAGE,
         "git_revision": revision,
+        "source_git_revision": source_git_revision,
+        "source_git_dirty": source_git_dirty,
         "generated_at_utc": datetime.now(timezone.utc).isoformat(),
         "no_inference_statement": config.no_inference_statement,
         "config_digest": config.digest(),
         "v3_6d_digest": registry.sha256,
+        "v3_6d_registry_digest": registry.sha256,
         "span_175_status": SPAN_175_STATUS,
         "n_cases": len(atlases),
         "n_samples": resolved_config["n_samples"],

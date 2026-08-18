@@ -5,6 +5,7 @@ from __future__ import annotations
 import gzip
 import hashlib
 import json
+import re
 import zlib
 from pathlib import Path
 from typing import Any, Mapping, Sequence
@@ -34,6 +35,7 @@ FILE_RECORD_KEYS = (
     "media_type",
     "compression",
 )
+SOURCE_GIT_REVISION_RE = re.compile(r"^[0-9a-f]{40}$")
 
 
 class V4_2BArtifactError(ValueError):
@@ -204,6 +206,14 @@ def verify_v4_2b_artifact(root: Path | str) -> dict[str, Any]:
         raise V4_2BArtifactError(
             f"manifest_inventory_rule must be {MANIFEST_INVENTORY_RULE!r}, got {rule!r}"
         )
+    if "source_git_dirty" in manifest and manifest["source_git_dirty"] is not False:
+        raise V4_2BArtifactError("source_git_dirty must be false")
+    if "source_git_revision" in manifest:
+        sha = str(manifest["source_git_revision"])
+        if SOURCE_GIT_REVISION_RE.fullmatch(sha) is None:
+            raise V4_2BArtifactError(
+                "source_git_revision must be a 40-char hex SHA"
+            )
     listed = manifest.get("files")
     if not isinstance(listed, list) or not listed:
         raise V4_2BArtifactError("manifest files[] is missing or empty")
@@ -288,6 +298,7 @@ __all__ = [
     "MANIFEST_INVENTORY_RULE",
     "MANIFEST_NAME",
     "REQUIRED_ROOT_FILES",
+    "SOURCE_GIT_REVISION_RE",
     "V4_2BArtifactError",
     "case_geometry_rel",
     "files_digest",

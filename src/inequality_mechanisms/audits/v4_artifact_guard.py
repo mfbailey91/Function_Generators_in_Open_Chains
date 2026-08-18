@@ -55,6 +55,12 @@ class ArtifactPathForbiddenError(ValueError):
     failure_code = "artifact_path_forbidden"
 
 
+class DirtySourceError(ValueError):
+    """Raised when a V4.2B writer targets a dirty git working tree."""
+
+    failure_code = "v4_2b_dirty_source"
+
+
 def allowed_v4_0_output_root() -> Path:
     """Absolute allowed V4.0 geometry-core output root (may be monkeypatched)."""
     return (REPO_ROOT / V4_0_ALLOWED_OUTPUT_REL).resolve()
@@ -389,6 +395,87 @@ def prepare_v4_2b_output_dir(path: Path) -> Path:
     return resolved
 
 
+def git_status_porcelain(
+    *,
+    cwd: Path | None = None,
+    untracked_files: str = "all",
+) -> str:
+    """Return ``git status --porcelain`` output for the canonical repository.
+
+    Inspects ``CANONICAL_REPO_ROOT`` by default, not monkeypatched
+    ``REPO_ROOT``. Tests should stub this helper rather than writing into
+    the real results tree.
+    """
+    root = CANONICAL_REPO_ROOT if cwd is None else Path(cwd)
+    proc = subprocess.run(
+        [
+            "git",
+            "status",
+            "--porcelain",
+            f"--untracked-files={untracked_files}",
+        ],
+        cwd=root,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    return proc.stdout
+
+
+def git_rev_parse_head(*, cwd: Path | None = None) -> str:
+    """Return ``git rev-parse HEAD`` for the canonical repository."""
+    root = CANONICAL_REPO_ROOT if cwd is None else Path(cwd)
+    proc = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=root,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    sha = proc.stdout.strip()
+    if not sha:
+        raise DirtySourceError("git rev-parse HEAD returned an empty revision")
+    return sha
+
+
+def assert_v4_2b_source_clean() -> str:
+    """Refuse a dirty working tree before any V4.2B canonical mkdir/rmtree.
+
+    Returns
+    -------
+    str
+        Clean ``HEAD`` SHA.
+
+    Raises
+    ------
+    DirtySourceError
+        If ``git status --porcelain --untracked-files=all`` is nonempty.
+    """
+    porcelain = git_status_porcelain()
+    if porcelain.strip():
+        raise DirtySourceError(
+            "Refusing dirty-source V4.2B generation; "
+            "git status --porcelain --untracked-files=all must be empty "
+            f"before creating the output root.\n{porcelain}"
+        )
+    return git_rev_parse_head()
+
+
+def assert_v4_2b_output_root_empty(path: Path) -> Path:
+    """Refuse to overwrite a nonempty canonical V4.2B output root.
+
+    Empty or missing directories are allowed. Nonempty trees are not
+    silently removed.
+    """
+    resolved = assert_v4_2b_output_allowed(path)
+    if resolved.exists() and any(resolved.iterdir()):
+        raise ArtifactPathForbiddenError(
+            "Refusing to overwrite non-empty V4.2B output root "
+            f"at {resolved}."
+        )
+    return resolved
+
+
 def git_ls_files(*paths: str, cwd: Path | None = None) -> list[str]:
     """Return git-tracked paths under ``paths`` relative to ``cwd``."""
     root = CANONICAL_REPO_ROOT if cwd is None else Path(cwd)
@@ -502,6 +589,7 @@ __all__ = [
     "V4_2B_ALLOWED_OUTPUT_REL",
     "V4_2B_ALLOWED_PACKAGE",
     "ArtifactPathForbiddenError",
+    "DirtySourceError",
     "allowed_v4_0_output_root",
     "allowed_v4_1_output_root",
     "allowed_v4_2_output_root",
@@ -513,6 +601,8 @@ __all__ = [
     "assert_v4_2_output_allowed",
     "assert_v4_2a_output_allowed",
     "assert_v4_2b_output_allowed",
+    "assert_v4_2b_output_root_empty",
+    "assert_v4_2b_source_clean",
     "canonical_v4_0_retained_root",
     "canonical_v4_1_retained_root",
     "canonical_v4_2_retained_root",
@@ -521,6 +611,8 @@ __all__ = [
     "digest_directory_tree",
     "digest_git_tracked_paths",
     "git_ls_files",
+    "git_rev_parse_head",
+    "git_status_porcelain",
     "prepare_v4_0_output_dir",
     "prepare_v4_1_output_dir",
     "prepare_v4_2_output_dir",
