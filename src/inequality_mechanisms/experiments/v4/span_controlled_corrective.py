@@ -60,6 +60,10 @@ from inequality_mechanisms.experiments.v4.span_controlled_atlas_config import (
     SPAN_175_STATUS,
     load_span_atlas_config,
 )
+from inequality_mechanisms.experiments.v4.span_common_physical_bank import (
+    DEFAULT_BANK_REL,
+    load_common_physical_bank,
+)
 from inequality_mechanisms.experiments.v4.span_controlled_corrective_config import (
     DEFAULT_CONFIG_REL,
     V4_2B_PACKAGE,
@@ -392,6 +396,9 @@ def generate_span_controlled_corrective_atlas(
         "case_ids": [atlas.realized.case.case_id for atlas in atlases],
         "source_git_revision": source_git_revision,
         "source_git_dirty": source_git_dirty,
+        "common_task_bank_digest": load_common_physical_bank(
+            CANONICAL_REPO_ROOT / DEFAULT_BANK_REL
+        )["sha256"],
     }
     (resolved / "resolved_config.json").write_text(
         json.dumps(resolved_config, indent=2), encoding="utf-8"
@@ -421,6 +428,7 @@ def generate_span_controlled_corrective_atlas(
         ],
         "case_ids": [case.case_id for case in cases],
         "manifest_inventory_rule": MANIFEST_INVENTORY_RULE,
+        "common_task_bank_digest": resolved_config["common_task_bank_digest"],
     }
     (resolved / "README.md").write_text(_readme_text(manifest), encoding="utf-8")
     write_span_controlled_corrective_html(
