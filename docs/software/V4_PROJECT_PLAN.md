@@ -1,6 +1,6 @@
 # Version 4 Project Plan — Kinematic Transmission Geometry in Planar 2R
 
-- **Status:** V4.0 geometry kernel and V4.1 atlas closed; V4.2/V4.3 drafted and unauthorized until `ACTIVE_SPRINT.md` explicitly activates an exact work-package range
+- **Status:** V4.0 geometry kernel and V4.1 atlas closed; V4.2/V4.2A closed as retained historical diagnostics; V4.2B mounted-coordinate closeout active under `ACTIVE_SPRINT.md` (V4-220–V4-229); V4.3 drafted and unauthorized until a later activation names V4-300–V4-309 and consumes frozen V4.2B snapshots
 - **Predecessor:** Version 3 planner-independent physical-state and motion-planning contracts
 - **Immediate dependency:** formal Version 3.6C gate disposition and a separate active-sprint transition
 - **Initial robot:** planar 2R open chain
@@ -462,8 +462,10 @@ Cross-column reports join records by stable identifiers:
 | --- | --- | --- |
 | **V4.0** | Kinematic geometry core | Can every column consume one verified \(J_g/J_f/J_{xu}\), metric, mobility, and duality implementation? |
 | **V4.1** | Planar-2R intrinsic geometry atlas | What fields does the canonical gearbox/four-bar pair induce over the same \(Q/X\) domain? |
-| **V4.2** | Span-controlled geometry-atlas extension | What fields does the frozen V3.6D span family induce on shared mounted \(Q\) grids with gearbox and identity controls? |
-| **V4.3** | Intrinsic gravity-free static wrench | How does that family redistribute a normalized torque box into planar endpoint force capacity on V4.2 snapshots? |
+| **V4.2** | Span-controlled geometry-atlas extension (historical) | What fields does the frozen V3.6D span family induce on shared native-\(Q\) grids with gearbox and identity controls? |
+| **V4.2A** | Span-controlled visual planning audit (historical) | How do paired planners behave on that historical V4.2 atlas? |
+| **V4.2B** | Mounted-coordinate corrective closeout | What fields and planner topology remain after applying frozen V3.6D output mounts, one shared paired graph, and finite-edge admission? |
+| **V4.3** | Intrinsic gravity-free static wrench | How does that family redistribute a normalized torque box into planar endpoint force capacity on frozen V4.2B snapshots? |
 | **V4.4** | Inverse instantaneous kinematics and velocity capability | How does the transmission change actuator-rate demand, conditioning, saturation, and trackable Cartesian velocity? |
 | **V4.5** | Potential fields and continuous flow | How does the transmission precondition descent, convergence, basins, and actuator travel under coordinate controls? |
 | **V4.6** | Application task corpus and integrated 2R report | Do the four columns tell a coherent application-conditioned story on one frozen task bank? |
@@ -480,7 +482,7 @@ V4.0 must close before any velocity, wrench, or flow implementation begins.
 
 ### Gate V4-B — deterministic controls before population
 
-V4.1 (legacy pair), V4.2 (span family), V4.3 (wrench on V4.2 snapshots), and V4.4 (velocity) must each pass analytic/control tests before any population study.
+V4.1 (legacy pair), V4.2B (corrected span family; V4.2/V4.2A remain historical), V4.3 (wrench on V4.2B snapshots), and V4.4 (velocity) must each pass analytic/control tests before any population study.
 
 ### Gate V4-C — application contract
 
@@ -500,15 +502,15 @@ Fresh Version 4 outputs use only:
 
 ```text
 results/v4_review/
-├── v4_0_kinematic_geometry_core/
-├── v4_1_planar2r_geometry_atlas/
-├── v4_2_differential_ik_velocity/
-├── v4_3_static_wrench/
-├── v4_4_potential_flow/
-├── v4_5_application_integrated/
-├── v4_6_population/
-└── v4_7_closeout/
+├── v4_0_kinematic_geometry_core/                 # closed
+├── v4_1_planar2r_geometry_atlas/                 # closed
+├── v4_2_span_controlled_geometry_atlas/          # historical; do not overwrite
+├── v4_2a_span_controlled_visual_audit/           # historical; do not overwrite
+├── v4_2b_span_controlled_corrective_closeout/    # canonical V4.2B closeout
+└── v4_3_intrinsic_static_wrench/                 # drafted / blocked; V4.2B snapshots only
 ```
+
+Later velocity, flow, application, and population packages are named when those sprints are drafted. They must not reuse the V4.2B closeout root.
 
 Version 1–3 result packages are immutable provenance. Version 4 readers may import historical data but may not rewrite historical records into a new schema in place.
 
