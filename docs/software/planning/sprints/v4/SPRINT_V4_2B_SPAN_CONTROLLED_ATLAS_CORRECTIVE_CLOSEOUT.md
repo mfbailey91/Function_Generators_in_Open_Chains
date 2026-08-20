@@ -1,6 +1,6 @@
 # Sprint V4.2B — Span-Controlled Atlas Corrective Closeout
 
-- **Status:** active; `ACTIVE_SPRINT.md` authorizes V4-220–V4-229 only
+- **Status:** completed; canonical evidence retained; no current authorization
 - **Depends on:** closed V4.2 and V4.2A; frozen V3.6D registry; closed V4.0 geometry kernel; no-authorization predecessor
 - **Blocks:** V4.3 intrinsic static wrench and every downstream span-family column
 - **Reserved work packages:** V4-220–V4-229

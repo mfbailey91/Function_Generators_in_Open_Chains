@@ -21,13 +21,13 @@ algorithms.
 - **Version 4** consumes that transmission geometry as a shared differential
   layer ([ADR-027](docs/software/architecture/adr/ADR-027-v4-kinematic-transmission-geometry.md)).
   V4.0 and V4.1 are closed. V4.2 and V4.2A are retained historical diagnostics.
-  **Sprint V4.2B** is the active mounted-coordinate closeout
+  **Sprint V4.2B** is completed
   ([ADR-029](docs/software/architecture/adr/ADR-029-mounted-output-coordinate.md),
   [ADR-030](docs/software/architecture/adr/ADR-030-paired-final-topology-and-nonfinite-edge-semantics.md)).
   V4.3 (intrinsic wrench on V4.2B snapshots) remains drafted and unauthorized.
 
 Do not overwrite frozen V3 or V4.0–V4.2A packages. Canonical V4.2B evidence is
-generated only from a clean implementation revision under
+retained under
 `results/v4_review/v4_2b_span_controlled_corrective_closeout/`.
 
 ## Requirements

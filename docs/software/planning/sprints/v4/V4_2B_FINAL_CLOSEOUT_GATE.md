@@ -1,8 +1,8 @@
 # Sprint V4.2B — Final Canonical Evidence and Closeout Gate
 
-- **Status:** active continuation of Sprint V4.2B; no new sprint number
+- **Status:** completed; canonical evidence retained; no current authorization
 - **Prepared against:** `main` at `e98ca1f5c7dcf4e21f40185d36c8ba1a6664bf7b`
-- **Authorization:** existing V4-220–V4-229 authorization remains in force
+- **Authorization:** none; V4-220–V4-229 are closed
 - **Depends on:** merged PR #27 implementation checkpoint; frozen V3.6D registry; closed V4.0/V4.1; historical V4.2/V4.2A
 - **Blocks:** V4.3 intrinsic gravity-free static wrench and all later span-family effect columns
 - **Fresh artifact root:** `results/v4_review/v4_2b_span_controlled_corrective_closeout/`

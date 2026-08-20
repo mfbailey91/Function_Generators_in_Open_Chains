@@ -1,6 +1,6 @@
 # Version 4 Project Plan — Kinematic Transmission Geometry in Planar 2R
 
-- **Status:** V4.0 geometry kernel and V4.1 atlas closed; V4.2/V4.2A closed as retained historical diagnostics; V4.2B mounted-coordinate closeout active under `ACTIVE_SPRINT.md` (V4-220–V4-229); V4.3 drafted and unauthorized until a later activation names V4-300–V4-309 and consumes frozen V4.2B snapshots
+- **Status:** V4.0 geometry kernel and V4.1 atlas closed; V4.2/V4.2A closed as retained historical diagnostics; V4.2B mounted-coordinate closeout completed; V4.3 remains drafted and unauthorized until a later activation consumes frozen V4.2B snapshots
 - **Predecessor:** Version 3 planner-independent physical-state and motion-planning contracts
 - **Immediate dependency:** formal Version 3.6C gate disposition and a separate active-sprint transition
 - **Initial robot:** planar 2R open chain
