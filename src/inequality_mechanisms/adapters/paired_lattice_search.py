@@ -8,13 +8,17 @@ see ``+inf``. Overlay attachment is not the paired lattice estimand.
 from __future__ import annotations
 
 import time
-from dataclasses import dataclass
-from typing import Any, Literal, Mapping, Sequence
+from collections.abc import Mapping, Sequence
+from dataclasses import dataclass, field
+from typing import Any, Literal
 
 import numpy as np
+from numpy.typing import NDArray
 
 from inequality_mechanisms.adapters.finite_search_edges import compile_finite_neighbors
-from inequality_mechanisms.adapters.lattice_edge_cost import integrated_actuator_edge_cost
+from inequality_mechanisms.adapters.lattice_edge_cost import (
+    integrated_actuator_edge_cost,
+)
 from inequality_mechanisms.benchmarks.classification import (
     TASK_ALREADY_SATISFIED,
     TASK_INVALID_UNREPRESENTABLE,
@@ -29,14 +33,17 @@ from inequality_mechanisms.core.results import (
 from inequality_mechanisms.core.robot import RobotModel
 from inequality_mechanisms.core.scene import PlanningScene
 from inequality_mechanisms.core.state import PhysicalState, StateCandidate
+from inequality_mechanisms.graphs.embedded import EmbeddedPlanningGraph
 from inequality_mechanisms.graphs.goal_set_query_overlay import (
     GoalSetQueryOverlay,
     IncompleteGoalSetAttachmentError,
 )
-from inequality_mechanisms.graphs.embedded import EmbeddedPlanningGraph
 from inequality_mechanisms.graphs.paired_edge_admission import PairedCompiledSearchGraph
 from inequality_mechanisms.planners.sampling_space import match_selected_candidate
-from inequality_mechanisms.search.graph_solver import AStarGraphSolver, DijkstraGraphSolver
+from inequality_mechanisms.search.graph_solver import (
+    AStarGraphSolver,
+    DijkstraGraphSolver,
+)
 from inequality_mechanisms.search.protocol import EdgeCost, SearchGraph
 from inequality_mechanisms.search.v2_objectives import (
     V2PlanningObjective,
@@ -71,10 +78,10 @@ class OverlayCandidateGraph:
             return tuple(int(v) for v in self.compiled.graph.neighbors(nid)) + extras
         return tuple(int(v) for v in self.overlay.neighbors(nid))
 
-    def q_state(self, node_id: int):
+    def q_state(self, node_id: int) -> NDArray[np.float64]:
         return self.overlay.q_state(int(node_id))
 
-    def u_state(self, node_id: int):
+    def u_state(self, node_id: int) -> NDArray[np.float64]:
         return self.overlay.u_state(int(node_id))
 
 
@@ -84,6 +91,12 @@ class CoordinateFilteredGraph:
 
     overlay: GoalSetQueryOverlay
     graph: SearchGraph
+    branch: Any = field(init=False)
+    topology: Any = field(init=False)
+
+    def __post_init__(self) -> None:
+        self.branch = self.overlay.branch
+        self.topology = self.overlay.topology
 
     @property
     def node_count(self) -> int:
@@ -95,23 +108,18 @@ class CoordinateFilteredGraph:
     def neighbors(self, node_id: int) -> tuple[int, ...]:
         return tuple(int(v) for v in self.graph.neighbors(int(node_id)))
 
-    def q_state(self, node_id: int):
+    def q_state(self, node_id: int) -> NDArray[np.float64]:
         return self.overlay.q_state(int(node_id))
 
-    def u_state(self, node_id: int):
+    def u_state(self, node_id: int) -> NDArray[np.float64]:
         return self.overlay.u_state(int(node_id))
 
     @property
-    def base(self):
+    def base(self) -> Any:
         return self.overlay.base
 
-    @property
-    def topology(self):
-        return self.overlay.topology
-
-    @property
-    def branch(self):
-        return self.overlay.branch
+    def edge_trace(self, a: int, b: int, n_samples: int = 17) -> Any:
+        return self.overlay.edge_trace(int(a), int(b), n_samples=n_samples)
 
 
 def _mixed_overlay_cost(
@@ -479,9 +487,7 @@ def solve_paired_lattice_goal_set(
             expanded,
         )
 
-    states = tuple(
-        _state_from_node(search_graph, nid, assembly) for nid in search.path
-    )
+    states = tuple(_state_from_node(search_graph, nid, assembly) for nid in search.path)
     selected_id = (
         int(search.selected_goal_node_id)
         if search.selected_goal_node_id is not None
@@ -491,9 +497,7 @@ def solve_paired_lattice_goal_set(
     graph_metrics["selected_goal_node_id"] = selected_id
     attachment_rec = overlay.attachment_for_goal_node(selected_id)
     attachment_residual = (
-        None
-        if attachment_rec is None
-        else float(attachment_rec.attachment_residual_q)
+        None if attachment_rec is None else float(attachment_rec.attachment_residual_q)
     )
     if attachment_residual is None:
         attachment_residual = float(

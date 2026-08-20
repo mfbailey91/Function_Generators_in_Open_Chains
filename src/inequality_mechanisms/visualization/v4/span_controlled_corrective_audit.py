@@ -7,8 +7,9 @@ Static panels are authoritative. Task pages live at
 from __future__ import annotations
 
 import html
+from collections.abc import Mapping, Sequence
 from pathlib import Path
-from typing import Any, Mapping, Sequence
+from typing import Any
 
 from inequality_mechanisms.audits.html_report import PRINT_CSS, family_metrics_html
 from inequality_mechanisms.experiments.span_cases import (
@@ -17,14 +18,16 @@ from inequality_mechanisms.experiments.span_cases import (
     RealizedSpanCase,
     case_id_for,
 )
+from inequality_mechanisms.experiments.v4 import (
+    span_controlled_corrective_audit_config as _audit_cfg,
+)
 from inequality_mechanisms.experiments.v4.span_controlled_atlas_config import (
     SPAN_175_STATUS,
 )
-from inequality_mechanisms.experiments.v4.span_controlled_corrective_audit_config import (
-    NO_INFERENCE_STATEMENT,
-    SpanControlledCorrectiveAuditConfig,
-)
 from inequality_mechanisms.mechanisms.span_registry import SpanRegistry
+
+NO_INFERENCE_STATEMENT = _audit_cfg.NO_INFERENCE_STATEMENT
+SpanControlledCorrectiveAuditConfig = _audit_cfg.SpanControlledCorrectiveAuditConfig
 
 
 def _esc(value: Any) -> str:
@@ -67,8 +70,8 @@ def _matrix_table(
             memberships = ", ".join(realized.case.memberships)
             href = f"cases/{_esc(case_id)}/index.html"
             cells.append(
-                f"<td><a href=\"{href}\">{_esc(case_id)}</a>"
-                f"<div class=\"muted\">{_esc(memberships)}</div></td>"
+                f'<td><a href="{href}">{_esc(case_id)}</a>'
+                f'<div class="muted">{_esc(memberships)}</div></td>'
             )
         rows.append("<tr>" + "".join(cells) + "</tr>")
     return (
@@ -145,8 +148,7 @@ def write_case_audit_html(
 ) -> Path:
     """Write one case index listing task pages."""
     nav = "".join(
-        f'<li><a href="tasks/{_esc(tid)}.html">{_esc(tid)}</a></li>'
-        for tid in task_ids
+        f'<li><a href="tasks/{_esc(tid)}.html">{_esc(tid)}</a></li>' for tid in task_ids
     )
     rows = "".join(
         "<tr>"
@@ -228,8 +230,8 @@ authoritative. Animations are skipped. Shared start/goal from the frozen
 common-physical bank; lattice search uses the jointly compiled topology.</p>
 <p>Admitted topology digest
 <code>{_esc(trial.get("admitted_topology_digest"))}</code>
-· candidates { _esc(trial.get("candidate_edge_count")) }
-· admitted { _esc(trial.get("admitted_edge_count")) }</p>
+· candidates {_esc(trial.get("candidate_edge_count"))}
+· admitted {_esc(trial.get("admitted_edge_count"))}</p>
 
 <div class="section">
 <h2>1. Shared task definition</h2>
@@ -239,8 +241,10 @@ common-physical bank; lattice search uses the jointly compiled topology.</p>
 <tr><th>goal_center</th><td><code>{_esc(trial.get("goal_center"))}</code></td></tr>
 <tr><th>goal_radius</th><td>{_esc(trial.get("goal_radius"))}</td></tr>
 <tr><th>goal_point_ids</th><td><code>{_esc(trial.get("goal_point_ids"))}</code></td></tr>
-<tr><th>start_u fourbar</th><td><code>{_esc(trial.get("start_u_fourbar"))}</code></td></tr>
-<tr><th>start_u gearbox</th><td><code>{_esc(trial.get("start_u_gearbox"))}</code></td></tr>
+<tr><th>start_u fourbar</th>
+<td><code>{_esc(trial.get("start_u_fourbar"))}</code></td></tr>
+<tr><th>start_u gearbox</th>
+<td><code>{_esc(trial.get("start_u_gearbox"))}</code></td></tr>
 </table>
 </div>
 
@@ -267,28 +271,38 @@ common-physical bank; lattice search uses the jointly compiled topology.</p>
 <h2>4. Direct planner paths</h2>
 {_asset(assets, "path_lengths")}
 <div class="grid2">
-{_asset(assets, "fourbar_input_linear_path_u")}{_asset(assets, "gearbox_input_linear_path_u")}
-{_asset(assets, "fourbar_output_linear_path_u")}{_asset(assets, "gearbox_output_linear_path_u")}
+{_asset(assets, "fourbar_input_linear_path_u")}
+{_asset(assets, "gearbox_input_linear_path_u")}
+{_asset(assets, "fourbar_output_linear_path_u")}
+{_asset(assets, "gearbox_output_linear_path_u")}
 </div>
 </div>
 
 <div class="section">
 <h2>5. Lattice Dijkstra/A* traces</h2>
 <div class="grid2">
-{_asset(assets, "fourbar_lattice_dijkstra_expansion")}{_asset(assets, "gearbox_lattice_dijkstra_expansion")}
-{_asset(assets, "fourbar_lattice_astar_expansion")}{_asset(assets, "gearbox_lattice_astar_expansion")}
+{_asset(assets, "fourbar_lattice_dijkstra_expansion")}
+{_asset(assets, "gearbox_lattice_dijkstra_expansion")}
+{_asset(assets, "fourbar_lattice_astar_expansion")}
+{_asset(assets, "gearbox_lattice_astar_expansion")}
 </div>
 </div>
 
 <div class="section">
 <h2>6. Native roadmap/tree traces</h2>
 <div class="grid2">
-{_asset(assets, "fourbar_prm_final_trace_u")}{_asset(assets, "gearbox_prm_final_trace_u")}
-{_asset(assets, "fourbar_prm_final_trace_q")}{_asset(assets, "gearbox_prm_final_trace_q")}
-{_asset(assets, "fourbar_prm_final_trace_x")}{_asset(assets, "gearbox_prm_final_trace_x")}
-{_asset(assets, "fourbar_rrt_connect_final_trace_u")}{_asset(assets, "gearbox_rrt_connect_final_trace_u")}
-{_asset(assets, "fourbar_rrt_connect_final_trace_q")}{_asset(assets, "gearbox_rrt_connect_final_trace_q")}
-{_asset(assets, "fourbar_rrt_connect_final_trace_x")}{_asset(assets, "gearbox_rrt_connect_final_trace_x")}
+{_asset(assets, "fourbar_prm_final_trace_u")}
+{_asset(assets, "gearbox_prm_final_trace_u")}
+{_asset(assets, "fourbar_prm_final_trace_q")}
+{_asset(assets, "gearbox_prm_final_trace_q")}
+{_asset(assets, "fourbar_prm_final_trace_x")}
+{_asset(assets, "gearbox_prm_final_trace_x")}
+{_asset(assets, "fourbar_rrt_connect_final_trace_u")}
+{_asset(assets, "gearbox_rrt_connect_final_trace_u")}
+{_asset(assets, "fourbar_rrt_connect_final_trace_q")}
+{_asset(assets, "gearbox_rrt_connect_final_trace_q")}
+{_asset(assets, "fourbar_rrt_connect_final_trace_x")}
+{_asset(assets, "gearbox_rrt_connect_final_trace_x")}
 </div>
 </div>
 
@@ -296,9 +310,12 @@ common-physical bank; lattice search uses the jointly compiled topology.</p>
 <h2>7. Optional OMPL</h2>
 <p class="muted">OMPL absence is typed as unavailable, not omitted.</p>
 <div class="grid2">
-{_asset(assets, "fourbar_ompl_prm_path_u")}{_asset(assets, "gearbox_ompl_prm_path_u")}
-{_asset(assets, "fourbar_ompl_rrt_connect_path_u")}{_asset(assets, "gearbox_ompl_rrt_connect_path_u")}
-{_asset(assets, "fourbar_ompl_prm_unavailable")}{_asset(assets, "gearbox_ompl_prm_unavailable")}
+{_asset(assets, "fourbar_ompl_prm_path_u")}
+{_asset(assets, "gearbox_ompl_prm_path_u")}
+{_asset(assets, "fourbar_ompl_rrt_connect_path_u")}
+{_asset(assets, "gearbox_ompl_rrt_connect_path_u")}
+{_asset(assets, "fourbar_ompl_prm_unavailable")}
+{_asset(assets, "gearbox_ompl_prm_unavailable")}
 </div>
 </div>
 

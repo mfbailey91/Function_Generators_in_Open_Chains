@@ -164,7 +164,11 @@ def test_admitted_ids_and_digests_are_deterministic() -> None:
 
     first = _compile(TRIANGLE, {"fourbar": fourbar, "gearbox": gearbox})
     second = _compile(TRIANGLE, {"fourbar": fourbar, "gearbox": gearbox})
-    assert first.candidate_edge_ids == second.candidate_edge_ids == ((0, 1), (0, 2), (1, 2))
+    assert (
+        first.candidate_edge_ids
+        == second.candidate_edge_ids
+        == ((0, 1), (0, 2), (1, 2))
+    )
     assert first.admitted_edge_ids == second.admitted_edge_ids == ((0, 1), (1, 2))
     assert first.candidate_topology_digest == second.candidate_topology_digest
     assert first.admitted_topology_digest == second.admitted_topology_digest

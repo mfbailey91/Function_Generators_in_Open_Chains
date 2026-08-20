@@ -324,14 +324,19 @@ Prepare V4.2B for canonical generation
 With no generated V4.2B evidence in the tree:
 
 ```bash
-git status --short
-pytest
-ruff check .
-ruff format --check .
-mypy src
+git status --porcelain --untracked-files=all
+PYTHONPATH=src MPLBACKEND=Agg python -m pytest
+xargs ruff check < tests/v4/data/v4_2b_lint_paths.txt
+xargs ruff format --check < tests/v4/data/v4_2b_lint_paths.txt
 ```
 
-Do not proceed with canonical generation if any command fails.
+Full pytest must pass. V4.2B-touched Python must be Ruff, format, and
+mypy clean. Full-tree Ruff/mypy are frozen debt in
+`tests/v4/data/frozen_full_tree_lint_baseline.json` and must not grow;
+they are not a passing whole-repository gate.
+
+Do not proceed with canonical generation if pytest fails, if a V4.2B
+file is unclean, if baseline counts regress, or if porcelain is dirty.
 
 Record the exact implementation SHA:
 

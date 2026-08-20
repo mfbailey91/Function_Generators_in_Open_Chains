@@ -4,8 +4,9 @@ from __future__ import annotations
 
 import hashlib
 import json
+from collections.abc import Mapping
 from pathlib import Path
-from typing import Any, Literal, Mapping
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, field_validator, model_validator
 
@@ -14,6 +15,8 @@ from inequality_mechanisms.experiments.v4.atlas_config import Planar2RAtlasConfi
 from inequality_mechanisms.experiments.v4.span_common_physical_bank import (
     BANK_ID,
     DEFAULT_BANK_REL,
+)
+from inequality_mechanisms.experiments.v4.span_common_physical_bank import (
     FROZEN_TASK_IDS as BANK_TASK_IDS,
 )
 from inequality_mechanisms.experiments.v4.span_controlled_atlas_config import (
@@ -128,8 +131,7 @@ class SpanControlledCorrectiveAuditConfig(BaseModel):
         rel = Path(value)
         if rel != V4_2B_OUTPUT_REL:
             raise ValueError(
-                "output_dir must be "
-                f"{V4_2B_OUTPUT_REL.as_posix()!r}, got {value!r}"
+                f"output_dir must be {V4_2B_OUTPUT_REL.as_posix()!r}, got {value!r}"
             )
         return rel.as_posix()
 
@@ -192,8 +194,10 @@ class SpanControlledCorrectiveAuditConfig(BaseModel):
             raise ValueError(f"source_bank.bank_id must be {BANK_ID!r}")
         if self.source_bank.digest_lock != FROZEN_BANK_DIGEST:
             raise ValueError(
-                "source_bank.digest_lock must equal the frozen common-physical "
-                f"bank sha256 {FROZEN_BANK_DIGEST}, got {self.source_bank.digest_lock!r}"
+                "source_bank.digest_lock must equal the frozen "
+                "common-physical bank sha256 "
+                f"{FROZEN_BANK_DIGEST}, got "
+                f"{self.source_bank.digest_lock!r}"
             )
         bank_rel = Path("configs") / "v4" / self.source_bank.contract_path
         if bank_rel != DEFAULT_BANK_REL:
@@ -202,7 +206,9 @@ class SpanControlledCorrectiveAuditConfig(BaseModel):
                 f"{DEFAULT_BANK_REL.as_posix()!r}"
             )
         if self.animation_policy.get("authoritative") != "static_print_panels":
-            raise ValueError("animation_policy.authoritative must be static_print_panels")
+            raise ValueError(
+                "animation_policy.authoritative must be static_print_panels"
+            )
         return self
 
     def canonical_json(self) -> str:

@@ -15,6 +15,9 @@ from inequality_mechanisms.audits.v4_artifact_guard import (
     V4_2A_ALLOWED_OUTPUT_REL,
     ArtifactPathForbiddenError,
 )
+from inequality_mechanisms.experiments.v4 import (
+    span_controlled_corrective_audit_config as _audit_cfg,
+)
 from inequality_mechanisms.experiments.v4.span_common_physical_bank import (
     DEFAULT_BANK_REL,
     load_common_physical_bank,
@@ -22,15 +25,14 @@ from inequality_mechanisms.experiments.v4.span_common_physical_bank import (
 from inequality_mechanisms.experiments.v4.span_controlled_atlas_config import (
     FROZEN_V3_6D_DIGEST,
 )
-from inequality_mechanisms.experiments.v4.span_controlled_corrective_audit_config import (
-    DEFAULT_CONFIG_REL,
-    FROZEN_BANK_DIGEST,
-    FROZEN_PLANNERS,
-    FROZEN_TASK_IDS,
-    NO_INFERENCE_STATEMENT,
-    V4SpanCorrectiveAuditConfigError,
-    load_span_corrective_audit_config,
-)
+
+DEFAULT_CONFIG_REL = _audit_cfg.DEFAULT_CONFIG_REL
+FROZEN_BANK_DIGEST = _audit_cfg.FROZEN_BANK_DIGEST
+FROZEN_PLANNERS = _audit_cfg.FROZEN_PLANNERS
+FROZEN_TASK_IDS = _audit_cfg.FROZEN_TASK_IDS
+NO_INFERENCE_STATEMENT = _audit_cfg.NO_INFERENCE_STATEMENT
+V4SpanCorrectiveAuditConfigError = _audit_cfg.V4SpanCorrectiveAuditConfigError
+load_span_corrective_audit_config = _audit_cfg.load_span_corrective_audit_config
 
 DRIVER_PATH = (
     CANONICAL_REPO_ROOT
@@ -57,7 +59,9 @@ def test_frozen_config_locks() -> None:
 
 
 def test_config_refuses_gravity_key(tmp_path: Path) -> None:
-    src = json.loads((CANONICAL_REPO_ROOT / DEFAULT_CONFIG_REL).read_text(encoding="utf-8"))
+    src = json.loads(
+        (CANONICAL_REPO_ROOT / DEFAULT_CONFIG_REL).read_text(encoding="utf-8")
+    )
     src["gravity"] = 9.81
     path = tmp_path / "bad.json"
     path.write_text(json.dumps(src), encoding="utf-8")
@@ -66,7 +70,9 @@ def test_config_refuses_gravity_key(tmp_path: Path) -> None:
 
 
 def test_bank_tasks_load_without_v3_reauthoring() -> None:
-    import inequality_mechanisms.experiments.v4.span_controlled_corrective_audit as driver
+    from inequality_mechanisms.experiments.v4 import (
+        span_controlled_corrective_audit as driver,
+    )
 
     source = DRIVER_PATH.read_text(encoding="utf-8")
     tree = ast.parse(source)
@@ -100,7 +106,10 @@ def test_driver_module_does_not_import_native_q_audit() -> None:
         elif isinstance(node, ast.Import):
             for alias in node.names:
                 modules.add(alias.name)
-    assert "inequality_mechanisms.experiments.v4.span_controlled_visual_audit" not in modules
+    assert (
+        "inequality_mechanisms.experiments.v4.span_controlled_visual_audit"
+        not in modules
+    )
     assert "span_controlled_visual_audit" not in modules
 
 
@@ -114,6 +123,8 @@ def _mounted_145():
     )
     from inequality_mechanisms.experiments.v4.span_controlled_atlas_config import (
         DEFAULT_CONFIG_REL as ATLAS_REL,
+    )
+    from inequality_mechanisms.experiments.v4.span_controlled_atlas_config import (
         load_span_atlas_config,
     )
 
@@ -266,7 +277,9 @@ def test_tmp_export_one_case_one_task(tmp_path: Path) -> None:
     summary = json.loads((root / "summary.json").read_text(encoding="utf-8"))
     assert summary["n_silent_drops"] == 0
     assert summary["case_ids"] == [CASE_ID]
-    ompl_rows = [row for row in summary["rows"] if str(row["planner"]).startswith("ompl")]
+    ompl_rows = [
+        row for row in summary["rows"] if str(row["planner"]).startswith("ompl")
+    ]
     assert len(ompl_rows) == 4
     assert all(row.get("status") or row.get("skipped") for row in ompl_rows)
     marker = CANONICAL_REPO_ROOT / V4_2A_ALLOWED_OUTPUT_REL / ".v4_2b_must_not_write"

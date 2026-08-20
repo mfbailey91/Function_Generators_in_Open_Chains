@@ -14,13 +14,16 @@ Do not treat ``not math.isfinite(weight)`` as the unavailable-motion test.
 from __future__ import annotations
 
 import math
+from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Literal, Mapping
+from typing import Literal
 
 from inequality_mechanisms.search.protocol import EdgeCost, SearchGraph
 
-UNAVAILABLE_LOCAL_MOTION = "unavailable_local_motion"
-ADMITTED_LOCAL_MOTION = "admit"
+UNAVAILABLE_LOCAL_MOTION: Literal["unavailable_local_motion"] = (
+    "unavailable_local_motion"
+)
+ADMITTED_LOCAL_MOTION: Literal["admit"] = "admit"
 EdgeWeightDecision = Literal["admit", "unavailable_local_motion"]
 
 

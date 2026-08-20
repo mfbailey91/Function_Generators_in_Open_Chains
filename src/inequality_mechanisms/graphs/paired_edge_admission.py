@@ -9,8 +9,8 @@ after the fact.
 from __future__ import annotations
 
 import hashlib
+from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Mapping
 
 from inequality_mechanisms.adapters.finite_search_edges import (
     ADMITTED_LOCAL_MOTION,
@@ -149,8 +149,7 @@ def compile_paired_finite_neighbors(
                 decisions[name] = classify_edge_weight(weight, u=u, v=v)
                 weights[name] = weight
             if any(
-                decision == UNAVAILABLE_LOCAL_MOTION
-                for decision in decisions.values()
+                decision == UNAVAILABLE_LOCAL_MOTION for decision in decisions.values()
             ):
                 rejected[key] = {
                     name: EdgeAdmission(
@@ -164,7 +163,9 @@ def compile_paired_finite_neighbors(
                     for name in names
                 }
                 continue
-            if any(decision != ADMITTED_LOCAL_MOTION for decision in decisions.values()):
+            if any(
+                decision != ADMITTED_LOCAL_MOTION for decision in decisions.values()
+            ):
                 raise ValueError(
                     f"edge ({u}, {v}) produced an unclassified ADR-030 result"
                 )
@@ -181,9 +182,7 @@ def compile_paired_finite_neighbors(
             valid_nodes=valid_nodes,
             adjacency={i: tuple(kept[i]) for i in range(n)},
         ),
-        edge_costs={
-            name: _cached_edge_cost(name, costs[name]) for name in names
-        },
+        edge_costs={name: _cached_edge_cost(name, costs[name]) for name in names},
         admitted_edge_ids=admitted_edge_ids,
         rejected_candidates=rejected,
         candidate_edge_ids=candidate_edge_ids,

@@ -405,11 +405,22 @@ A broader repository evidence-storage ADR remains separate from this closeout.
 From a clean implementation commit:
 
 ```bash
-pytest
-ruff check .
-ruff format --check .
-mypy src
+git status --porcelain --untracked-files=all  # must be empty
+PYTHONPATH=src MPLBACKEND=Agg python -m pytest
+xargs ruff check < tests/v4/data/v4_2b_lint_paths.txt
+xargs ruff format --check < tests/v4/data/v4_2b_lint_paths.txt
 ```
+
+Full pytest must pass. Every Python file on the V4.2B lint path list must be
+Ruff-clean, format-clean, and (for `src/` modules) mypy-clean under
+`--follow-imports=silent`. Those scoped checks are also asserted by
+`tests/v4/test_v4_2b_lint_baseline.py`.
+
+Full-tree `ruff check .`, `ruff format --check .`, and `mypy src` are frozen
+historical debt. Counts must not grow relative to
+`tests/v4/data/frozen_full_tree_lint_baseline.json`. They are not a
+zero-error whole-repository gate, and V4.2B does not authorize a
+repo-wide lint campaign.
 
 Record:
 
@@ -435,6 +446,7 @@ tests/v4/test_v4_2b_corrective_export.py
 tests/v4/test_v4_2b_artifact_integrity.py
 tests/v4/test_v4_2b_clean_source.py
 tests/v4/test_v4_2b_closeout.py
+tests/v4/test_v4_2b_lint_baseline.py
 ```
 
 ### CI
@@ -443,9 +455,9 @@ Add a minimal GitHub Actions workflow unless repository policy explicitly reject
 
 - Python 3.11 and 3.12;
 - editable dev install;
-- Ruff check and format check;
-- mypy on `src`;
-- full pytest with optional OMPL tests skipped when unavailable;
+- Ruff check and format check on the V4.2B path list;
+- mypy on V4.2B `src/` modules (`--follow-imports=silent`);
+- full pytest, including the frozen full-tree lint-count baseline;
 - no canonical artifact generation in CI.
 
 ### Documentation normalization
@@ -484,14 +496,15 @@ Record this commit as `source_git_revision`.
 
 ```bash
 git status --porcelain --untracked-files=all  # must be empty
-pytest
-ruff check .
-ruff format --check .
-mypy src
+PYTHONPATH=src MPLBACKEND=Agg python -m pytest
 python scripts/generate_v4_2b_span_controlled_corrective.py
 python scripts/verify_v4_2b_artifact.py \
   results/v4_review/v4_2b_span_controlled_corrective_closeout/
 ```
+
+Scoped V4.2B Ruff/format/mypy and the frozen full-tree count ceiling run
+inside pytest via `tests/v4/test_v4_2b_lint_baseline.py`. Do not treat
+whole-tree Ruff/mypy as a zero-error gate.
 
 The generator must refuse a dirty tree and a nonempty canonical output root before writing.
 
@@ -600,7 +613,7 @@ V4.2B is complete only when all are true:
 9. no nonfinite-cost planner exception remains;
 10. all mandatory manifest fields are present and recursively verified;
 11. every retained row parses through the actual schema;
-12. full pytest, Ruff, formatting, and mypy gates pass and are recorded;
+12. full pytest passes, V4.2B-touched Python is Ruff/format/mypy clean, and frozen full-tree lint counts do not grow;
 13. historical V3 and V4.0–V4.2A package digests are unchanged;
 14. canonical evidence was generated from a clean implementation commit;
 15. root README, V4 plan, sprint index, version matrix, and V4.3 dependency are current;

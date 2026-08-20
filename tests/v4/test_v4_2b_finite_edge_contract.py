@@ -47,7 +47,9 @@ def test_generic_search_still_rejects_nonfinite_supplied_weights() -> None:
 
 
 def test_finite_route_is_used_after_unavailable_local_motion_is_filtered() -> None:
-    from inequality_mechanisms.adapters.finite_search_edges import compile_finite_neighbors
+    from inequality_mechanisms.adapters.finite_search_edges import (
+        compile_finite_neighbors,
+    )
 
     raw = TinyGraph(3, {0: (1, 2), 1: (2,), 2: ()})
 
@@ -82,7 +84,9 @@ def test_finite_route_is_used_after_unavailable_local_motion_is_filtered() -> No
 
 
 def test_all_unavailable_routes_return_found_false() -> None:
-    from inequality_mechanisms.adapters.finite_search_edges import compile_finite_neighbors
+    from inequality_mechanisms.adapters.finite_search_edges import (
+        compile_finite_neighbors,
+    )
 
     raw = TinyGraph(2, {0: (1,), 1: ()})
 

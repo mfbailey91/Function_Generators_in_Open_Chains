@@ -9,9 +9,10 @@ from __future__ import annotations
 import gzip
 import json
 import shutil
-from datetime import datetime, timezone
+from collections.abc import Mapping, Sequence
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Mapping, Sequence
+from typing import Any
 
 import numpy as np
 
@@ -37,6 +38,7 @@ from inequality_mechanisms.audits.v4_artifact_guard import (
     git_status_porcelain,
 )
 from inequality_mechanisms.experiments.span_cases import (
+    RealizedSpanCase,
     generate_span_cases,
     realize_mounted_span_case,
 )
@@ -46,8 +48,12 @@ from inequality_mechanisms.experiments.v4.geometry_atlas import (
     evaluate_atlas_sample,
     git_revision,
 )
-from inequality_mechanisms.experiments.v4.shared_q_atlas import SharedQSample
 from inequality_mechanisms.experiments.v4.rank_fields import attribution_from_row
+from inequality_mechanisms.experiments.v4.shared_q_atlas import SharedQSample
+from inequality_mechanisms.experiments.v4.span_common_physical_bank import (
+    DEFAULT_BANK_REL,
+    load_common_physical_bank,
+)
 from inequality_mechanisms.experiments.v4.span_controlled_atlas import (
     SpanCaseAtlas,
     arms_for_realized,
@@ -56,13 +62,11 @@ from inequality_mechanisms.experiments.v4.span_controlled_atlas import (
 )
 from inequality_mechanisms.experiments.v4.span_controlled_atlas_config import (
     DEFAULT_CONFIG_REL as V4_2_DEFAULT_CONFIG_REL,
+)
+from inequality_mechanisms.experiments.v4.span_controlled_atlas_config import (
     FROZEN_V3_6D_DIGEST,
     SPAN_175_STATUS,
     load_span_atlas_config,
-)
-from inequality_mechanisms.experiments.v4.span_common_physical_bank import (
-    DEFAULT_BANK_REL,
-    load_common_physical_bank,
 )
 from inequality_mechanisms.experiments.v4.span_controlled_corrective_config import (
     DEFAULT_CONFIG_REL,
@@ -77,9 +81,7 @@ from inequality_mechanisms.visualization.v4.span_controlled_corrective import (
 N_SPAN_CASES = 17
 GRID_SHAPE = (33, 33)
 GEOMETRY_ARMS = 3
-EXPECTED_GEOMETRY_ROWS = (
-    N_SPAN_CASES * GRID_SHAPE[0] * GRID_SHAPE[1] * GEOMETRY_ARMS
-)
+EXPECTED_GEOMETRY_ROWS = N_SPAN_CASES * GRID_SHAPE[0] * GRID_SHAPE[1] * GEOMETRY_ARMS
 _POSE_ATOL = 1e-12
 
 
@@ -156,9 +158,7 @@ def _assert_identity_jg(row: AtlasRow) -> None:
         return
     jg = np.asarray(row.snapshot.j_u_to_q, dtype=np.float64)
     if not np.allclose(jg, np.eye(jg.shape[0]), atol=_POSE_ATOL):
-        raise SpanCorrectiveError(
-            f"identity J_g is not I at {row.q_sample_id}"
-        )
+        raise SpanCorrectiveError(f"identity J_g is not I at {row.q_sample_id}")
 
 
 def _comparative_sample(
@@ -197,15 +197,13 @@ def _comparative_sample(
 
 
 def _evaluate_mounted_case(
-    realized,
+    realized: RealizedSpanCase,
     config: SpanControlledCorrectiveConfig,
     *,
     revision: str | None,
 ) -> tuple[SpanCaseAtlas, list[dict[str, Any]]]:
     """Evaluate one mounted case on the shared-Q bank."""
-    arms = arms_for_realized(
-        realized, L1=config.planar2r.L1, L2=config.planar2r.L2
-    )
+    arms = arms_for_realized(realized, L1=config.planar2r.L1, L2=config.planar2r.L2)
     bank = bank_from_fourbar(
         realized.fourbar,
         shape=config.grid.shape,
@@ -334,9 +332,7 @@ def generate_span_controlled_corrective_atlas(
     n_typed = 0
     for case in cases:
         realized = realize_mounted_span_case(case, registry)
-        atlas, sample_rows = _evaluate_mounted_case(
-            realized, config, revision=revision
-        )
+        atlas, sample_rows = _evaluate_mounted_case(realized, config, revision=revision)
         expected_case_rows = len(atlas.bank.samples) * GEOMETRY_ARMS
         if len(atlas.rows) != expected_case_rows:
             raise SpanCorrectiveError(
@@ -424,7 +420,7 @@ def generate_span_controlled_corrective_atlas(
         "git_revision": revision,
         "source_git_revision": source_git_revision,
         "source_git_dirty": source_git_dirty,
-        "generated_at_utc": datetime.now(timezone.utc).isoformat(),
+        "generated_at_utc": datetime.now(UTC).isoformat(),
         "no_inference_statement": config.no_inference_statement,
         "config_digest": config.digest(),
         "v3_6d_digest": registry.sha256,
@@ -495,12 +491,14 @@ def generate_span_controlled_corrective_package(
     lattice_shape: tuple[int, int] | None = None,
 ) -> dict[str, Any]:
     """Write geometry and/or planning audit under one V4.2B package root."""
+    from inequality_mechanisms.experiments.v4 import (
+        span_controlled_corrective_audit_config as _audit_cfg,
+    )
     from inequality_mechanisms.experiments.v4.span_controlled_corrective_audit import (
         generate_span_controlled_corrective_audit,
     )
-    from inequality_mechanisms.experiments.v4.span_controlled_corrective_audit_config import (
-        DEFAULT_CONFIG_REL as AUDIT_CONFIG_REL,
-    )
+
+    AUDIT_CONFIG_REL = _audit_cfg.DEFAULT_CONFIG_REL
 
     if not include_geometry and not include_planning:
         raise SpanCorrectiveError("package generator requires geometry or planning")

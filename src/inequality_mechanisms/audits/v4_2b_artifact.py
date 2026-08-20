@@ -7,8 +7,9 @@ import hashlib
 import json
 import re
 import zlib
+from collections.abc import Iterator, Mapping, Sequence
 from pathlib import Path
-from typing import Any, Mapping, Sequence
+from typing import Any
 
 from inequality_mechanisms.experiments.span_cases import generate_span_cases
 from inequality_mechanisms.experiments.v4.geometry_atlas import (
@@ -25,6 +26,8 @@ from inequality_mechanisms.experiments.v4.span_controlled_atlas_config import (
 )
 from inequality_mechanisms.experiments.v4.span_controlled_corrective_config import (
     SCHEMA_VERSION as PACKAGE_SCHEMA_VERSION,
+)
+from inequality_mechanisms.experiments.v4.span_controlled_corrective_config import (
     V4_2B_PACKAGE,
 )
 
@@ -104,10 +107,7 @@ def required_paths(
 
 def _is_geometry_rel(rel: str) -> bool:
     normalized = rel.replace("\\", "/")
-    return (
-        normalized.startswith("geometry_atlas/")
-        or "/geometry_atlas/" in normalized
-    )
+    return normalized.startswith("geometry_atlas/") or "/geometry_atlas/" in normalized
 
 
 def _sha256_bytes(payload: bytes) -> str:
@@ -121,15 +121,15 @@ def _require_hex_digest(value: object, *, field: str) -> str:
     return text
 
 
-def _iter_jsonl_objects(path: Path, *, compression: str):
+def _iter_jsonl_objects(path: Path, *, compression: str) -> Iterator[dict[str, Any]]:
     if compression == "gzip":
-        opener = gzip.open
+        handle_cm = gzip.open(path, "rt", encoding="utf-8")
     elif compression == "none":
-        opener = open
+        handle_cm = path.open("rt", encoding="utf-8")
     else:
         raise V4_2BArtifactError(f"unsupported compression {compression!r} for {path}")
     try:
-        with opener(path, "rt", encoding="utf-8") as handle:
+        with handle_cm as handle:
             for line in handle:
                 if not line.strip():
                     continue
@@ -155,9 +155,7 @@ def _count_jsonl_rows(
             try:
                 parse_retained_atlas_row(payload)
             except AtlasRecordError as exc:
-                raise V4_2BArtifactError(
-                    f"schema mismatch in {path}: {exc}"
-                ) from exc
+                raise V4_2BArtifactError(f"schema mismatch in {path}: {exc}") from exc
         count += 1
     return count
 
@@ -217,7 +215,9 @@ def media_for(rel: str) -> tuple[str, str, str]:
     raise V4_2BArtifactError(f"unsupported retained file type for {rel}")
 
 
-def inventory_required_files(root: Path, case_ids: Sequence[str]) -> list[dict[str, Any]]:
+def inventory_required_files(
+    root: Path, case_ids: Sequence[str]
+) -> list[dict[str, Any]]:
     """Build the excluded-self ``files[]`` table for a generated package."""
     planning = (Path(root) / "planning_audit").exists()
     records = []
@@ -320,7 +320,9 @@ def _verify_file_records(
                 try:
                     json.loads(payload.decode("utf-8"))
                 except (UnicodeDecodeError, json.JSONDecodeError) as exc:
-                    raise V4_2BArtifactError(f"schema mismatch in {rel}: {exc}") from exc
+                    raise V4_2BArtifactError(
+                        f"schema mismatch in {rel}: {exc}"
+                    ) from exc
     return listed_paths, recovered_rows
 
 
@@ -328,7 +330,10 @@ def _verify_nested_planning_audit(package: Path) -> None:
     nested_root = package / "planning_audit"
     manifest = _load_manifest(nested_root / MANIFEST_NAME)
     _require_manifest_keys(manifest)
-    if manifest.get("package") not in (V4_2B_PACKAGE, f"{V4_2B_PACKAGE}/planning_audit"):
+    if manifest.get("package") not in (
+        V4_2B_PACKAGE,
+        f"{V4_2B_PACKAGE}/planning_audit",
+    ):
         raise V4_2BArtifactError(
             "planning_audit package must be "
             f"{V4_2B_PACKAGE!r} or '{V4_2B_PACKAGE}/planning_audit'"
@@ -353,7 +358,9 @@ def _verify_nested_planning_audit(package: Path) -> None:
     if recorded_digest != actual_digest:
         raise V4_2BArtifactError("planning_audit files_digest mismatch")
     if MANIFEST_NAME in listed_paths:
-        raise V4_2BArtifactError("planning_audit manifest.json must be excluded from files[]")
+        raise V4_2BArtifactError(
+            "planning_audit manifest.json must be excluded from files[]"
+        )
 
 
 def verify_v4_2b_artifact(root: Path | str) -> dict[str, Any]:
@@ -379,7 +386,8 @@ def verify_v4_2b_artifact(root: Path | str) -> dict[str, Any]:
     _require_manifest_keys(manifest)
     if manifest.get("package") != V4_2B_PACKAGE:
         raise V4_2BArtifactError(
-            f"manifest package must be {V4_2B_PACKAGE!r}, got {manifest.get('package')!r}"
+            "manifest package must be "
+            f"{V4_2B_PACKAGE!r}, got {manifest.get('package')!r}"
         )
     if str(manifest.get("schema_version")) != PACKAGE_SCHEMA_VERSION:
         raise V4_2BArtifactError(
@@ -445,6 +453,8 @@ def verify_v4_2b_artifact(root: Path | str) -> dict[str, Any]:
         raise V4_2BArtifactError("files_digest mismatch")
     recorded_rows = manifest.get("n_rows")
     recorded_typed = int(manifest.get("n_typed_failures") or 0)
+    if recorded_rows is None:
+        raise V4_2BArtifactError("n_rows is missing")
     expected_total = int(recorded_rows) + recorded_typed
     if recovered_rows != expected_total:
         raise V4_2BArtifactError(

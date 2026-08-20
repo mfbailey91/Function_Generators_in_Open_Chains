@@ -20,12 +20,8 @@ from inequality_mechanisms.experiments.v4.span_common_physical_bank import (
     strictly_inside,
 )
 
-V3_BANK_V2_REL = (
-    CANONICAL_REPO_ROOT / "configs" / "v3" / "free_space_planar2r_v2.json"
-)
-V3_BANK_V1_REL = (
-    CANONICAL_REPO_ROOT / "configs" / "v3" / "free_space_planar2r_v1.json"
-)
+V3_BANK_V2_REL = CANONICAL_REPO_ROOT / "configs" / "v3" / "free_space_planar2r_v2.json"
+V3_BANK_V1_REL = CANONICAL_REPO_ROOT / "configs" / "v3" / "free_space_planar2r_v1.json"
 V4_2A_AUDIT_REL = (
     CANONICAL_REPO_ROOT
     / "configs"
@@ -92,8 +88,12 @@ def test_starts_and_witnesses_are_strictly_inside_common_box() -> None:
     lower = np.asarray(bank["common_q_box"]["lower"], dtype=np.float64)
     upper = np.asarray(bank["common_q_box"]["upper"], dtype=np.float64)
     for task in bank["tasks"]:
-        assert strictly_inside(np.asarray(task["start_q"], dtype=np.float64), lower, upper)
-        assert strictly_inside(np.asarray(task["witness_q"], dtype=np.float64), lower, upper)
+        assert strictly_inside(
+            np.asarray(task["start_q"], dtype=np.float64), lower, upper
+        )
+        assert strictly_inside(
+            np.asarray(task["witness_q"], dtype=np.float64), lower, upper
+        )
 
 
 def test_preflight_passed_for_all_mounted_cases() -> None:

@@ -27,15 +27,22 @@ def _valid_node_ids(graph: object) -> tuple[int, ...]:
 
 def test_shared_weight_note_is_not_the_primary_fairness_api() -> None:
     from inequality_mechanisms.experiments.v4 import span_controlled_visual_audit
-    from inequality_mechanisms.graphs.paired_q_planning import build_paired_q_planning_graph
+    from inequality_mechanisms.graphs.paired_q_planning import (
+        build_paired_q_planning_graph,
+    )
 
     assert hasattr(span_controlled_visual_audit, "_shared_weight_note")
     assert callable(build_paired_q_planning_graph)
-    assert build_paired_q_planning_graph is not span_controlled_visual_audit._shared_weight_note
+    assert (
+        build_paired_q_planning_graph
+        is not span_controlled_visual_audit._shared_weight_note
+    )
 
 
 def test_paired_smoke_graph_has_identical_node_and_edge_ids() -> None:
-    from inequality_mechanisms.graphs.paired_q_planning import build_paired_q_planning_graph
+    from inequality_mechanisms.graphs.paired_q_planning import (
+        build_paired_q_planning_graph,
+    )
 
     fourbar = unit_gearbox_branch(
         2, input_lower=[-0.5, -0.5], input_upper=[0.5, 0.5], name="fourbar"
@@ -121,9 +128,7 @@ def _paired_actuator_costs(paired, *, n_samples: int):
     costs = {}
     for name, arm in paired.arms.items():
         robot = OperatingBranchRobotModel(arm.branch)
-        costs[name] = integrated_actuator_edge_cost(
-            arm, robot, n_samples=n_samples
-        )
+        costs[name] = integrated_actuator_edge_cost(arm, robot, n_samples=n_samples)
     return costs
 
 

@@ -10,10 +10,11 @@ from __future__ import annotations
 import gzip
 import json
 import shutil
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Mapping, Sequence
+from typing import Any, Literal
 
 import matplotlib
 import numpy as np
@@ -24,8 +25,12 @@ from inequality_mechanisms.adapters.lattice_edge_cost import (
     connector_for_graph,
     integrated_actuator_edge_cost,
 )
-from inequality_mechanisms.adapters.paired_lattice_search import solve_paired_lattice_goal_set
-from inequality_mechanisms.adapters.planar_2r_robot import planar_2r_operating_branch_robot
+from inequality_mechanisms.adapters.paired_lattice_search import (
+    solve_paired_lattice_goal_set,
+)
+from inequality_mechanisms.adapters.planar_2r_robot import (
+    planar_2r_operating_branch_robot,
+)
 from inequality_mechanisms.audits.planar2r_visual import (
     AuditConfig,
     PlannerRunRecord,
@@ -63,6 +68,9 @@ from inequality_mechanisms.experiments.span_cases import (
     generate_span_cases,
     realize_mounted_span_case,
 )
+from inequality_mechanisms.experiments.v4 import (
+    span_controlled_corrective_audit_config as _audit_cfg,
+)
 from inequality_mechanisms.experiments.v4.geometry_atlas import git_revision
 from inequality_mechanisms.experiments.v4.span_common_physical_bank import (
     DEFAULT_BANK_REL,
@@ -73,17 +81,11 @@ from inequality_mechanisms.experiments.v4.span_controlled_atlas import (
 )
 from inequality_mechanisms.experiments.v4.span_controlled_atlas_config import (
     DEFAULT_CONFIG_REL as V4_2_DEFAULT_CONFIG_REL,
+)
+from inequality_mechanisms.experiments.v4.span_controlled_atlas_config import (
     FROZEN_V3_6D_DIGEST,
     SPAN_175_STATUS,
     load_span_atlas_config,
-)
-from inequality_mechanisms.experiments.v4.span_controlled_corrective_audit_config import (
-    DEFAULT_CONFIG_REL,
-    FROZEN_BANK_DIGEST,
-    FROZEN_PLANNERS,
-    NO_INFERENCE_STATEMENT,
-    SpanControlledCorrectiveAuditConfig,
-    load_span_corrective_audit_config,
 )
 from inequality_mechanisms.experiments.v4.span_controlled_corrective_config import (
     V4_2B_PACKAGE,
@@ -106,6 +108,13 @@ from inequality_mechanisms.visualization.v4.span_controlled_corrective_audit imp
     write_planning_audit_root_html,
     write_task_audit_html,
 )
+
+DEFAULT_CONFIG_REL = _audit_cfg.DEFAULT_CONFIG_REL
+FROZEN_BANK_DIGEST = _audit_cfg.FROZEN_BANK_DIGEST
+FROZEN_PLANNERS = _audit_cfg.FROZEN_PLANNERS
+NO_INFERENCE_STATEMENT = _audit_cfg.NO_INFERENCE_STATEMENT
+SpanControlledCorrectiveAuditConfig = _audit_cfg.SpanControlledCorrectiveAuditConfig
+load_span_corrective_audit_config = _audit_cfg.load_span_corrective_audit_config
 
 _POSE_ATOL = 1e-9
 _MOUNTED_KIND = "mounted_joint"
@@ -321,7 +330,9 @@ def _run_lattice_or_record(
     planner_name: str,
     edge_n_samples: int,
 ) -> PlannerRunRecord:
-    algorithm = "dijkstra" if planner_name == "lattice_dijkstra" else "astar"
+    algorithm: Literal["dijkstra", "astar"] = (
+        "dijkstra" if planner_name == "lattice_dijkstra" else "astar"
+    )
     problem = build_problem_v2(arm, task)
     candidates = _goal_candidates(arm, task, contract)
     try:
@@ -448,16 +459,14 @@ def export_case_planning_audit(
     )
     lattice_arms = {
         name: LatticeSmokeArm(
-            name=name,  # type: ignore[arg-type]
+            name=name,
             branch=sampling_arms[name].branch,
             graph=paired.arms[name],
             robot=sampling_arms[name].robot,
         )
         for name in ("fourbar", "gearbox")
     }
-    topology = _topology_record(
-        case_id=realized.case.case_id, compiled=compiled
-    )
+    topology = _topology_record(case_id=realized.case.case_id, compiled=compiled)
     labeled_branches = {
         "fourbar": sampling_arms["fourbar"].branch,
         "gearbox": sampling_arms["gearbox"].branch,
@@ -559,9 +568,7 @@ def export_case_planning_audit(
             except (ValueError, KeyError, TypeError):
                 s_assets = {}
             for key, path in s_assets.items():
-                asset_map[f"{run.mechanism}_{run.planner}_{key}"] = _rel(
-                    path, html_dir
-                )
+                asset_map[f"{run.mechanism}_{run.planner}_{key}"] = _rel(path, html_dir)
         direct_runs = {
             f"{run.mechanism}/{run.planner}": run
             for run in runs
@@ -621,7 +628,7 @@ def export_case_planning_audit(
             "admitted_edge_count": len(compiled.admitted_edge_ids),
             "task_bank_digest": provenance["common_task_bank_digest"],
         }
-        runs_json = [run.to_jsonable() for run in runs]
+        runs_json: list[dict[str, Any]] = [item.to_jsonable() for item in runs]
         write_task_audit_html(
             tasks_dir / f"{task_id}.html",
             trial=trial_record,
@@ -629,10 +636,10 @@ def export_case_planning_audit(
             runs=runs_json,
             deltas=deltas,
         )
-        for run in runs_json:
+        for row in runs_json:
             planner_rows.append(
                 {
-                    **run,
+                    **row,
                     "case_id": realized.case.case_id,
                     "task_id": task_id,
                     "admitted_topology_digest": compiled.admitted_topology_digest,
@@ -713,7 +720,10 @@ def generate_span_controlled_corrective_audit(
 
     bank = load_common_physical_bank(CANONICAL_REPO_ROOT / DEFAULT_BANK_REL)
     bank_digest = str(bank["sha256"])
-    if bank_digest != FROZEN_BANK_DIGEST or bank_digest != config.source_bank.digest_lock:
+    if (
+        bank_digest != FROZEN_BANK_DIGEST
+        or bank_digest != config.source_bank.digest_lock
+    ):
         raise SpanCorrectiveAuditError(
             "task bank digest mismatch: "
             f"file={bank_digest} lock={config.source_bank.digest_lock}"
@@ -727,18 +737,14 @@ def generate_span_controlled_corrective_audit(
     v42_config = load_span_atlas_config(CANONICAL_REPO_ROOT / V4_2_DEFAULT_CONFIG_REL)
     registry = load_locked_v3_6d_registry(v42_config)
     if registry.sha256 != FROZEN_V3_6D_DIGEST:
-        raise SpanCorrectiveAuditError(
-            f"V3.6D digest mismatch: {registry.sha256}"
-        )
+        raise SpanCorrectiveAuditError(f"V3.6D digest mismatch: {registry.sha256}")
     cases = generate_span_cases()
     wanted = set(case_ids) if case_ids is not None else {c.case_id for c in cases}
     unknown = wanted - {c.case_id for c in cases}
     if unknown:
         raise SpanCorrectiveAuditError(f"unknown case ids: {sorted(unknown)}")
     realized_all = tuple(realize_mounted_span_case(case, registry) for case in cases)
-    realized_export = tuple(
-        row for row in realized_all if row.case.case_id in wanted
-    )
+    realized_export = tuple(row for row in realized_all if row.case.case_id in wanted)
     shape = lattice_shape if lattice_shape is not None else config.lattice.shape
     audit = config.as_audit_config(cfg_path)
     audit.raw["task_ids"] = list(used_tasks)
@@ -846,7 +852,7 @@ def generate_span_controlled_corrective_audit(
         "seed": config.seed,
         "lattice_shape": list(shape),
         "no_inference_statement": NO_INFERENCE_STATEMENT,
-        "generated_at_utc": datetime.now(timezone.utc).isoformat(),
+        "generated_at_utc": datetime.now(UTC).isoformat(),
     }
     write_planning_audit_root_html(
         resolved,

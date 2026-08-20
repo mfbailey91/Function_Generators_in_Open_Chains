@@ -21,7 +21,9 @@ _FD_ATOL = 1e-8
 _FOURBAR_ATOL = 1e-9
 
 
-def _central_jacobian(branch: OperatingBranch, u: np.ndarray, *, eps: float = 1e-6) -> np.ndarray:
+def _central_jacobian(
+    branch: OperatingBranch, u: np.ndarray, *, eps: float = 1e-6
+) -> np.ndarray:
     n = int(u.size)
     j = np.zeros((n, n), dtype=np.float64)
     for axis in range(n):
@@ -102,7 +104,9 @@ def _assert_preserved_certificate_and_selector(
         mounted.certificate.min_abs_gain, native.certificate.min_abs_gain, atol=_ATOL
     )
     np.testing.assert_allclose(
-        mounted.certificate.monotonic_sign, native.certificate.monotonic_sign, atol=_ATOL
+        mounted.certificate.monotonic_sign,
+        native.certificate.monotonic_sign,
+        atol=_ATOL,
     )
     assert mounted.residual_tol == pytest.approx(native.residual_tol)
     assert mounted.mechanism.periodic_axes() == native.mechanism.periodic_axes()
@@ -162,9 +166,7 @@ def test_scalar_offset_forward_inverse_and_jacobian() -> None:
 
 
 def test_two_axis_offset_round_trip() -> None:
-    native = unit_gearbox_branch(
-        2, input_lower=[-1.0, -2.0], input_upper=[1.0, 2.0]
-    )
+    native = unit_gearbox_branch(2, input_lower=[-1.0, -2.0], input_upper=[1.0, 2.0])
     offset = np.asarray([0.4, -0.25], dtype=np.float64)
     mounted = mount_operating_branch(native, offset)
     lo, mid, hi = _u_samples(native)
@@ -188,9 +190,7 @@ def test_two_axis_offset_round_trip() -> None:
 
 
 def test_zero_offset_is_identity() -> None:
-    native = unit_gearbox_branch(
-        2, input_lower=[-1.0, -1.0], input_upper=[1.0, 1.0]
-    )
+    native = unit_gearbox_branch(2, input_lower=[-1.0, -1.0], input_upper=[1.0, 1.0])
     offset = np.zeros(2, dtype=np.float64)
     mounted = mount_operating_branch(native, offset)
     lo, mid, hi = _u_samples(native)
@@ -199,18 +199,20 @@ def test_zero_offset_is_identity() -> None:
     provenance = _provenance(mounted)
     assert provenance["output_coordinate_kind"] == "mounted_joint"
     assert int(provenance["mounting_application_count"]) == 1
-    np.testing.assert_allclose(provenance["native_output_offset_rad"], offset, atol=_ATOL)
+    np.testing.assert_allclose(
+        provenance["native_output_offset_rad"], offset, atol=_ATOL
+    )
 
 
 def test_serialization_round_trip_and_provenance() -> None:
-    native = unit_gearbox_branch(
-        2, input_lower=[-1.0, -1.0], input_upper=[1.0, 1.0]
-    )
+    native = unit_gearbox_branch(2, input_lower=[-1.0, -1.0], input_upper=[1.0, 1.0])
     offset = np.asarray([0.15, -0.05], dtype=np.float64)
     mounted = mount_operating_branch(native, offset)
     provenance = _provenance(mounted)
     assert provenance["output_coordinate_kind"] == "mounted_joint"
-    np.testing.assert_allclose(provenance["native_output_offset_rad"], offset, atol=_ATOL)
+    np.testing.assert_allclose(
+        provenance["native_output_offset_rad"], offset, atol=_ATOL
+    )
     assert int(provenance["mounting_application_count"]) == 1
 
     restored = OperatingBranch.from_dict(mounted.to_dict())

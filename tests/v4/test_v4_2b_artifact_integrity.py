@@ -73,7 +73,9 @@ def test_v4_2b_allowed_root_and_nested_paths() -> None:
     ],
 )
 def test_v4_2b_refuses_historical_v4_packages(path_fn, match: str) -> None:
-    from inequality_mechanisms.audits.v4_artifact_guard import assert_v4_2b_output_allowed
+    from inequality_mechanisms.audits.v4_artifact_guard import (
+        assert_v4_2b_output_allowed,
+    )
 
     path = path_fn()
     with pytest.raises(ArtifactPathForbiddenError, match=match):
@@ -84,7 +86,9 @@ def test_v4_2b_refuses_historical_v4_packages(path_fn, match: str) -> None:
 
 @pytest.mark.parametrize("package", sorted(FROZEN_V3_REVIEW_PACKAGES))
 def test_v4_2b_refuses_frozen_v3(package: str) -> None:
-    from inequality_mechanisms.audits.v4_artifact_guard import assert_v4_2b_output_allowed
+    from inequality_mechanisms.audits.v4_artifact_guard import (
+        assert_v4_2b_output_allowed,
+    )
 
     path = (REPO_ROOT / "results" / "v3_review" / package).resolve()
     with pytest.raises(ArtifactPathForbiddenError, match="frozen V3"):
@@ -114,15 +118,21 @@ def test_tmp_v4_2b_prepare_leaves_historical_git_tracked_digests_unchanged(
 
 
 def test_v4_2b_refuses_sibling_v4_packages() -> None:
-    from inequality_mechanisms.audits.v4_artifact_guard import assert_v4_2b_output_allowed
+    from inequality_mechanisms.audits.v4_artifact_guard import (
+        assert_v4_2b_output_allowed,
+    )
 
-    path = (REPO_ROOT / "results" / "v4_review" / "v4_3_intrinsic_static_wrench").resolve()
+    path = (
+        REPO_ROOT / "results" / "v4_review" / "v4_3_intrinsic_static_wrench"
+    ).resolve()
     with pytest.raises(ArtifactPathForbiddenError, match="unauthorized V4 package"):
         assert_v4_2b_output_allowed(path)
 
 
 def test_v4_2b_refuses_arbitrary_path(tmp_path: Path) -> None:
-    from inequality_mechanisms.audits.v4_artifact_guard import assert_v4_2b_output_allowed
+    from inequality_mechanisms.audits.v4_artifact_guard import (
+        assert_v4_2b_output_allowed,
+    )
 
     with pytest.raises(ArtifactPathForbiddenError, match="not under the allowed root"):
         assert_v4_2b_output_allowed(tmp_path / "elsewhere")
@@ -130,7 +140,9 @@ def test_v4_2b_refuses_arbitrary_path(tmp_path: Path) -> None:
 
 def test_v4_2b_verifier_script_exists_and_loads() -> None:
     assert VERIFY_SCRIPT.is_file()
-    spec = importlib.util.spec_from_file_location("verify_v4_2b_artifact", VERIFY_SCRIPT)
+    spec = importlib.util.spec_from_file_location(
+        "verify_v4_2b_artifact", VERIFY_SCRIPT
+    )
     assert spec is not None
     assert spec.loader is not None
     module = importlib.util.module_from_spec(spec)
@@ -199,7 +211,9 @@ def _write_mini_package(root: Path, *, n_rows: int = _MINI_ROW_COUNT) -> Path:
         "files": files,
         "files_digest": files_digest(files),
     }
-    (root / "manifest.json").write_text(json.dumps(manifest, indent=2), encoding="utf-8")
+    (root / "manifest.json").write_text(
+        json.dumps(manifest, indent=2), encoding="utf-8"
+    )
     return root
 
 
@@ -220,9 +234,7 @@ def test_valid_mini_package_passes(tmp_path: Path) -> None:
     summary = verify_v4_2b_artifact(root)
     assert summary["n_geometry_rows"] == _MINI_ROW_COUNT
     assert summary["n_files"] == len(_MINI_CASE_IDS) + 5
-    assert "manifest.json" not in {
-        row["path"] for row in _manifest(root)["files"]
-    }
+    assert "manifest.json" not in {row["path"] for row in _manifest(root)["files"]}
 
 
 def test_missing_listed_file_fails(tmp_path: Path) -> None:
@@ -288,9 +300,7 @@ def test_recoverable_jsonl_row_count_matches_table(tmp_path: Path) -> None:
     root = _write_mini_package(tmp_path / "pkg")
     summary = verify_v4_2b_artifact(root)
     jsonl = next(
-        row
-        for row in _manifest(root)["files"]
-        if str(row["path"]) == _geometry_rel()
+        row for row in _manifest(root)["files"] if str(row["path"]) == _geometry_rel()
     )
     assert jsonl["row_count"] == _MINI_ROW_COUNT
     assert jsonl["row_count"] == summary["n_geometry_rows"]
@@ -360,7 +370,9 @@ def test_empty_files_digest_fails(tmp_path: Path) -> None:
     manifest = _manifest(root)
     manifest["files_digest"] = ""
     _write_manifest(root, manifest)
-    with pytest.raises(V4_2BArtifactError, match="files_digest must be a 64-char hex digest"):
+    with pytest.raises(
+        V4_2BArtifactError, match="files_digest must be a 64-char hex digest"
+    ):
         verify_v4_2b_artifact(root)
 
 

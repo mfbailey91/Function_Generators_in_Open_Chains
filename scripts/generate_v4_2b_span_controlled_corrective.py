@@ -9,6 +9,9 @@ from pathlib import Path
 
 os.environ.setdefault("MPLBACKEND", "Agg")
 
+from inequality_mechanisms.experiments.v4 import (
+    span_controlled_corrective_audit_config as _audit_cfg,
+)
 from inequality_mechanisms.experiments.v4.span_controlled_corrective import (
     generate_span_controlled_corrective_atlas,
     generate_span_controlled_corrective_package,
@@ -16,12 +19,11 @@ from inequality_mechanisms.experiments.v4.span_controlled_corrective import (
 from inequality_mechanisms.experiments.v4.span_controlled_corrective_audit import (
     generate_span_controlled_corrective_audit,
 )
-from inequality_mechanisms.experiments.v4.span_controlled_corrective_audit_config import (
-    DEFAULT_CONFIG_REL as AUDIT_CONFIG_REL,
-)
 from inequality_mechanisms.experiments.v4.span_controlled_corrective_config import (
     DEFAULT_CONFIG_REL,
 )
+
+AUDIT_CONFIG_REL = _audit_cfg.DEFAULT_CONFIG_REL
 
 
 def main() -> None:
