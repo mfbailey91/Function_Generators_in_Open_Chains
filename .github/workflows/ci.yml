@@ -1,0 +1,35 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12"]
+    env:
+      MPLBACKEND: Agg
+      PYTHONPATH: .
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install package
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+      - name: V4.2B Ruff
+        run: |
+          xargs ruff check < tests/v4/data/v4_2b_lint_paths.txt
+          xargs ruff format --check < tests/v4/data/v4_2b_lint_paths.txt
+      - name: V4.2B mypy
+        run: |
+          grep '^src/' tests/v4/data/v4_2b_lint_paths.txt \
+            | xargs mypy --follow-imports=silent
+      - name: pytest
+        run: pytest

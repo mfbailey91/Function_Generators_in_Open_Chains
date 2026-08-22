@@ -12,8 +12,12 @@ import pytest
 
 from inequality_mechanisms.audits.v4_2b_artifact import (
     MANIFEST_INVENTORY_RULE,
+    PLANNING_AUDIT_MANIFEST_REL,
+    REQUIRED_MANIFEST_KEYS,
     V4_2BArtifactError,
+    expected_case_ids,
     files_digest,
+    frozen_common_task_bank_digest,
     inventory_required_files,
     verify_v4_2b_artifact,
 )
@@ -34,6 +38,9 @@ from inequality_mechanisms.audits.v4_artifact_guard import (
     v4_2a_git_tracked_package_digest,
 )
 from inequality_mechanisms.experiments.v4.geometry_atlas import ATLAS_ROW_SCHEMA_VERSION
+from inequality_mechanisms.experiments.v4.span_controlled_atlas_config import (
+    FROZEN_V3_6D_DIGEST,
+)
 from inequality_mechanisms.experiments.v4.span_controlled_corrective_config import (
     SCHEMA_VERSION,
 )
@@ -66,7 +73,9 @@ def test_v4_2b_allowed_root_and_nested_paths() -> None:
     ],
 )
 def test_v4_2b_refuses_historical_v4_packages(path_fn, match: str) -> None:
-    from inequality_mechanisms.audits.v4_artifact_guard import assert_v4_2b_output_allowed
+    from inequality_mechanisms.audits.v4_artifact_guard import (
+        assert_v4_2b_output_allowed,
+    )
 
     path = path_fn()
     with pytest.raises(ArtifactPathForbiddenError, match=match):
@@ -77,7 +86,9 @@ def test_v4_2b_refuses_historical_v4_packages(path_fn, match: str) -> None:
 
 @pytest.mark.parametrize("package", sorted(FROZEN_V3_REVIEW_PACKAGES))
 def test_v4_2b_refuses_frozen_v3(package: str) -> None:
-    from inequality_mechanisms.audits.v4_artifact_guard import assert_v4_2b_output_allowed
+    from inequality_mechanisms.audits.v4_artifact_guard import (
+        assert_v4_2b_output_allowed,
+    )
 
     path = (REPO_ROOT / "results" / "v3_review" / package).resolve()
     with pytest.raises(ArtifactPathForbiddenError, match="frozen V3"):
@@ -107,15 +118,21 @@ def test_tmp_v4_2b_prepare_leaves_historical_git_tracked_digests_unchanged(
 
 
 def test_v4_2b_refuses_sibling_v4_packages() -> None:
-    from inequality_mechanisms.audits.v4_artifact_guard import assert_v4_2b_output_allowed
+    from inequality_mechanisms.audits.v4_artifact_guard import (
+        assert_v4_2b_output_allowed,
+    )
 
-    path = (REPO_ROOT / "results" / "v4_review" / "v4_3_intrinsic_static_wrench").resolve()
+    path = (
+        REPO_ROOT / "results" / "v4_review" / "v4_3_intrinsic_static_wrench"
+    ).resolve()
     with pytest.raises(ArtifactPathForbiddenError, match="unauthorized V4 package"):
         assert_v4_2b_output_allowed(path)
 
 
 def test_v4_2b_refuses_arbitrary_path(tmp_path: Path) -> None:
-    from inequality_mechanisms.audits.v4_artifact_guard import assert_v4_2b_output_allowed
+    from inequality_mechanisms.audits.v4_artifact_guard import (
+        assert_v4_2b_output_allowed,
+    )
 
     with pytest.raises(ArtifactPathForbiddenError, match="not under the allowed root"):
         assert_v4_2b_output_allowed(tmp_path / "elsewhere")
@@ -123,7 +140,9 @@ def test_v4_2b_refuses_arbitrary_path(tmp_path: Path) -> None:
 
 def test_v4_2b_verifier_script_exists_and_loads() -> None:
     assert VERIFY_SCRIPT.is_file()
-    spec = importlib.util.spec_from_file_location("verify_v4_2b_artifact", VERIFY_SCRIPT)
+    spec = importlib.util.spec_from_file_location(
+        "verify_v4_2b_artifact", VERIFY_SCRIPT
+    )
     assert spec is not None
     assert spec.loader is not None
     module = importlib.util.module_from_spec(spec)
@@ -131,51 +150,70 @@ def test_v4_2b_verifier_script_exists_and_loads() -> None:
     assert callable(getattr(module, "verify_v4_2b_artifact"))
 
 
-_MINI_CASE_ID = "span_j1_145_j2_145"
+_MINI_CASE_IDS = expected_case_ids()
+_MINI_ROW_CASE = _MINI_CASE_IDS[0]
 _MINI_ROW_COUNT = 3
+_CONFIG_DIGEST = "b" * 64
 
 
-def _mini_rows(n: int = _MINI_ROW_COUNT) -> list[dict[str, str]]:
+def _mini_rows(case_id: str, n: int = _MINI_ROW_COUNT) -> list[dict]:
+    from inequality_mechanisms.experiments.v4.geometry_atlas import AtlasRow
+
     return [
-        {
-            "schema_version": ATLAS_ROW_SCHEMA_VERSION,
-            "q_sample_id": f"q_{index}",
-            "mechanism_id": "fourbar",
-        }
+        AtlasRow(
+            q_sample_id=f"q_{index}",
+            mechanism_id="fourbar",
+            mechanism_pair_id=case_id,
+            grid_index=(0, index),
+            snapshot=None,
+            config_digest=_CONFIG_DIGEST,
+            git_revision="a" * 40,
+            failure_code="invalid_physical_state",
+            failure_message="mini fixture",
+        ).to_dict()
         for index in range(n)
     ]
 
 
 def _write_mini_package(root: Path, *, n_rows: int = _MINI_ROW_COUNT) -> Path:
     """Write a tiny valid V4.2B package (not the 55,539-row atlas)."""
-    gz = root / "geometry_atlas" / "cases" / _MINI_CASE_ID / "geometry_samples.jsonl.gz"
-    gz.parent.mkdir(parents=True, exist_ok=True)
-    with gzip.open(gz, "wt", encoding="utf-8") as handle:
-        for row in _mini_rows(n_rows):
-            handle.write(json.dumps(row) + "\n")
+    for case_id in _MINI_CASE_IDS:
+        gz = root / "geometry_atlas" / "cases" / case_id / "geometry_samples.jsonl.gz"
+        gz.parent.mkdir(parents=True, exist_ok=True)
+        with gzip.open(gz, "wt", encoding="utf-8") as handle:
+            if case_id == _MINI_ROW_CASE:
+                for row in _mini_rows(case_id, n_rows):
+                    handle.write(json.dumps(row) + "\n")
     (root / "cases.json").write_text(
-        json.dumps([{"case_id": _MINI_CASE_ID}]), encoding="utf-8"
+        json.dumps([{"case_id": case_id} for case_id in _MINI_CASE_IDS]),
+        encoding="utf-8",
     )
     (root / "resolved_config.json").write_text(
-        json.dumps({"n_cases": 1}), encoding="utf-8"
+        json.dumps({"n_cases": len(_MINI_CASE_IDS)}), encoding="utf-8"
     )
     (root / "rank_fields.json").write_text("[]", encoding="utf-8")
     (root / "README.md").write_text("# mini V4.2B package\n", encoding="utf-8")
     (root / "index.html").write_text("<html></html>", encoding="utf-8")
-    files = inventory_required_files(root, [_MINI_CASE_ID])
+    files = inventory_required_files(root, _MINI_CASE_IDS)
     manifest = {
         "schema_version": SCHEMA_VERSION,
         "package": V4_2B_PACKAGE,
         "manifest_inventory_rule": MANIFEST_INVENTORY_RULE,
-        "case_ids": [_MINI_CASE_ID],
-        "n_rows": n_rows,
-        "n_typed_failures": 0,
         "source_git_revision": "a" * 40,
         "source_git_dirty": False,
+        "config_digest": _CONFIG_DIGEST,
+        "v3_6d_registry_digest": FROZEN_V3_6D_DIGEST,
+        "common_task_bank_digest": frozen_common_task_bank_digest(),
+        "case_ids": list(_MINI_CASE_IDS),
+        "n_rows": n_rows,
+        "n_typed_failures": 0,
+        "n_silent_drops": 0,
         "files": files,
         "files_digest": files_digest(files),
     }
-    (root / "manifest.json").write_text(json.dumps(manifest, indent=2), encoding="utf-8")
+    (root / "manifest.json").write_text(
+        json.dumps(manifest, indent=2), encoding="utf-8"
+    )
     return root
 
 
@@ -187,18 +225,16 @@ def _write_manifest(root: Path, payload: dict) -> None:
     (root / "manifest.json").write_text(json.dumps(payload, indent=2), encoding="utf-8")
 
 
-def _geometry_rel() -> str:
-    return f"geometry_atlas/cases/{_MINI_CASE_ID}/geometry_samples.jsonl.gz"
+def _geometry_rel(case_id: str = _MINI_ROW_CASE) -> str:
+    return f"geometry_atlas/cases/{case_id}/geometry_samples.jsonl.gz"
 
 
 def test_valid_mini_package_passes(tmp_path: Path) -> None:
     root = _write_mini_package(tmp_path / "pkg")
     summary = verify_v4_2b_artifact(root)
     assert summary["n_geometry_rows"] == _MINI_ROW_COUNT
-    assert summary["n_files"] == 6
-    assert "manifest.json" not in {
-        row["path"] for row in _manifest(root)["files"]
-    }
+    assert summary["n_files"] == len(_MINI_CASE_IDS) + 5
+    assert "manifest.json" not in {row["path"] for row in _manifest(root)["files"]}
 
 
 def test_missing_listed_file_fails(tmp_path: Path) -> None:
@@ -264,7 +300,7 @@ def test_recoverable_jsonl_row_count_matches_table(tmp_path: Path) -> None:
     root = _write_mini_package(tmp_path / "pkg")
     summary = verify_v4_2b_artifact(root)
     jsonl = next(
-        row for row in _manifest(root)["files"] if str(row["path"]).endswith(".jsonl.gz")
+        row for row in _manifest(root)["files"] if str(row["path"]) == _geometry_rel()
     )
     assert jsonl["row_count"] == _MINI_ROW_COUNT
     assert jsonl["row_count"] == summary["n_geometry_rows"]
@@ -298,4 +334,210 @@ def test_malformed_source_git_revision_fails(tmp_path: Path) -> None:
     manifest["source_git_revision"] = "not-a-sha"
     _write_manifest(root, manifest)
     with pytest.raises(V4_2BArtifactError, match="40-char hex SHA"):
+        verify_v4_2b_artifact(root)
+
+
+@pytest.mark.parametrize("key", REQUIRED_MANIFEST_KEYS)
+def test_missing_required_manifest_key_fails(tmp_path: Path, key: str) -> None:
+    root = _write_mini_package(tmp_path / "pkg")
+    manifest = _manifest(root)
+    del manifest[key]
+    _write_manifest(root, manifest)
+    with pytest.raises(V4_2BArtifactError, match="missing required keys"):
+        verify_v4_2b_artifact(root)
+
+
+def test_wrong_package_fails(tmp_path: Path) -> None:
+    root = _write_mini_package(tmp_path / "pkg")
+    manifest = _manifest(root)
+    manifest["package"] = "v4_2_span_controlled_geometry_atlas"
+    _write_manifest(root, manifest)
+    with pytest.raises(V4_2BArtifactError, match="manifest package must be"):
+        verify_v4_2b_artifact(root)
+
+
+def test_wrong_schema_version_fails(tmp_path: Path) -> None:
+    root = _write_mini_package(tmp_path / "pkg")
+    manifest = _manifest(root)
+    manifest["schema_version"] = "v4.2.planar2r.span_controlled_atlas.v1"
+    _write_manifest(root, manifest)
+    with pytest.raises(V4_2BArtifactError, match="schema_version must be"):
+        verify_v4_2b_artifact(root)
+
+
+def test_empty_files_digest_fails(tmp_path: Path) -> None:
+    root = _write_mini_package(tmp_path / "pkg")
+    manifest = _manifest(root)
+    manifest["files_digest"] = ""
+    _write_manifest(root, manifest)
+    with pytest.raises(
+        V4_2BArtifactError, match="files_digest must be a 64-char hex digest"
+    ):
+        verify_v4_2b_artifact(root)
+
+
+def test_wrong_case_set_fails(tmp_path: Path) -> None:
+    root = _write_mini_package(tmp_path / "pkg")
+    manifest = _manifest(root)
+    manifest["case_ids"] = list(_MINI_CASE_IDS[:-1])
+    _write_manifest(root, manifest)
+    with pytest.raises(V4_2BArtifactError, match="exact 17 V4.2B ids"):
+        verify_v4_2b_artifact(root)
+
+
+def test_nonsilent_drops_fail(tmp_path: Path) -> None:
+    root = _write_mini_package(tmp_path / "pkg")
+    manifest = _manifest(root)
+    manifest["n_silent_drops"] = 1
+    _write_manifest(root, manifest)
+    with pytest.raises(V4_2BArtifactError, match="n_silent_drops must be 0"):
+        verify_v4_2b_artifact(root)
+
+
+def test_three_key_row_fails_strict_schema(tmp_path: Path) -> None:
+    root = _write_mini_package(tmp_path / "pkg")
+    gz = root / _geometry_rel()
+    with gzip.open(gz, "wt", encoding="utf-8") as handle:
+        handle.write(
+            json.dumps(
+                {
+                    "schema_version": ATLAS_ROW_SCHEMA_VERSION,
+                    "q_sample_id": "q_0",
+                    "mechanism_id": "fourbar",
+                }
+            )
+            + "\n"
+        )
+    payload = gz.read_bytes()
+    manifest = _manifest(root)
+    for record in manifest["files"]:
+        if record["path"] == _geometry_rel():
+            record["sha256"] = hashlib.sha256(payload).hexdigest()
+            record["byte_count"] = len(payload)
+            record["row_count"] = 1
+    manifest["n_rows"] = 1
+    manifest["files_digest"] = files_digest(manifest["files"])
+    _write_manifest(root, manifest)
+    with pytest.raises(V4_2BArtifactError, match="schema mismatch"):
+        verify_v4_2b_artifact(root)
+
+
+def test_unexpected_listed_file_fails(tmp_path: Path) -> None:
+    root = _write_mini_package(tmp_path / "pkg")
+    extra = root / "extra.html"
+    extra.write_text("<html>extra</html>", encoding="utf-8")
+    payload = extra.read_bytes()
+    manifest = _manifest(root)
+    manifest["files"].append(
+        {
+            "path": "extra.html",
+            "sha256": hashlib.sha256(payload).hexdigest(),
+            "byte_count": len(payload),
+            "row_count": None,
+            "schema_version": SCHEMA_VERSION,
+            "media_type": "text/html",
+            "compression": "none",
+        }
+    )
+    manifest["files_digest"] = files_digest(manifest["files"])
+    _write_manifest(root, manifest)
+    with pytest.raises(V4_2BArtifactError, match="unexpected files"):
+        verify_v4_2b_artifact(root)
+
+
+def test_files_digest_mismatch_fails(tmp_path: Path) -> None:
+    root = _write_mini_package(tmp_path / "pkg")
+    manifest = _manifest(root)
+    manifest["files_digest"] = "c" * 64
+    _write_manifest(root, manifest)
+    with pytest.raises(V4_2BArtifactError, match="files_digest mismatch"):
+        verify_v4_2b_artifact(root)
+
+
+def test_planning_audit_submanifest_is_verified_recursively(tmp_path: Path) -> None:
+    root = _write_mini_package(tmp_path / "pkg")
+    nested = root / "planning_audit"
+    nested.mkdir()
+    (nested / "index.html").write_text("<html>audit</html>", encoding="utf-8")
+    nested_files = [
+        {
+            "path": "index.html",
+            "sha256": hashlib.sha256((nested / "index.html").read_bytes()).hexdigest(),
+            "byte_count": (nested / "index.html").stat().st_size,
+            "row_count": None,
+            "schema_version": SCHEMA_VERSION,
+            "media_type": "text/html",
+            "compression": "none",
+        }
+    ]
+    nested_manifest = {
+        "schema_version": SCHEMA_VERSION,
+        "package": f"{V4_2B_PACKAGE}/planning_audit",
+        "manifest_inventory_rule": MANIFEST_INVENTORY_RULE,
+        "source_git_revision": "a" * 40,
+        "source_git_dirty": False,
+        "config_digest": _CONFIG_DIGEST,
+        "v3_6d_registry_digest": FROZEN_V3_6D_DIGEST,
+        "common_task_bank_digest": frozen_common_task_bank_digest(),
+        "case_ids": list(_MINI_CASE_IDS),
+        "n_rows": 0,
+        "n_typed_failures": 0,
+        "n_silent_drops": 0,
+        "files": nested_files,
+        "files_digest": files_digest(nested_files),
+    }
+    (nested / "manifest.json").write_text(
+        json.dumps(nested_manifest, indent=2), encoding="utf-8"
+    )
+    files = inventory_required_files(root, _MINI_CASE_IDS)
+    manifest = _manifest(root)
+    manifest["files"] = files
+    manifest["files_digest"] = files_digest(files)
+    _write_manifest(root, manifest)
+    summary = verify_v4_2b_artifact(root)
+    assert PLANNING_AUDIT_MANIFEST_REL in {row["path"] for row in files}
+    assert summary["n_files"] == len(_MINI_CASE_IDS) + 6
+
+
+def test_dirty_planning_audit_submanifest_fails(tmp_path: Path) -> None:
+    root = _write_mini_package(tmp_path / "pkg")
+    nested = root / "planning_audit"
+    nested.mkdir()
+    (nested / "index.html").write_text("<html>audit</html>", encoding="utf-8")
+    nested_files = [
+        {
+            "path": "index.html",
+            "sha256": hashlib.sha256((nested / "index.html").read_bytes()).hexdigest(),
+            "byte_count": (nested / "index.html").stat().st_size,
+            "row_count": None,
+            "schema_version": SCHEMA_VERSION,
+            "media_type": "text/html",
+            "compression": "none",
+        }
+    ]
+    nested_manifest = {
+        "schema_version": SCHEMA_VERSION,
+        "package": f"{V4_2B_PACKAGE}/planning_audit",
+        "manifest_inventory_rule": MANIFEST_INVENTORY_RULE,
+        "source_git_revision": "a" * 40,
+        "source_git_dirty": True,
+        "config_digest": _CONFIG_DIGEST,
+        "v3_6d_registry_digest": FROZEN_V3_6D_DIGEST,
+        "common_task_bank_digest": frozen_common_task_bank_digest(),
+        "case_ids": list(_MINI_CASE_IDS),
+        "n_rows": 0,
+        "n_typed_failures": 0,
+        "n_silent_drops": 0,
+        "files": nested_files,
+        "files_digest": files_digest(nested_files),
+    }
+    (nested / "manifest.json").write_text(
+        json.dumps(nested_manifest, indent=2), encoding="utf-8"
+    )
+    files = inventory_required_files(root, _MINI_CASE_IDS)
+    manifest = _manifest(root)
+    manifest["files"] = files
+    manifest["files_digest"] = files_digest(files)
+    _write_manifest(root, manifest)
+    with pytest.raises(V4_2BArtifactError, match="source_git_dirty must be false"):
         verify_v4_2b_artifact(root)

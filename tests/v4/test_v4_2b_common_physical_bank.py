@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from types import SimpleNamespace
 
 import numpy as np
 import pytest
@@ -16,16 +17,13 @@ from inequality_mechanisms.experiments.v4.span_common_physical_bank import (
     GOAL_REPRESENTATION_KIND,
     bank_digest,
     build_common_physical_bank,
+    common_mounted_q_box,
     load_common_physical_bank,
     strictly_inside,
 )
 
-V3_BANK_V2_REL = (
-    CANONICAL_REPO_ROOT / "configs" / "v3" / "free_space_planar2r_v2.json"
-)
-V3_BANK_V1_REL = (
-    CANONICAL_REPO_ROOT / "configs" / "v3" / "free_space_planar2r_v1.json"
-)
+V3_BANK_V2_REL = CANONICAL_REPO_ROOT / "configs" / "v3" / "free_space_planar2r_v2.json"
+V3_BANK_V1_REL = CANONICAL_REPO_ROOT / "configs" / "v3" / "free_space_planar2r_v1.json"
 V4_2A_AUDIT_REL = (
     CANONICAL_REPO_ROOT
     / "configs"
@@ -47,6 +45,31 @@ CANDIDATE_IDS = (
 
 def _loaded() -> dict:
     return load_common_physical_bank(CANONICAL_REPO_ROOT / DEFAULT_BANK_REL)
+
+
+def test_common_box_uses_frozen_registry_intervals_as_owner() -> None:
+    usable = (-1.0, 1.0)
+    drift = 5.0e-10  # Accepted reconstruction noise under FK_ATOL=1e-9.
+    row = SimpleNamespace(
+        target_span_deg=95.0,
+        range_definition=SimpleNamespace(usable_interval_rad=usable),
+    )
+    certificate = SimpleNamespace(
+        output_lower=(-1.0 + drift, -1.0 + drift),
+        output_upper=(1.0 - drift, 1.0 - drift),
+    )
+    realized = SimpleNamespace(
+        case=SimpleNamespace(case_id="synthetic_roundoff"),
+        fourbar=SimpleNamespace(certificate=certificate),
+        gearbox=SimpleNamespace(certificate=certificate),
+        j1=row,
+        j2=row,
+    )
+
+    lower, upper = common_mounted_q_box((realized,))
+
+    np.testing.assert_array_equal(lower, np.asarray([-1.0, -1.0]))
+    np.testing.assert_array_equal(upper, np.asarray([1.0, 1.0]))
 
 
 def test_frozen_bank_ids_and_source_contract() -> None:
@@ -92,8 +115,12 @@ def test_starts_and_witnesses_are_strictly_inside_common_box() -> None:
     lower = np.asarray(bank["common_q_box"]["lower"], dtype=np.float64)
     upper = np.asarray(bank["common_q_box"]["upper"], dtype=np.float64)
     for task in bank["tasks"]:
-        assert strictly_inside(np.asarray(task["start_q"], dtype=np.float64), lower, upper)
-        assert strictly_inside(np.asarray(task["witness_q"], dtype=np.float64), lower, upper)
+        assert strictly_inside(
+            np.asarray(task["start_q"], dtype=np.float64), lower, upper
+        )
+        assert strictly_inside(
+            np.asarray(task["witness_q"], dtype=np.float64), lower, upper
+        )
 
 
 def test_preflight_passed_for_all_mounted_cases() -> None:

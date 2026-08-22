@@ -50,7 +50,9 @@ def test_corrective_generator_within_case_q_x_and_identity_jg(tmp_path: Path) ->
         generate_span_controlled_corrective_atlas,
     )
 
-    output = tmp_path / "results" / "v4_review" / "v4_2b_span_controlled_corrective_closeout"
+    output = (
+        tmp_path / "results" / "v4_review" / "v4_2b_span_controlled_corrective_closeout"
+    )
     package = generate_span_controlled_corrective_atlas(output=output)
     n_rows = int(package["n_rows"])
     n_typed = int(package.get("n_typed_failures", 0))

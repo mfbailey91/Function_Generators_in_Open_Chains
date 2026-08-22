@@ -93,6 +93,64 @@ class AtlasRow:
         )
 
 
+ATLAS_ROW_ENVELOPE_KEYS = (
+    "schema_version",
+    "q_sample_id",
+    "mechanism_id",
+    "mechanism_pair_id",
+    "grid_index",
+    "config_digest",
+    "git_revision",
+    "failure_code",
+    "failure_message",
+    "snapshot",
+)
+
+
+def parse_retained_atlas_row(data: Mapping[str, Any]) -> AtlasRow:
+    """Parse one retained geometry JSONL object through the real row type.
+
+    Parameters
+    ----------
+    data :
+        One JSON object from a compressed atlas JSONL file.
+
+    Returns
+    -------
+    AtlasRow
+        Restored row.
+
+    Raises
+    ------
+    AtlasRecordError
+        If envelope keys, schema version, or snapshot payload are invalid.
+    """
+    if not isinstance(data, Mapping):
+        raise AtlasRecordError(
+            "atlas row must be a JSON object",
+            failure_code="schema_mismatch",
+        )
+    missing = [key for key in ATLAS_ROW_ENVELOPE_KEYS if key not in data]
+    if missing:
+        raise AtlasRecordError(
+            f"atlas row missing {missing}",
+            failure_code="schema_mismatch",
+        )
+    if data["schema_version"] != ATLAS_ROW_SCHEMA_VERSION:
+        raise AtlasRecordError(
+            "atlas row schema_version must be "
+            f"{ATLAS_ROW_SCHEMA_VERSION!r}, got {data['schema_version']!r}",
+            failure_code="schema_mismatch",
+        )
+    try:
+        return AtlasRow.from_dict(data)
+    except (KeyError, TypeError, ValueError) as exc:
+        raise AtlasRecordError(
+            f"atlas row failed strict restore: {exc}",
+            failure_code="schema_mismatch",
+        ) from exc
+
+
 def evaluate_atlas_sample(
     arm: AtlasArm,
     sample: SharedQSample,

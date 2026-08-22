@@ -18,7 +18,10 @@ from inequality_mechanisms.experiments.v4.span_controlled_atlas_config import (
     SPAN_175_STATUS,
     load_span_atlas_config,
 )
-from inequality_mechanisms.mechanisms.span_registry import TARGET_SPANS_DEG, SpanRegistry
+from inequality_mechanisms.mechanisms.span_registry import (
+    TARGET_SPANS_DEG,
+    SpanRegistry,
+)
 from inequality_mechanisms.mechanisms.span_synthesis import PRIMARY_CERTIFICATE
 
 _ATOL = 1e-9

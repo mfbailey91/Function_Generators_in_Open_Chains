@@ -163,7 +163,9 @@ def _shift_axis_inverse(inverse: AxisInverse, offset_i: float) -> AxisInverse:
     raise TypeError(f"unsupported axis inverse type {type(inverse)!r}")
 
 
-def _shift_output_space(space: OutputSpace, offset: NDArray[np.floating]) -> OutputSpace:
+def _shift_output_space(
+    space: OutputSpace, offset: NDArray[np.floating]
+) -> OutputSpace:
     axes: list[OutputAxis] = []
     for i, axis in enumerate(space.axes):
         if axis.lower is None or axis.upper is None:
