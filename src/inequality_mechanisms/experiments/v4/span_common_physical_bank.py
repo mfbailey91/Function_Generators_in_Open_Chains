@@ -141,7 +141,13 @@ def _sampling_arms(
 def common_mounted_q_box(
     realized_cases: tuple[RealizedSpanCase, ...],
 ) -> tuple[NDArray[np.float64], NDArray[np.float64]]:
-    """Return the axis-wise intersection of mounted usable Q boxes."""
+    """Return the frozen-registry intersection of mounted usable Q boxes.
+
+    Reconstructed branch certificates are validation witnesses. The committed
+    registry is the numerical owner of each usable interval, so platform-level
+    roundoff in reconstructed endpoint kinematics cannot rewrite the frozen
+    common task domain or its digest.
+    """
     if not realized_cases:
         raise CommonPhysicalBankError("need at least one mounted span case")
     lower = np.full(2, -np.inf, dtype=np.float64)
@@ -156,24 +162,27 @@ def common_mounted_q_box(
                 raise CommonPhysicalBankError(
                     "mounted output bounds must have shape (2,)"
                 )
-            lower = np.maximum(lower, lo)
-            upper = np.minimum(upper, hi)
         for axis, (label, row) in enumerate((("J1", realized.j1), ("J2", realized.j2))):
             if row.range_definition is None:
                 raise CommonPhysicalBankError(
                     f"{label} span {row.target_span_deg} must record a range definition"
                 )
             usable = row.range_definition.usable_interval_rad
-            if abs(float(cert.output_lower[axis]) - float(usable[0])) > FK_ATOL:
-                raise CommonPhysicalBankError(
-                    f"{realized.case.case_id} {label} "
-                    "mounted lower disagrees with registry"
-                )
-            if abs(float(cert.output_upper[axis]) - float(usable[1])) > FK_ATOL:
-                raise CommonPhysicalBankError(
-                    f"{realized.case.case_id} {label} "
-                    "mounted upper disagrees with registry"
-                )
+            usable_lo = float(usable[0])
+            usable_hi = float(usable[1])
+            for branch_name, branch_cert in (("fourbar", cert), ("gearbox", gb)):
+                if abs(float(branch_cert.output_lower[axis]) - usable_lo) > FK_ATOL:
+                    raise CommonPhysicalBankError(
+                        f"{realized.case.case_id} {label} {branch_name} "
+                        "mounted lower disagrees with registry"
+                    )
+                if abs(float(branch_cert.output_upper[axis]) - usable_hi) > FK_ATOL:
+                    raise CommonPhysicalBankError(
+                        f"{realized.case.case_id} {label} {branch_name} "
+                        "mounted upper disagrees with registry"
+                    )
+            lower[axis] = max(float(lower[axis]), usable_lo)
+            upper[axis] = min(float(upper[axis]), usable_hi)
     if not np.all(np.isfinite(lower)) or not np.all(np.isfinite(upper)):
         raise CommonPhysicalBankError("common mounted Q box is not finite")
     if np.any(upper <= lower):
