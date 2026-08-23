@@ -11,10 +11,12 @@ V4.2A writers may write only under
 ``results/v4_review/v4_2a_span_controlled_visual_audit/``.
 V4.2B writers may write only under
 ``results/v4_review/v4_2b_span_controlled_corrective_closeout/``.
+V4.2C writers may write only under
+``results/v4_review/v4_2c_ompl_planner_portfolio/``.
 
 Every package under ``results/v3_review/`` remains frozen. Other
-``results/v4_review/`` packages stay unauthorized. The closed V4.0–V4.2A
-packages are retained evidence for V4.2B writers.
+``results/v4_review/`` packages stay unauthorized. The closed V4.0–V4.2B
+packages are retained evidence for V4.2C writers.
 """
 
 from __future__ import annotations
@@ -40,6 +42,8 @@ V4_2A_ALLOWED_PACKAGE = "v4_2a_span_controlled_visual_audit"
 V4_2A_ALLOWED_OUTPUT_REL = Path("results") / "v4_review" / V4_2A_ALLOWED_PACKAGE
 V4_2B_ALLOWED_PACKAGE = "v4_2b_span_controlled_corrective_closeout"
 V4_2B_ALLOWED_OUTPUT_REL = Path("results") / "v4_review" / V4_2B_ALLOWED_PACKAGE
+V4_2C_ALLOWED_PACKAGE = "v4_2c_ompl_planner_portfolio"
+V4_2C_ALLOWED_OUTPUT_REL = Path("results") / "v4_review" / V4_2C_ALLOWED_PACKAGE
 
 # Accepted V3 closeout packages that V3.6C could write, but V4 must not.
 FROZEN_V3_CLOSEOUT_PACKAGES: frozenset[str] = frozenset(
@@ -61,7 +65,7 @@ class ArtifactPathForbiddenError(ValueError):
 
 
 class DirtySourceError(ValueError):
-    """Raised when a V4.2B writer targets a dirty git working tree."""
+    """Raised when a V4.2B or V4.2C writer targets a dirty git working tree."""
 
     failure_code = "v4_2b_dirty_source"
 
@@ -91,6 +95,11 @@ def allowed_v4_2b_output_root() -> Path:
     return (REPO_ROOT / V4_2B_ALLOWED_OUTPUT_REL).resolve()
 
 
+def allowed_v4_2c_output_root() -> Path:
+    """Absolute allowed V4.2C planner-portfolio output root (may be monkeypatched)."""
+    return (REPO_ROOT / V4_2C_ALLOWED_OUTPUT_REL).resolve()
+
+
 def canonical_v4_0_retained_root() -> Path:
     """Committed V4.0 smoke package in this repository (never monkeypatched)."""
     return (CANONICAL_REPO_ROOT / V4_0_ALLOWED_OUTPUT_REL).resolve()
@@ -114,6 +123,11 @@ def canonical_v4_2a_retained_root() -> Path:
 def canonical_v4_2b_retained_root() -> Path:
     """Canonical V4.2B corrective package path (never monkeypatched)."""
     return (CANONICAL_REPO_ROOT / V4_2B_ALLOWED_OUTPUT_REL).resolve()
+
+
+def canonical_v4_2c_retained_root() -> Path:
+    """Canonical V4.2C planner-portfolio package path (never monkeypatched)."""
+    return (CANONICAL_REPO_ROOT / V4_2C_ALLOWED_OUTPUT_REL).resolve()
 
 
 def _is_under(path: Path, parent: Path) -> bool:
@@ -317,8 +331,8 @@ def assert_v4_2b_output_allowed(path: Path) -> Path:
 
     V4.2B writers must reject the retained V4.0 smoke package, the frozen
     V4.1 atlas, the frozen V4.2 geometry atlas, the frozen V4.2A visual
-    audit, every V3 review package, sibling V4 packages, and arbitrary
-    paths.
+    audit, the V4.2C planner-portfolio sibling, every V3 review package,
+    other sibling V4 packages, and arbitrary paths.
     """
     resolved = Path(path).expanduser().resolve()
     allowed = allowed_v4_2b_output_root()
@@ -348,6 +362,11 @@ def assert_v4_2b_output_allowed(path: Path) -> Path:
             "Refusing to write into frozen V4.2A retained evidence "
             f"at {resolved}. V4.2B may write only under {allowed}."
         )
+    if v4_package == V4_2C_ALLOWED_PACKAGE:
+        raise ArtifactPathForbiddenError(
+            f"Refusing to write into unauthorized V4 package {v4_package!r} "
+            f"at {resolved}. V4.2B may write only under {allowed}."
+        )
     if v4_package is not None and v4_package != V4_2B_ALLOWED_PACKAGE:
         raise ArtifactPathForbiddenError(
             f"Refusing to write into unauthorized V4 package {v4_package!r} "
@@ -356,6 +375,59 @@ def assert_v4_2b_output_allowed(path: Path) -> Path:
 
     raise ArtifactPathForbiddenError(
         f"V4.2B output path {resolved} is not under the allowed root {allowed}."
+    )
+
+
+def assert_v4_2c_output_allowed(path: Path) -> Path:
+    """Resolve ``path`` and assert it is under the V4.2C portfolio output root.
+
+    V4.2C writers must reject the retained V4.0 smoke package, the frozen
+    V4.1 atlas, the frozen V4.2 geometry atlas, the frozen V4.2A visual
+    audit, the frozen V4.2B closeout, every V3 review package, sibling
+    V4 packages including ``v4_3_intrinsic_static_wrench``, and arbitrary
+    paths. Nested paths succeed only under the V4.2C root.
+    """
+    resolved = Path(path).expanduser().resolve()
+    allowed = allowed_v4_2c_output_root()
+    if _is_under(resolved, allowed):
+        return resolved
+
+    _refuse_v3(resolved, writer="V4.2C", allowed=allowed)
+
+    v4_package = _v4_review_package_name(resolved)
+    if v4_package == V4_0_ALLOWED_PACKAGE:
+        raise ArtifactPathForbiddenError(
+            "Refusing to write into frozen V4.0 retained evidence "
+            f"at {resolved}. V4.2C may write only under {allowed}."
+        )
+    if v4_package == V4_1_ALLOWED_PACKAGE:
+        raise ArtifactPathForbiddenError(
+            "Refusing to write into frozen V4.1 retained evidence "
+            f"at {resolved}. V4.2C may write only under {allowed}."
+        )
+    if v4_package == V4_2_ALLOWED_PACKAGE:
+        raise ArtifactPathForbiddenError(
+            "Refusing to write into frozen V4.2 retained evidence "
+            f"at {resolved}. V4.2C may write only under {allowed}."
+        )
+    if v4_package == V4_2A_ALLOWED_PACKAGE:
+        raise ArtifactPathForbiddenError(
+            "Refusing to write into frozen V4.2A retained evidence "
+            f"at {resolved}. V4.2C may write only under {allowed}."
+        )
+    if v4_package == V4_2B_ALLOWED_PACKAGE:
+        raise ArtifactPathForbiddenError(
+            "Refusing to write into frozen V4.2B retained evidence "
+            f"at {resolved}. V4.2C may write only under {allowed}."
+        )
+    if v4_package is not None and v4_package != V4_2C_ALLOWED_PACKAGE:
+        raise ArtifactPathForbiddenError(
+            f"Refusing to write into unauthorized V4 package {v4_package!r} "
+            f"at {resolved}. V4.2C may write only under {allowed}."
+        )
+
+    raise ArtifactPathForbiddenError(
+        f"V4.2C output path {resolved} is not under the allowed root {allowed}."
     )
 
 
@@ -395,6 +467,13 @@ def prepare_v4_2a_output_dir(path: Path) -> Path:
 def prepare_v4_2b_output_dir(path: Path) -> Path:
     """Assert ``path`` is the V4.2B corrective root and create the directory."""
     resolved = assert_v4_2b_output_allowed(path)
+    resolved.mkdir(parents=True, exist_ok=True)
+    return resolved
+
+
+def prepare_v4_2c_output_dir(path: Path) -> Path:
+    """Assert ``path`` is the V4.2C planner-portfolio root and create it."""
+    resolved = assert_v4_2c_output_allowed(path)
     resolved.mkdir(parents=True, exist_ok=True)
     return resolved
 
@@ -459,6 +538,29 @@ def assert_v4_2b_source_clean() -> str:
     if porcelain.strip():
         raise DirtySourceError(
             "Refusing dirty-source V4.2B generation; "
+            "git status --porcelain --untracked-files=all must be empty "
+            f"before creating the output root.\n{porcelain}"
+        )
+    return git_rev_parse_head()
+
+
+def assert_v4_2c_source_clean() -> str:
+    """Refuse a dirty working tree before any V4.2C canonical mkdir.
+
+    Returns
+    -------
+    str
+        Clean ``HEAD`` SHA.
+
+    Raises
+    ------
+    DirtySourceError
+        If ``git status --porcelain --untracked-files=all`` is nonempty.
+    """
+    porcelain = git_status_porcelain()
+    if porcelain.strip():
+        raise DirtySourceError(
+            "Refusing dirty-source V4.2C generation; "
             "git status --porcelain --untracked-files=all must be empty "
             f"before creating the output root.\n{porcelain}"
         )
@@ -558,6 +660,17 @@ def v4_2a_git_tracked_package_digest() -> tuple[str, int]:
     return digest_git_tracked_paths(paths)
 
 
+def v4_2b_git_tracked_package_digest() -> tuple[str, int]:
+    """Digest git-tracked files of the retained V4.2B closeout package."""
+    prefix = f"{V4_2B_ALLOWED_OUTPUT_REL.as_posix()}/"
+    paths = [
+        rel
+        for rel in git_ls_files(V4_2B_ALLOWED_OUTPUT_REL.as_posix())
+        if rel.startswith(prefix) or rel == V4_2B_ALLOWED_OUTPUT_REL.as_posix()
+    ]
+    return digest_git_tracked_paths(paths)
+
+
 def digest_directory_tree(root: Path) -> tuple[str, int]:
     """Return SHA-256 of sorted relative paths and per-file hashes under ``root``."""
     base = Path(root).resolve()
@@ -593,6 +706,8 @@ __all__ = [
     "V4_2A_ALLOWED_PACKAGE",
     "V4_2B_ALLOWED_OUTPUT_REL",
     "V4_2B_ALLOWED_PACKAGE",
+    "V4_2C_ALLOWED_OUTPUT_REL",
+    "V4_2C_ALLOWED_PACKAGE",
     "ArtifactPathForbiddenError",
     "DirtySourceError",
     "allowed_v4_0_output_root",
@@ -600,6 +715,7 @@ __all__ = [
     "allowed_v4_2_output_root",
     "allowed_v4_2a_output_root",
     "allowed_v4_2b_output_root",
+    "allowed_v4_2c_output_root",
     "assert_not_overwriting_retained_v4_0",
     "assert_v4_0_output_allowed",
     "assert_v4_1_output_allowed",
@@ -608,11 +724,14 @@ __all__ = [
     "assert_v4_2b_output_allowed",
     "assert_v4_2b_output_root_empty",
     "assert_v4_2b_source_clean",
+    "assert_v4_2c_output_allowed",
+    "assert_v4_2c_source_clean",
     "canonical_v4_0_retained_root",
     "canonical_v4_1_retained_root",
     "canonical_v4_2_retained_root",
     "canonical_v4_2a_retained_root",
     "canonical_v4_2b_retained_root",
+    "canonical_v4_2c_retained_root",
     "digest_directory_tree",
     "digest_git_tracked_paths",
     "git_ls_files",
@@ -623,9 +742,11 @@ __all__ = [
     "prepare_v4_2_output_dir",
     "prepare_v4_2a_output_dir",
     "prepare_v4_2b_output_dir",
+    "prepare_v4_2c_output_dir",
     "v4_0_smoke_package_digest",
     "v4_1_atlas_package_digest",
     "v4_2_atlas_package_digest",
     "v4_2_git_tracked_package_digest",
     "v4_2a_git_tracked_package_digest",
+    "v4_2b_git_tracked_package_digest",
 ]
