@@ -1,13 +1,13 @@
 # Active sprint
 
-**Current focus:** none. Sprint V4.2B is completed. Sprint V4.3 remains drafted / blocked.
+**Current focus:** Sprint V4.2C — OMPL planner-geometry portfolio and projection diagnostics.
 
-**Code authorization:** none.
+**Code authorization:** V4-230 through V4-239 only. Do not implement V4.3 / V4-300+, obstacles, MoveIt, 3R/6R, native OMPL clones, or mutate frozen evidence. V4.2C writers may write only `results/v4_review/v4_2c_ompl_planner_portfolio/`. Do not overwrite V4.0–V4.2B or any `results/v3_review/` package.
 
 **Completed:** V2.0–V2.12 smoke/calibration (production held); V3.0–V3.5; V3.6 corrective 2R free-space evidence; **Sprint V3.6A**; **Sprint V3.6B**; **Sprint V3.6C**; **Sprint V4.0** kinematic geometry core; **Sprint V4.1** planar-2R intrinsic geometry atlas; **Sprint V3.6D** canonical span corpus; **Sprint V3.6E** gravity-free static wrench core; **Sprint V3.6F** static wrench atlas; **Sprint V4.2** span-controlled geometry atlas (historical); **Sprint V4.2A** span-controlled visual planning audit (historical); **Sprint V4.2B** mounted-coordinate corrective closeout.
 
 **Frozen evidence:** all committed packages under `results/v3_review/`; V4.0 `v4_0_kinematic_geometry_core`; V4.1 `v4_1_planar2r_geometry_atlas`; V4.2 `v4_2_span_controlled_geometry_atlas`; V4.2A `v4_2a_span_controlled_visual_audit`; and V4.2B `v4_2b_span_controlled_corrective_closeout`. Do not mutate or regenerate these packages.
 
-**Roadmap:** no authorization → separately reviewed V4.3 intrinsic-wrench activation → V4.4 velocity/IK. Residual V3.7 remains separately drafted / blocked. See the [V4.2B closeout](../architecture/notes/V4_2B_SPAN_CONTROLLED_CORRECTIVE_CLOSEOUT.md), [V4 sprint index](sprints/v4/README.md), [ADR-027](../architecture/adr/ADR-027-v4-kinematic-transmission-geometry.md), [ADR-028](../architecture/adr/ADR-028-gravity-free-static-wrench.md), [ADR-029](../architecture/adr/ADR-029-mounted-output-coordinate.md), and [ADR-030](../architecture/adr/ADR-030-paired-final-topology-and-nonfinite-edge-semantics.md).
+**Roadmap:** Sprint V4.2C (this range) → separately reviewed V4.3 intrinsic-wrench activation → V4.4 velocity/IK. Residual V3.7 remains separately drafted / blocked. See the [V4.2C sprint](sprints/v4/SPRINT_V4_2C_OMPL_PLANNER_GEOMETRY_PORTFOLIO.md), [ADR-031](../architecture/adr/ADR-031-ompl-planner-geometry-contract.md), [V4.2B closeout](../architecture/notes/V4_2B_SPAN_CONTROLLED_CORRECTIVE_CLOSEOUT.md), [V4 sprint index](sprints/v4/README.md), [ADR-027](../architecture/adr/ADR-027-v4-kinematic-transmission-geometry.md), [ADR-028](../architecture/adr/ADR-028-gravity-free-static-wrench.md), [ADR-029](../architecture/adr/ADR-029-mounted-output-coordinate.md), and [ADR-030](../architecture/adr/ADR-030-paired-final-topology-and-nonfinite-edge-semantics.md). Writable artifact root: `results/v4_review/v4_2c_ompl_planner_portfolio/`.
 
-**Held:** Version 2 Cartesian production inference, obstacles, MoveIt, 6R, Sprint V3.7 residual, Sprint V3.8+, Sprint V4.3+, V4.0A kernel rewrites, production V4-006, gravity-aware wrench, force-aware planning, mechanism resynthesis, certificate retuning, and deferred items (`V3-DEFER-001`, `V3-DEFER-002`).
+**Held:** Version 2 Cartesian production inference, obstacles, MoveIt, 3R/6R, Sprint V3.7 residual, Sprint V3.8+, Sprint V4.3+, V4.0A kernel rewrites, production V4-006, gravity-aware wrench, force-aware planning, mechanism resynthesis, certificate retuning, native OMPL clones, and deferred items (`V3-DEFER-001`, `V3-DEFER-002`).
