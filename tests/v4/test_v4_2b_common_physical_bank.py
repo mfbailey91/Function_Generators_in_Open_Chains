@@ -3,18 +3,26 @@
 from __future__ import annotations
 
 import json
+import math
+from collections.abc import Mapping
 from types import SimpleNamespace
+from typing import Any
 
 import numpy as np
 import pytest
 
 from inequality_mechanisms.audits.v4_artifact_guard import CANONICAL_REPO_ROOT
 from inequality_mechanisms.experiments.span_cases import generate_span_cases
+from inequality_mechanisms.experiments.v4 import (
+    span_controlled_corrective_audit_config as audit_cfg,
+)
 from inequality_mechanisms.experiments.v4.span_common_physical_bank import (
     BANK_ID,
     DEFAULT_BANK_REL,
+    FK_ATOL,
     FROZEN_TASK_IDS,
     GOAL_REPRESENTATION_KIND,
+    SCHEMA_VERSION,
     bank_digest,
     build_common_physical_bank,
     common_mounted_q_box,
@@ -41,10 +49,74 @@ CANDIDATE_IDS = (
     "boundary_270deg",
     "boundary_315deg",
 )
+_MAX_PAYLOAD_DIFFS = 20
 
 
 def _loaded() -> dict:
     return load_common_physical_bank(CANONICAL_REPO_ROOT / DEFAULT_BANK_REL)
+
+
+def _is_number(value: Any) -> bool:
+    return isinstance(value, (int, float)) and not isinstance(value, bool)
+
+
+def _payload_differences(
+    built: Any,
+    committed: Any,
+    *,
+    path: str = "$",
+    atol: float,
+) -> list[str]:
+    """Return JSON-path diffs; numbers may differ by at most ``atol``."""
+    differences: list[str] = []
+    if isinstance(built, Mapping) and isinstance(committed, Mapping):
+        built_keys = set(built)
+        committed_keys = set(committed)
+        for key in sorted(built_keys - committed_keys, key=str):
+            differences.append(f"{path}: key only in built payload: {key!r}")
+        for key in sorted(committed_keys - built_keys, key=str):
+            differences.append(f"{path}: key only in committed payload: {key!r}")
+        for key in sorted(built_keys & committed_keys, key=str):
+            differences.extend(
+                _payload_differences(
+                    built[key], committed[key], path=f"{path}.{key}", atol=atol
+                )
+            )
+            if len(differences) >= _MAX_PAYLOAD_DIFFS:
+                break
+        return differences
+
+    sequence_types = (list, tuple)
+    if isinstance(built, sequence_types) and isinstance(committed, sequence_types):
+        if len(built) != len(committed):
+            differences.append(
+                f"{path}: length differs: built={len(built)}, "
+                f"committed={len(committed)}"
+            )
+        for index, (left, right) in enumerate(zip(built, committed, strict=False)):
+            differences.extend(
+                _payload_differences(left, right, path=f"{path}[{index}]", atol=atol)
+            )
+            if len(differences) >= _MAX_PAYLOAD_DIFFS:
+                break
+        return differences
+
+    if _is_number(built) and _is_number(committed):
+        if not math.isclose(
+            float(built), float(committed), rel_tol=0.0, abs_tol=float(atol)
+        ):
+            differences.append(
+                f"{path}: built={built!r}, committed={committed!r}, "
+                f"abs={abs(float(built) - float(committed)):.17g}"
+            )
+        return differences
+
+    if built != committed:
+        differences.append(
+            f"{path}: built={built!r} ({type(built).__name__}), "
+            f"committed={committed!r} ({type(committed).__name__})"
+        )
+    return differences
 
 
 def test_common_box_uses_frozen_registry_intervals_as_owner() -> None:
@@ -141,11 +213,26 @@ def test_preflight_passed_for_all_mounted_cases() -> None:
 
 def test_builder_digest_matches_committed_json() -> None:
     committed = _loaded()
+    assert committed["sha256"] == audit_cfg.FROZEN_BANK_DIGEST
+    assert bank_digest(committed) == audit_cfg.FROZEN_BANK_DIGEST
+
     built = build_common_physical_bank()
-    assert built["sha256"] == committed["sha256"]
-    assert bank_digest(built) == committed["sha256"]
+    assert built["bank_id"] == committed["bank_id"] == BANK_ID
+    assert built["schema_version"] == committed["schema_version"] == SCHEMA_VERSION
     assert built["task_ids"] == committed["task_ids"]
-    assert built["tasks"] == committed["tasks"]
+    assert built["preflight"] == committed["preflight"]
+    for built_task, committed_task in zip(
+        built["tasks"], committed["tasks"], strict=True
+    ):
+        assert built_task["task_id"] == committed_task["task_id"]
+        assert built_task["goal_point_ids"] == committed_task["goal_point_ids"]
+
+    # Rebuilt Cartesian FK may differ by platform libm ULPs; the committed
+    # JSON remains the digest lock. Reconstruction must match within FK_ATOL.
+    built_body = {key: value for key, value in built.items() if key != "sha256"}
+    committed_body = {key: value for key, value in committed.items() if key != "sha256"}
+    differences = _payload_differences(built_body, committed_body, atol=FK_ATOL)
+    assert differences == [], "\n".join(differences)
 
 
 def test_v3_6b_and_v4_2a_banks_are_not_the_primary_source() -> None:
