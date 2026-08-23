@@ -9,9 +9,10 @@ from __future__ import annotations
 import gzip
 import json
 import shutil
-from datetime import datetime, timezone
+from collections.abc import Mapping, Sequence
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any
 
 import numpy as np
 
@@ -37,6 +38,7 @@ from inequality_mechanisms.audits.v4_artifact_guard import (
     git_status_porcelain,
 )
 from inequality_mechanisms.experiments.span_cases import (
+    RealizedSpanCase,
     generate_span_cases,
     realize_mounted_span_case,
 )
@@ -46,8 +48,12 @@ from inequality_mechanisms.experiments.v4.geometry_atlas import (
     evaluate_atlas_sample,
     git_revision,
 )
-from inequality_mechanisms.experiments.v4.shared_q_atlas import SharedQSample
 from inequality_mechanisms.experiments.v4.rank_fields import attribution_from_row
+from inequality_mechanisms.experiments.v4.shared_q_atlas import SharedQSample
+from inequality_mechanisms.experiments.v4.span_common_physical_bank import (
+    DEFAULT_BANK_REL,
+    load_common_physical_bank,
+)
 from inequality_mechanisms.experiments.v4.span_controlled_atlas import (
     SpanCaseAtlas,
     arms_for_realized,
@@ -56,6 +62,8 @@ from inequality_mechanisms.experiments.v4.span_controlled_atlas import (
 )
 from inequality_mechanisms.experiments.v4.span_controlled_atlas_config import (
     DEFAULT_CONFIG_REL as V4_2_DEFAULT_CONFIG_REL,
+)
+from inequality_mechanisms.experiments.v4.span_controlled_atlas_config import (
     FROZEN_V3_6D_DIGEST,
     SPAN_175_STATUS,
     load_span_atlas_config,
@@ -73,9 +81,7 @@ from inequality_mechanisms.visualization.v4.span_controlled_corrective import (
 N_SPAN_CASES = 17
 GRID_SHAPE = (33, 33)
 GEOMETRY_ARMS = 3
-EXPECTED_GEOMETRY_ROWS = (
-    N_SPAN_CASES * GRID_SHAPE[0] * GRID_SHAPE[1] * GEOMETRY_ARMS
-)
+EXPECTED_GEOMETRY_ROWS = N_SPAN_CASES * GRID_SHAPE[0] * GRID_SHAPE[1] * GEOMETRY_ARMS
 _POSE_ATOL = 1e-12
 
 
@@ -152,9 +158,7 @@ def _assert_identity_jg(row: AtlasRow) -> None:
         return
     jg = np.asarray(row.snapshot.j_u_to_q, dtype=np.float64)
     if not np.allclose(jg, np.eye(jg.shape[0]), atol=_POSE_ATOL):
-        raise SpanCorrectiveError(
-            f"identity J_g is not I at {row.q_sample_id}"
-        )
+        raise SpanCorrectiveError(f"identity J_g is not I at {row.q_sample_id}")
 
 
 def _comparative_sample(
@@ -193,15 +197,13 @@ def _comparative_sample(
 
 
 def _evaluate_mounted_case(
-    realized,
+    realized: RealizedSpanCase,
     config: SpanControlledCorrectiveConfig,
     *,
     revision: str | None,
 ) -> tuple[SpanCaseAtlas, list[dict[str, Any]]]:
     """Evaluate one mounted case on the shared-Q bank."""
-    arms = arms_for_realized(
-        realized, L1=config.planar2r.L1, L2=config.planar2r.L2
-    )
+    arms = arms_for_realized(realized, L1=config.planar2r.L1, L2=config.planar2r.L2)
     bank = bank_from_fourbar(
         realized.fourbar,
         shape=config.grid.shape,
@@ -266,6 +268,9 @@ def generate_span_controlled_corrective_atlas(
     *,
     config_path: Path | str | None = None,
     output: Path | str | None = None,
+    prepare: bool = True,
+    source_git_revision: str | None = None,
+    source_git_dirty: bool | None = None,
 ) -> dict[str, Any]:
     """Evaluate mounted span cases and write the V4.2B geometry package.
 
@@ -276,6 +281,11 @@ def generate_span_controlled_corrective_atlas(
     output :
         Destination directory. May be a pytest ``tmp_path``. Canonical
         V4.0/V4.1/V4.2/V4.2A and ``results/v3_review/`` paths are refused.
+    prepare :
+        When True, empty the destination before writing. Orchestrators that
+        already prepared the package root pass False.
+    source_git_revision, source_git_dirty :
+        Optional provenance from a package orchestrator.
 
     Returns
     -------
@@ -290,7 +300,14 @@ def generate_span_controlled_corrective_atlas(
     config = load_span_corrective_config(cfg_path)
     target = Path(output) if output is not None else (REPO_ROOT / config.output_dir)
     resolved = _resolve_output(target)
-    source_git_revision, source_git_dirty = _begin_v4_2b_write(resolved)
+    if prepare:
+        source_git_revision, source_git_dirty = _begin_v4_2b_write(resolved)
+    else:
+        resolved.mkdir(parents=True, exist_ok=True)
+        if source_git_revision is None:
+            source_git_revision = git_revision() or git_rev_parse_head()
+        if source_git_dirty is None:
+            source_git_dirty = bool(git_status_porcelain().strip())
     revision = source_git_revision
 
     v42_config = load_span_atlas_config(CANONICAL_REPO_ROOT / V4_2_DEFAULT_CONFIG_REL)
@@ -315,9 +332,7 @@ def generate_span_controlled_corrective_atlas(
     n_typed = 0
     for case in cases:
         realized = realize_mounted_span_case(case, registry)
-        atlas, sample_rows = _evaluate_mounted_case(
-            realized, config, revision=revision
-        )
+        atlas, sample_rows = _evaluate_mounted_case(realized, config, revision=revision)
         expected_case_rows = len(atlas.bank.samples) * GEOMETRY_ARMS
         if len(atlas.rows) != expected_case_rows:
             raise SpanCorrectiveError(
@@ -392,6 +407,9 @@ def generate_span_controlled_corrective_atlas(
         "case_ids": [atlas.realized.case.case_id for atlas in atlases],
         "source_git_revision": source_git_revision,
         "source_git_dirty": source_git_dirty,
+        "common_task_bank_digest": load_common_physical_bank(
+            CANONICAL_REPO_ROOT / DEFAULT_BANK_REL
+        )["sha256"],
     }
     (resolved / "resolved_config.json").write_text(
         json.dumps(resolved_config, indent=2), encoding="utf-8"
@@ -402,7 +420,7 @@ def generate_span_controlled_corrective_atlas(
         "git_revision": revision,
         "source_git_revision": source_git_revision,
         "source_git_dirty": source_git_dirty,
-        "generated_at_utc": datetime.now(timezone.utc).isoformat(),
+        "generated_at_utc": datetime.now(UTC).isoformat(),
         "no_inference_statement": config.no_inference_statement,
         "config_digest": config.digest(),
         "v3_6d_digest": registry.sha256,
@@ -421,6 +439,7 @@ def generate_span_controlled_corrective_atlas(
         ],
         "case_ids": [case.case_id for case in cases],
         "manifest_inventory_rule": MANIFEST_INVENTORY_RULE,
+        "common_task_bank_digest": resolved_config["common_task_bank_digest"],
     }
     (resolved / "README.md").write_text(_readme_text(manifest), encoding="utf-8")
     write_span_controlled_corrective_html(
@@ -446,4 +465,82 @@ def generate_span_controlled_corrective_atlas(
         "rows": comparative_rows,
         "n_cases": len(atlases),
         "grid": list(GRID_SHAPE),
+    }
+
+
+def _patch_root_manifest_for_planning(package: Path) -> None:
+    """Re-inventory the root package after ``planning_audit/`` is written."""
+    manifest_path = package / "manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    case_ids = [str(item) for item in manifest["case_ids"]]
+    files = inventory_required_files(package, case_ids)
+    manifest["files"] = files
+    manifest["files_digest"] = files_digest(files)
+    manifest_path.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
+
+
+def generate_span_controlled_corrective_package(
+    *,
+    config_path: Path | str | None = None,
+    audit_config_path: Path | str | None = None,
+    output: Path | str | None = None,
+    include_geometry: bool = True,
+    include_planning: bool = True,
+    case_ids: Sequence[str] | None = None,
+    task_ids: Sequence[str] | None = None,
+    lattice_shape: tuple[int, int] | None = None,
+) -> dict[str, Any]:
+    """Write geometry and/or planning audit under one V4.2B package root."""
+    from inequality_mechanisms.experiments.v4 import (
+        span_controlled_corrective_audit_config as _audit_cfg,
+    )
+    from inequality_mechanisms.experiments.v4.span_controlled_corrective_audit import (
+        generate_span_controlled_corrective_audit,
+    )
+
+    AUDIT_CONFIG_REL = _audit_cfg.DEFAULT_CONFIG_REL
+
+    if not include_geometry and not include_planning:
+        raise SpanCorrectiveError("package generator requires geometry or planning")
+    cfg_path = (
+        Path(config_path)
+        if config_path is not None
+        else (CANONICAL_REPO_ROOT / DEFAULT_CONFIG_REL)
+    )
+    config = load_span_corrective_config(cfg_path)
+    target = Path(output) if output is not None else (REPO_ROOT / config.output_dir)
+    resolved = _resolve_output(target)
+    source_git_revision, source_git_dirty = _begin_v4_2b_write(resolved)
+    atlas: dict[str, Any] | None = None
+    if include_geometry:
+        atlas = generate_span_controlled_corrective_atlas(
+            config_path=cfg_path,
+            output=resolved,
+            prepare=False,
+            source_git_revision=source_git_revision,
+            source_git_dirty=source_git_dirty,
+        )
+    audit: dict[str, Any] | None = None
+    if include_planning:
+        audit_cfg = (
+            Path(audit_config_path)
+            if audit_config_path is not None
+            else (CANONICAL_REPO_ROOT / AUDIT_CONFIG_REL)
+        )
+        audit = generate_span_controlled_corrective_audit(
+            config_path=audit_cfg,
+            output=resolved / "planning_audit",
+            case_ids=case_ids,
+            task_ids=task_ids,
+            lattice_shape=lattice_shape,
+            prepare_subdir=True,
+            source_git_revision=source_git_revision,
+            source_git_dirty=source_git_dirty,
+        )
+        if include_geometry:
+            _patch_root_manifest_for_planning(resolved)
+    return {
+        "output": str(resolved),
+        "geometry": atlas,
+        "planning": audit,
     }

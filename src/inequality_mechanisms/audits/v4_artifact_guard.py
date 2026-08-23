@@ -1,11 +1,16 @@
 """Fail-closed output path guards for Version 4 artifacts.
 
-V4.0 historically wrote only under ``results/v4_review/v4_0_kinematic_geometry_core/``.
+V4.0 historically wrote only under
+``results/v4_review/v4_0_kinematic_geometry_core/``.
 That package is now retained evidence: canonical-path overwrites are forbidden.
-V4.1 writers may write only under ``results/v4_review/v4_1_planar2r_geometry_atlas/``.
-V4.2 writers may write only under ``results/v4_review/v4_2_span_controlled_geometry_atlas/``.
-V4.2A writers may write only under ``results/v4_review/v4_2a_span_controlled_visual_audit/``.
-V4.2B writers may write only under ``results/v4_review/v4_2b_span_controlled_corrective_closeout/``.
+V4.1 writers may write only under
+``results/v4_review/v4_1_planar2r_geometry_atlas/``.
+V4.2 writers may write only under
+``results/v4_review/v4_2_span_controlled_geometry_atlas/``.
+V4.2A writers may write only under
+``results/v4_review/v4_2a_span_controlled_visual_audit/``.
+V4.2B writers may write only under
+``results/v4_review/v4_2b_span_controlled_corrective_closeout/``.
 
 Every package under ``results/v3_review/`` remains frozen. Other
 ``results/v4_review/`` packages stay unauthorized. The closed V4.0–V4.2A
@@ -169,8 +174,7 @@ def assert_not_overwriting_retained_v4_0(path: Path) -> Path:
     retained = canonical_v4_0_retained_root()
     if _is_under(resolved, retained):
         raise ArtifactPathForbiddenError(
-            "Refusing to overwrite frozen V4.0 retained evidence "
-            f"at {resolved}."
+            f"Refusing to overwrite frozen V4.0 retained evidence at {resolved}."
         )
     return resolved
 
@@ -470,8 +474,7 @@ def assert_v4_2b_output_root_empty(path: Path) -> Path:
     resolved = assert_v4_2b_output_allowed(path)
     if resolved.exists() and any(resolved.iterdir()):
         raise ArtifactPathForbiddenError(
-            "Refusing to overwrite non-empty V4.2B output root "
-            f"at {resolved}."
+            f"Refusing to overwrite non-empty V4.2B output root at {resolved}."
         )
     return resolved
 
@@ -490,7 +493,9 @@ def git_ls_files(*paths: str, cwd: Path | None = None) -> list[str]:
     return [item.decode("utf-8") for item in proc.stdout.split(b"\0") if item]
 
 
-def digest_git_tracked_paths(rel_paths: list[str], *, cwd: Path | None = None) -> tuple[str, int]:
+def digest_git_tracked_paths(
+    rel_paths: list[str], *, cwd: Path | None = None
+) -> tuple[str, int]:
     """Return SHA-256 of sorted relative paths and per-file hashes."""
     root = CANONICAL_REPO_ROOT if cwd is None else Path(cwd)
     digest = hashlib.sha256()

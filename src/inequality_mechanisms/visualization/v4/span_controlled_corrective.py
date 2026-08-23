@@ -7,8 +7,9 @@ compressed sample files.
 from __future__ import annotations
 
 import html
+from collections.abc import Mapping, Sequence
 from pathlib import Path
-from typing import Any, Mapping, Sequence
+from typing import Any
 
 from inequality_mechanisms.experiments.span_cases import (
     BIO_SPANS_DEG,
@@ -41,9 +42,7 @@ def _matrix_table(
     atlases_by_id: Mapping[str, Any],
     registry: SpanRegistry,
 ) -> str:
-    header = "".join(
-        f"<th>{_status_cell(registry, span)}</th>" for span in spans
-    )
+    header = "".join(f"<th>{_status_cell(registry, span)}</th>" for span in spans)
     rows = []
     for j1 in spans:
         cells = [f"<th>{_status_cell(registry, j1)}</th>"]
@@ -52,12 +51,11 @@ def _matrix_table(
             atlas = atlases_by_id[case_id]
             memberships = ", ".join(atlas.realized.case.memberships)
             href = (
-                "geometry_atlas/cases/"
-                f"{html.escape(case_id)}/geometry_samples.jsonl.gz"
+                f"geometry_atlas/cases/{html.escape(case_id)}/geometry_samples.jsonl.gz"
             )
             cells.append(
-                f"<td><a href=\"{href}\">{html.escape(case_id)}</a>"
-                f"<div class=\"muted\">{html.escape(memberships)}</div></td>"
+                f'<td><a href="{href}">{html.escape(case_id)}</a>'
+                f'<div class="muted">{html.escape(memberships)}</div></td>'
             )
         rows.append("<tr>" + "".join(cells) + "</tr>")
     return (

@@ -4,14 +4,15 @@ from __future__ import annotations
 
 import hashlib
 import json
+from collections.abc import Mapping
 from pathlib import Path
-from typing import Any, Literal, Mapping
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, field_validator, model_validator
 
 from inequality_mechanisms.experiments.v4.atlas_config import (
-    GridAtlasConfig,
     NO_INFERENCE_STATEMENT,
+    GridAtlasConfig,
     Planar2RAtlasConfig,
 )
 from inequality_mechanisms.experiments.v4.span_controlled_atlas_config import (
@@ -21,7 +22,9 @@ from inequality_mechanisms.experiments.v4.span_controlled_atlas_config import (
 )
 
 SCHEMA_VERSION = "v4.2b.planar2r.span_controlled_corrective.v1"
-DEFAULT_CONFIG_REL = Path("configs") / "v4" / "planar2r_span_controlled_corrective_v1.json"
+DEFAULT_CONFIG_REL = (
+    Path("configs") / "v4" / "planar2r_span_controlled_corrective_v1.json"
+)
 V4_2B_PACKAGE = "v4_2b_span_controlled_corrective_closeout"
 V4_2B_OUTPUT_REL = Path("results") / "v4_review" / V4_2B_PACKAGE
 FORBIDDEN_CONFIG_KEYS = frozenset({"gravity", "payload"})
@@ -72,8 +75,7 @@ class SpanControlledCorrectiveConfig(BaseModel):
         rel = Path(value)
         if rel != V4_2B_OUTPUT_REL:
             raise ValueError(
-                "output_dir must be "
-                f"{V4_2B_OUTPUT_REL.as_posix()!r}, got {value!r}"
+                f"output_dir must be {V4_2B_OUTPUT_REL.as_posix()!r}, got {value!r}"
             )
         return rel.as_posix()
 

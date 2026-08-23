@@ -8,6 +8,8 @@ import pytest
 from inequality_mechanisms.mechanisms import (
     AffineAxisInverse,
     BranchCertificationError,
+    BranchInverseError,
+    MonotoneTableAxisInverse,
     UnitGearbox,
     certify_branch,
 )
@@ -31,6 +33,44 @@ def _prismatic_space(lower, upper) -> OutputSpace:
             for lo, hi in zip(lower, upper)
         )
     )
+
+
+class TestMonotoneTableAxisInverseNumerics:
+    @pytest.mark.parametrize(
+        ("target", "direction", "expected"),
+        (
+            (0.0, np.inf, 0.0),
+            (2.0, -np.inf, 2.0),
+        ),
+    )
+    def test_accepts_bracket_endpoint_residual_within_tolerance(
+        self,
+        target: float,
+        direction: float,
+        expected: float,
+    ) -> None:
+        inverse = MonotoneTableAxisInverse(
+            sign=1,
+            u_table=(0.0, 1.0, 2.0),
+            q_table=(0.0, 1.0, 2.0),
+            tol=1e-10,
+        )
+
+        def forward_with_one_ulp_offset(u: float) -> float:
+            return float(np.nextafter(u, direction))
+
+        assert inverse.solve(target, forward_with_one_ulp_offset) == expected
+
+    def test_rejects_same_sign_residuals_outside_tolerance(self) -> None:
+        inverse = MonotoneTableAxisInverse(
+            sign=1,
+            u_table=(0.0, 1.0, 2.0),
+            q_table=(0.0, 1.0, 2.0),
+            tol=1e-10,
+        )
+
+        with pytest.raises(BranchInverseError, match="root not bracketed"):
+            inverse.solve(0.5, lambda u: float(u) + 1.0)
 
 
 class TestCertifyBranchInputValidation:

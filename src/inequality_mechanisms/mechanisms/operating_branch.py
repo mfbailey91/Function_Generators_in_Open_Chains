@@ -84,20 +84,24 @@ def _bisect_root(
 ) -> float:
     """Deterministic bracketed bisection root refine for ``f(x) = 0``.
 
-    Requires ``f(a)`` and ``f(b)`` to have opposite signs (or be exactly
-    zero). Terminates after at most ``max_iter`` iterations or once the
-    bracket width or residual is within ``tol``.
+    Requires ``f(a)`` and ``f(b)`` to have opposite signs, unless either
+    endpoint already satisfies the configured residual tolerance. Terminates
+    after at most ``max_iter`` iterations or once the bracket width or
+    residual is within ``tol``.
     """
     fa = float(f(a))
     fb = float(f(b))
-    if fa == 0.0:
-        return float(a)
-    if fb == 0.0:
-        return float(b)
     if not np.isfinite(fa) or not np.isfinite(fb):
         raise BranchInverseError(
             f"non-finite bracket residuals: f({a})={fa}, f({b})={fb}"
         )
+    # A table knot can differ from the true forward map by a few ULPs. Apply
+    # the same residual contract at the initial bracket endpoints that the
+    # bisection loop already applies to every midpoint.
+    if abs(fa) <= tol:
+        return float(a)
+    if abs(fb) <= tol:
+        return float(b)
     if (fa > 0.0) == (fb > 0.0):
         raise BranchInverseError(f"root not bracketed: f({a})={fa}, f({b})={fb}")
     lo, hi = float(a), float(b)

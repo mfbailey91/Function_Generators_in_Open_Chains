@@ -6,6 +6,8 @@ import json
 from collections.abc import Callable
 from pathlib import Path
 
+from tests.v4.test_v4_009_closeout import test_frozen_v3_review_digests_are_unchanged
+
 from inequality_mechanisms.audits.v4_artifact_guard import (
     CANONICAL_REPO_ROOT,
     V4_0_ALLOWED_PACKAGE,
@@ -22,7 +24,6 @@ from inequality_mechanisms.experiments.v4.span_controlled_atlas_config import (
     FROZEN_V3_6D_REGISTRY_REL,
 )
 from inequality_mechanisms.mechanisms.span_registry import load_span_registry
-from tests.v4.test_v4_009_closeout import test_frozen_v3_review_digests_are_unchanged
 
 DATA = Path(__file__).resolve().parent / "data"
 DIGEST_V4_0 = DATA / "frozen_v4_0_smoke_digests.json"

@@ -27,7 +27,9 @@ DIGEST_LOCK = Path(__file__).resolve().parent / "data" / "frozen_v3_review_diges
 KERNEL_DIR = REPO_ROOT / "src" / "inequality_mechanisms" / "transmission_geometry"
 AUDIT_METRICS = REPO_ROOT / "src" / "inequality_mechanisms" / "audits" / "metrics.py"
 ACTIVE_SPRINT = REPO_ROOT / "docs" / "software" / "planning" / "ACTIVE_SPRINT.md"
-V4_README = REPO_ROOT / "docs" / "software" / "planning" / "sprints" / "v4" / "README.md"
+V4_README = (
+    REPO_ROOT / "docs" / "software" / "planning" / "sprints" / "v4" / "README.md"
+)
 SMOKE_ROOT = REPO_ROOT / V4_0_ALLOWED_OUTPUT_REL
 PINV_PATHS = (
     *sorted(KERNEL_DIR.glob("*.py")),
@@ -69,7 +71,9 @@ def _digest_paths(rel_paths: list[str]) -> tuple[str, int]:
 
 def _package_digest(package: str) -> tuple[str, int]:
     prefix = f"results/v3_review/{package}/"
-    paths = [rel for rel in _git_ls_files("results/v3_review") if rel.startswith(prefix)]
+    paths = [
+        rel for rel in _git_ls_files("results/v3_review") if rel.startswith(prefix)
+    ]
     return _digest_paths(paths)
 
 
@@ -83,9 +87,7 @@ def test_frozen_v3_review_digests_are_unchanged() -> None:
         assert n_files == record["n_files"], package
         assert sha == record["sha256"], package
     root_paths = [
-        rel
-        for rel in _git_ls_files("results/v3_review")
-        if rel.count("/") == 2
+        rel for rel in _git_ls_files("results/v3_review") if rel.count("/") == 2
     ]
     sha, n_files = _digest_paths(root_paths)
     root = expected["_v3_review_root"]
@@ -143,15 +145,27 @@ def test_v4_0_closeout_did_not_auto_authorize_later_columns() -> None:
     active = ACTIVE_SPRINT.read_text(encoding="utf-8")
     v4_readme = V4_README.read_text(encoding="utf-8")
     assert "V4.0 completion does not authorize later sprints" in closeout
-    assert "**Code authorization:** none" in active
-    assert "V4.2" in active
-    assert "no code authorization" in active.lower()
-    assert "completed" in v4_readme.lower()
-    assert "V4-200" not in active
+    assert "| [V4.0](" in v4_readme
+    assert "| completed |" in v4_readme or "| completed / historical |" in v4_readme
+    assert "Sprint V4.1 is **completed**" in v4_readme or "| [V4.1](" in v4_readme
+    auth_lines = [
+        line
+        for line in active.splitlines()
+        if line.startswith("**Code authorization:**")
+    ]
+    assert len(auth_lines) == 1
+    auth = auth_lines[0]
+    for package_id in (f"V4-00{i}" for i in range(10)):
+        assert package_id not in auth
+    assert "V4-000" not in active
+    assert "V4-008" not in active
+    assert "V4-009" not in active
 
 
 def test_v4_1_output_remains_forbidden_to_v4_0_writer() -> None:
-    path = (REPO_ROOT / "results" / "v4_review" / "v4_1_planar2r_geometry_atlas").resolve()
+    path = (
+        REPO_ROOT / "results" / "v4_review" / "v4_1_planar2r_geometry_atlas"
+    ).resolve()
     with pytest.raises(ArtifactPathForbiddenError, match="unauthorized V4"):
         from inequality_mechanisms.audits.v4_artifact_guard import (
             assert_v4_0_output_allowed,

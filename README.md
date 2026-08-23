@@ -6,15 +6,29 @@ Research software for studying how mechanism mappings
 U --g_m--> Q --f--> X
 ```
 
-reshape graph-based manipulator planning. Version 1 asks how unit gearboxes
-and four-bar mechanisms change graph-search node expansions under shared
-output joint limits and matched output start/goal tasks.
+reshape planning, velocity, wrench, and flow. Core library code lives under
+`src/inequality_mechanisms/`. Notebooks analyze results; they do not define
+algorithms.
 
-Core library code lives under `src/inequality_mechanisms/`. Notebooks analyze
-results; they do not define algorithms. Version 1 excludes RL, dynamics,
-collision checking, hardware, and mechanism optimization. The `v2-rearchitecture`
-branch preserves that baseline while developing certified invertible-branch,
-output-state planning as a separate Version 2 architecture.
+- **Version 1** is the preserved full-cycle, input-state research baseline.
+  Graph identity lives in actuator space \(\mathcal U\).
+- **Version 2** is frozen historical lineage: certified invertible-branch
+  planning with output-state identity in \(\mathcal Q\) and an attached
+  actuator realization.
+- **Version 3** is the planner-independent physical-state architecture.
+  Planar-2R free-space closeout (V3.6C) and the span/wrench insert (V3.6D–F)
+  are accepted; residual 3R remains blocked.
+- **Version 4** consumes that transmission geometry as a shared differential
+  layer ([ADR-027](docs/software/architecture/adr/ADR-027-v4-kinematic-transmission-geometry.md)).
+  V4.0 and V4.1 are closed. V4.2 and V4.2A are retained historical diagnostics.
+  **Sprint V4.2B** is completed
+  ([ADR-029](docs/software/architecture/adr/ADR-029-mounted-output-coordinate.md),
+  [ADR-030](docs/software/architecture/adr/ADR-030-paired-final-topology-and-nonfinite-edge-semantics.md)).
+  V4.3 (intrinsic wrench on V4.2B snapshots) remains drafted and unauthorized.
+
+Do not overwrite frozen V3 or V4.0–V4.2A packages. Canonical V4.2B evidence is
+retained under
+`results/v4_review/v4_2b_span_controlled_corrective_closeout/`.
 
 ## Requirements
 
@@ -95,9 +109,21 @@ when present; regenerating it does not rewrite trial JSONL.
 
 ## Documentation
 
-- [docs/PROJECT_PLAN.md](docs/PROJECT_PLAN.md) — scope, architecture, milestones
-- [docs/BACKLOG.md](docs/BACKLOG.md) — implementation issues
-- [docs/ADR-001-search-in-input-space.md](docs/ADR-001-search-in-input-space.md) —
-  search state identity lives in input configuration space
+Start at [docs/README.md](docs/README.md). Canonical software paths are under
+`docs/software/`:
+
+- [Version matrix](docs/software/VERSION_MATRIX.md) — V1–V4 architecture and status
+- [Active sprint](docs/software/planning/ACTIVE_SPRINT.md) — current authorization
+- [Software project plan](docs/software/PROJECT_PLAN.md)
+- [Version 4 project plan](docs/software/V4_PROJECT_PLAN.md)
+- [V4 sprint index](docs/software/planning/sprints/v4/README.md)
+- [ADR-001](docs/software/architecture/adr/ADR-001-search-in-input-space.md) —
+  Version 1 search-state identity in input configuration space
 - [ADR-008](docs/software/architecture/adr/ADR-008-pilot-reproduction.md) —
   pilot trial schema and expansion figures
+- [ADR-027](docs/software/architecture/adr/ADR-027-v4-kinematic-transmission-geometry.md) —
+  kinematic transmission geometry
+- [ADR-029](docs/software/architecture/adr/ADR-029-mounted-output-coordinate.md) —
+  mounted output coordinates
+- [ADR-030](docs/software/architecture/adr/ADR-030-paired-final-topology-and-nonfinite-edge-semantics.md) —
+  paired final topology and nonfinite edge semantics

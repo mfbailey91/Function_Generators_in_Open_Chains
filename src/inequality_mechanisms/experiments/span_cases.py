@@ -6,6 +6,10 @@ import math
 from dataclasses import dataclass
 from typing import Any
 
+from inequality_mechanisms.mechanisms import (
+    equivalent_gearbox_branch,
+    select_fourbar_monotonic_branch,
+)
 from inequality_mechanisms.mechanisms.fourbar import IndependentFourBars
 from inequality_mechanisms.mechanisms.operating_branch import OperatingBranch
 from inequality_mechanisms.mechanisms.output_mounting import mount_operating_branch
@@ -14,7 +18,6 @@ from inequality_mechanisms.mechanisms.span_synthesis import (
     CanonicalSynthesisResult,
     reconstruct_bar,
 )
-from inequality_mechanisms.mechanisms import equivalent_gearbox_branch, select_fourbar_monotonic_branch
 
 CORE_SPANS_DEG = (95.0, 145.0, 175.0)
 BIO_SPANS_DEG = (135.0, 145.0, 150.0)
@@ -109,7 +112,9 @@ def _require_supported(row: CanonicalSynthesisResult, axis: str) -> None:
 def _require_offset(row: CanonicalSynthesisResult, axis: str) -> float:
     offset = row.q_offset_rad
     if offset is None or not math.isfinite(float(offset)):
-        raise ValueError(f"{axis} span {row.target_span_deg} must record a finite q_offset_rad")
+        raise ValueError(
+            f"{axis} span {row.target_span_deg} must record a finite q_offset_rad"
+        )
     return float(offset)
 
 
@@ -162,19 +167,17 @@ def _assert_mounted_matches_registry(
     cert = branch.certificate
     for axis, (label, row) in enumerate((("J1", j1), ("J2", j2))):
         if row.range_definition is None:
-            raise ValueError(f"{label} span {row.target_span_deg} must record a range definition")
+            raise ValueError(
+                f"{label} span {row.target_span_deg} must record a range definition"
+            )
         row.range_definition.assert_zero_centered()
         usable = row.range_definition.usable_interval_rad
         lo = float(cert.output_lower[axis])
         hi = float(cert.output_upper[axis])
         if abs(lo - float(usable[0])) > _MOUNTED_Q_ATOL:
-            raise ValueError(
-                f"{label} mounted output_lower {lo} != usable {usable[0]}"
-            )
+            raise ValueError(f"{label} mounted output_lower {lo} != usable {usable[0]}")
         if abs(hi - float(usable[1])) > _MOUNTED_Q_ATOL:
-            raise ValueError(
-                f"{label} mounted output_upper {hi} != usable {usable[1]}"
-            )
+            raise ValueError(f"{label} mounted output_upper {hi} != usable {usable[1]}")
 
 
 def realize_span_case(case: SpanCase, registry: SpanRegistry) -> RealizedSpanCase:
@@ -190,7 +193,9 @@ def realize_span_case(case: SpanCase, registry: SpanRegistry) -> RealizedSpanCas
     return RealizedSpanCase(case=case, fourbar=fourbar, gearbox=gearbox, j1=j1, j2=j2)
 
 
-def realize_mounted_span_case(case: SpanCase, registry: SpanRegistry) -> RealizedSpanCase:
+def realize_mounted_span_case(
+    case: SpanCase, registry: SpanRegistry
+) -> RealizedSpanCase:
     """Build mounted four-bar and span-matched gearbox branches.
 
     V4.2B owner: apply each stored ``q_offset_rad`` exactly once, then

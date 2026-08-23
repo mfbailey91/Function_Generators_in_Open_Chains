@@ -46,7 +46,7 @@ V4.3 writers may write only `results/v4_review/v4_3_intrinsic_static_wrench/`. R
 
 ## V4-301 — Consume V4.2B snapshots and V3.6E
 
-Join V4.2B rows by stable snapshot IDs and config/registry/source digests. Require mounted-coordinate provenance from ADR-029. Call `static_wrench_from_snapshot`. Do not rebuild Jacobians and do not fall back to V4.2 rows.
+Join V4.2B rows by stable snapshot IDs and config/registry/source digests. Require mounted-coordinate provenance from ADR-029. Call `static_wrench_from_snapshot`. Do not rebuild Jacobians and do not fall back to historical V4.2 or V4.2A rows.
 
 ## V4-302 — Exact polygons
 

@@ -1,19 +1,67 @@
 """Compile unavailable local motions out of search adjacency (V4.2B / V4-225).
 
 Generic Dijkstra/A* remain strict: they reject nonfinite and negative
-weights. This adapter evaluates candidate edges first, omits unavailable
-motions from ``neighbors()``, and caches finite nonnegative costs.
+weights. This adapter evaluates candidate edges first and classifies
+each weight under ADR-030:
+
+- finite nonnegative costs are admitted and cached;
+- ``+inf`` is omitted as unavailable local motion;
+- ``NaN``, ``-inf``, and finite negative values raise.
+
+Do not treat ``not math.isfinite(weight)`` as the unavailable-motion test.
 """
 
 from __future__ import annotations
 
 import math
+from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Mapping
+from typing import Literal
 
 from inequality_mechanisms.search.protocol import EdgeCost, SearchGraph
 
-UNAVAILABLE_LOCAL_MOTION = "unavailable_local_motion"
+UNAVAILABLE_LOCAL_MOTION: Literal["unavailable_local_motion"] = (
+    "unavailable_local_motion"
+)
+ADMITTED_LOCAL_MOTION: Literal["admit"] = "admit"
+EdgeWeightDecision = Literal["admit", "unavailable_local_motion"]
+
+
+def classify_edge_weight(
+    weight: float,
+    *,
+    u: int | None = None,
+    v: int | None = None,
+) -> EdgeWeightDecision:
+    """Classify one candidate edge weight under ADR-030.
+
+    Parameters
+    ----------
+    weight :
+        Raw evaluator result.
+    u, v :
+        Optional directed edge endpoints included in error messages.
+
+    Returns
+    -------
+    {"admit", "unavailable_local_motion"}
+        ``admit`` for finite nonnegative costs; unavailable for ``+inf``.
+
+    Raises
+    ------
+    ValueError
+        If ``weight`` is ``NaN``, ``-inf``, or finite negative.
+    """
+    where = f" from {u} to {v}" if u is not None and v is not None else ""
+    if math.isnan(weight):
+        raise ValueError(f"edge cost{where} is NaN")
+    if weight == -math.inf:
+        raise ValueError(f"edge cost{where} is negative infinity")
+    if weight == math.inf:
+        return UNAVAILABLE_LOCAL_MOTION
+    if weight < 0.0:
+        raise ValueError(f"edge cost{where} is negative: {weight}")
+    return ADMITTED_LOCAL_MOTION
 
 
 class _FilteredSearchGraph:
@@ -67,14 +115,16 @@ def compile_finite_neighbors(
     graph: SearchGraph,
     edge_cost: EdgeCost,
 ) -> CompiledFiniteNeighbors:
-    """Omit nonfinite candidate edges before generic search.
+    """Omit unavailable candidate edges before generic search.
 
     Parameters
     ----------
     graph :
         Raw search graph. Not mutated.
     edge_cost :
-        Candidate edge evaluator. Nonfinite values become graph exclusions.
+        Candidate edge evaluator. Positive infinity is omitted as
+        unavailable local motion. ``NaN``, negative infinity, and
+        finite negative values raise.
 
     Returns
     -------
@@ -84,7 +134,8 @@ def compile_finite_neighbors(
     Raises
     ------
     ValueError
-        If a candidate edge has a finite negative weight.
+        If a candidate edge has a ``NaN``, ``-inf``, or finite negative
+        weight.
     """
     n = int(graph.node_count)
     valid_nodes = tuple(bool(graph.node_is_valid(i)) for i in range(n))
@@ -98,15 +149,12 @@ def compile_finite_neighbors(
             for raw_v in graph.neighbors(u):
                 v = int(raw_v)
                 weight = float(edge_cost(u, v))
-                if not math.isfinite(weight):
+                decision = classify_edge_weight(weight, u=u, v=v)
+                if decision == UNAVAILABLE_LOCAL_MOTION:
                     rejected[(u, v)] = {
                         "candidate_edge_status": UNAVAILABLE_LOCAL_MOTION
                     }
                     continue
-                if weight < 0.0:
-                    raise ValueError(
-                        f"edge cost from {u} to {v} is negative: {weight}"
-                    )
                 kept.append(v)
                 costs[(u, v)] = weight
         adjacency[u] = tuple(kept)
