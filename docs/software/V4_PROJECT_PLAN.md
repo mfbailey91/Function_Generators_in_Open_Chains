@@ -1,8 +1,8 @@
 # Version 4 Project Plan — Kinematic Transmission Geometry in Planar 2R
 
-- **Status:** V4.0 geometry kernel and V4.1 atlas closed; V4.2/V4.2A closed as retained historical diagnostics; V4.2B mounted-coordinate closeout completed; V4.3 remains drafted and unauthorized until a later activation consumes frozen V4.2B snapshots
+- **Status:** V4.0 geometry kernel and V4.1 atlas closed; V4.2/V4.2A closed as retained historical diagnostics; V4.2B mounted-coordinate closeout completed; V4.2C is a drafted sibling planning diagnostic (unauthorized until `ACTIVE_SPRINT.md` names V4-230–V4-239); V4.3 remains drafted and unauthorized until a later activation consumes frozen V4.2B snapshots
 - **Predecessor:** Version 3 planner-independent physical-state and motion-planning contracts
-- **Immediate dependency:** formal Version 3.6C gate disposition and a separate active-sprint transition
+- **Immediate dependency:** V4.2B closeout is complete; activate any sibling downstream sprint only through a separate explicit `ACTIVE_SPRINT.md` transition
 - **Initial robot:** planar 2R open chain
 - **Initial mechanisms:** certified monotonic four-bar pair and span-matched affine gearbox pair
 - **Fresh artifact root:** `results/v4_review/`
@@ -154,6 +154,8 @@ The Version 4 geometry core owns these quantities and their rank semantics. Colu
 ### Existing foundation
 
 Version 3 already supplies direct, lattice, roadmap, tree, and OMPL planning contracts. Version 4 consumes those results rather than rebuilding the planning stack.
+
+Drafted Sprint V4.2C extends only the external OMPL algorithm portfolio needed to interpret Column A: RRT*, BIT*, FMT, and geometric KPIECE with normalized U/Q/X projection diagnostics, while direct, Dijkstra/A*, PRM, and RRTConnect remain references or controls. [ADR-031](architecture/adr/ADR-031-ompl-planner-geometry-contract.md) requires every row to declare state coordinates, sampling measure, nearest-neighbor distance, objective, heuristic, projection, goal representation, and local motion. Planner-family work metrics remain namespaced and are not collapsed into a global leaderboard.
 
 ### Application questions
 
@@ -465,6 +467,7 @@ Cross-column reports join records by stable identifiers:
 | **V4.2** | Span-controlled geometry-atlas extension (historical) | What fields does the frozen V3.6D span family induce on shared native-\(Q\) grids with gearbox and identity controls? |
 | **V4.2A** | Span-controlled visual planning audit (historical) | How do paired planners behave on that historical V4.2 atlas? |
 | **V4.2B** | Mounted-coordinate corrective closeout | What fields and planner topology remain after applying frozen V3.6D output mounts, one shared paired graph, and finite-edge admission? |
+| **V4.2C** | OMPL planner-geometry portfolio | How do optimizing, fixed-sample, and projection-guided planners respond to the same corrected \(U\rightarrow Q\rightarrow X\) contract? |
 | **V4.3** | Intrinsic gravity-free static wrench | How does that family redistribute a normalized torque box into planar endpoint force capacity on frozen V4.2B snapshots? |
 | **V4.4** | Inverse instantaneous kinematics and velocity capability | How does the transmission change actuator-rate demand, conditioning, saturation, and trackable Cartesian velocity? |
 | **V4.5** | Potential fields and continuous flow | How does the transmission precondition descent, convergence, basins, and actuator travel under coordinate controls? |
@@ -482,7 +485,7 @@ V4.0 must close before any velocity, wrench, or flow implementation begins.
 
 ### Gate V4-B — deterministic controls before population
 
-V4.1 (legacy pair), V4.2B (corrected span family; V4.2/V4.2A remain historical), V4.3 (wrench on V4.2B snapshots), and V4.4 (velocity) must each pass analytic/control tests before any population study.
+V4.1 (legacy pair), V4.2B (corrected span family; V4.2/V4.2A remain historical), V4.3 (wrench on V4.2B snapshots), and V4.4 (velocity) must each pass analytic/control tests before any population study. V4.2C must close before V4.6 treats the planning column as tested across the selected OMPL families or V4.7 makes cross-planner population claims. V4.2C is a sibling planning diagnostic and does not mathematically block separately activated V4.3/V4.4 work after V4.2B closes.
 
 ### Gate V4-C — application contract
 
@@ -507,6 +510,7 @@ results/v4_review/
 ├── v4_2_span_controlled_geometry_atlas/          # historical; do not overwrite
 ├── v4_2a_span_controlled_visual_audit/           # historical; do not overwrite
 ├── v4_2b_span_controlled_corrective_closeout/    # canonical V4.2B closeout
+├── v4_2c_ompl_planner_portfolio/                 # drafted V4.2C; unauthorized until activation
 └── v4_3_intrinsic_static_wrench/                 # drafted / blocked; V4.2B snapshots only
 ```
 
@@ -560,15 +564,16 @@ Every generated package includes:
 
 ## 14. Relationship to the current active program
 
-Applying the Version 4 planning patch does not change the active sprint.
+Landing the V4.2C planning documents and ADR-031 does not change the active sprint. V4.2B is closed; V4.3 remains unauthorized.
 
-Before source implementation:
+Before V4.2C source implementation:
 
-1. review the completed V3.6C artifact;
-2. record the V3.6C gate disposition;
-3. update `ACTIVE_SPRINT.md` in a separate explicit change;
-4. authorize only V4-000–V4-009;
-5. leave V3.7 and later work held unless separately reactivated.
+1. close and verify the corrected V4.2B artifact;
+2. return `ACTIVE_SPRINT.md` to no authorization;
+3. review ADR-031 and the V4.2C capability/budget contract;
+4. activate only V4-230–V4-239 in a separate explicit change;
+5. do not co-activate V4.3 or modify V4.3's independent wrench mathematics;
+6. preserve all V3 and V4.0–V4.2B evidence as immutable provenance.
 
 The planned Version 3 dimensional roadmap remains documented. Version 4 reorders the immediate research focus; it does not erase the 3R/6R work.
 
