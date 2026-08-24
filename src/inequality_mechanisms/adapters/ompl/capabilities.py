@@ -528,15 +528,12 @@ def _probe_projection_cell_sizes() -> dict[str, Any]:
             "detail": "ompl.base.ProjectionEvaluator",
         }
     evaluator = _make_identity_projection(ob, space)
-    if hasattr(evaluator, "setCellSizes"):
-        evaluator.setCellSizes([0.25])
-        return {"status": STATUS_SUPPORTED, "detail": "setCellSizes"}
-    if hasattr(evaluator, "setCellSize"):
-        evaluator.setCellSize(0.25)
-        return {"status": STATUS_SUPPORTED, "detail": "setCellSize"}
+    from inequality_mechanisms.adapters.ompl.binding import apply_projection_cell_sizes
+
+    record = apply_projection_cell_sizes(evaluator, [0.25])
     return {
-        "status": STATUS_MISSING_SYMBOL,
-        "detail": "setCellSizes/setCellSize",
+        "status": STATUS_SUPPORTED,
+        "detail": f"{record['method']}:{record['signature']}",
     }
 
 

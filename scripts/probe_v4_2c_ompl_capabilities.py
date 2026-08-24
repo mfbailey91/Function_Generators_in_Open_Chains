@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -32,7 +33,15 @@ def main(argv: list[str] | None = None) -> int:
         ),
     )
     args = parser.parse_args(argv)
-    matrix = probe_ompl_capabilities()
+    # OMPL C++ warnings write to stdout; keep the JSON payload on stdout.
+    saved_stdout = os.dup(1)
+    os.dup2(sys.stderr.fileno(), 1)
+    try:
+        matrix = probe_ompl_capabilities()
+    finally:
+        sys.stdout.flush()
+        os.dup2(saved_stdout, 1)
+        os.close(saved_stdout)
     text = json.dumps(matrix, indent=2, sort_keys=True) + "\n"
     print(text, end="")
     if args.output is not None:

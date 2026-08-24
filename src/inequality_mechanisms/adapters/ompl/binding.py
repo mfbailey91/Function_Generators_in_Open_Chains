@@ -74,6 +74,51 @@ def apply_ompl_method(
     }
 
 
+def apply_projection_cell_sizes(
+    evaluator: Any, sizes: Sequence[float]
+) -> dict[str, Any]:
+    """Set projection cell sizes using the live binding signature.
+
+    OMPL 2.0.1 nanobind exposes ``setCellSizes(dim: int, cellSize: float)``.
+    Older docs describe a vector overload. Try the sequence form first, then
+    the proven per-dimension form, then scalar ``setCellSize``.
+    """
+    values = [float(value) for value in sizes]
+    if not values:
+        raise OmplBindingRejectedError("projection cell_sizes must be nonempty")
+    setter = getattr(evaluator, "setCellSizes", None)
+    if callable(setter):
+        try:
+            setter(values)
+            return {
+                "method": "setCellSizes",
+                "signature": "sequence",
+                "applied": True,
+                "requested": values,
+            }
+        except TypeError:
+            for dim, size in enumerate(values):
+                setter(int(dim), float(size))
+            return {
+                "method": "setCellSizes",
+                "signature": "dim_cellSize",
+                "applied": True,
+                "requested": values,
+            }
+    scalar = getattr(evaluator, "setCellSize", None)
+    if callable(scalar):
+        scalar(float(values[0]))
+        return {
+            "method": "setCellSize",
+            "signature": "scalar",
+            "applied": True,
+            "requested": values,
+        }
+    raise OmplBindingRejectedError(
+        "projection evaluator missing setCellSizes/setCellSize"
+    )
+
+
 def require_ompl_class(og: Any, class_name: str, *, planner_id: str) -> Any:
     """Return ``og.class_name`` or raise :class:`OmplBindingRejectedError`."""
     cls = getattr(og, class_name, None)

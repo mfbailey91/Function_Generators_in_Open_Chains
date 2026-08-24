@@ -15,6 +15,7 @@ from inequality_mechanisms.adapters.ompl._availability import is_ompl_available
 from inequality_mechanisms.adapters.ompl.binding import (
     OmplBindingRejectedError,
     apply_ompl_method,
+    apply_projection_cell_sizes,
     checkpoint_costs_nonincreasing,
     require_ompl_methods,
 )
@@ -131,6 +132,22 @@ def test_missing_required_binding_method_is_typed_rejection() -> None:
     )
     assert record["applied"] is False
     assert record["reason"] == "missing_method"
+
+
+def test_projection_cell_sizes_use_per_dimension_binding() -> None:
+    class _DimSetter:
+        def __init__(self) -> None:
+            self.calls: list[tuple[int, float]] = []
+
+        def setCellSizes(self, dim: int, cellSize: float | None = None) -> None:
+            if cellSize is None:
+                raise TypeError("need dim and cellSize")
+            self.calls.append((int(dim), float(cellSize)))
+
+    evaluator = _DimSetter()
+    record = apply_projection_cell_sizes(evaluator, (0.1, 0.25))
+    assert record["signature"] == "dim_cellSize"
+    assert evaluator.calls == [(0, 0.1), (1, 0.25)]
 
 
 def test_fmt_rejects_nonpositive_sample_count() -> None:

@@ -12,6 +12,7 @@ import numpy as np
 from inequality_mechanisms.adapters.ompl._availability import require_ompl
 from inequality_mechanisms.adapters.ompl.binding import (
     apply_ompl_method,
+    apply_projection_cell_sizes,
     require_ompl_class,
     require_ompl_methods,
 )
@@ -73,19 +74,13 @@ def _make_projection_evaluator(
     class _PhysicalProjection(ob.ProjectionEvaluator):
         def __init__(self) -> None:
             super().__init__(space)
-            sizes = [float(c) for c in spec.cell_sizes]
-            if hasattr(self, "setCellSizes"):
-                self.setCellSizes(sizes)
-            elif hasattr(self, "setCellSize"):
-                self.setCellSize(float(sizes[0]))
+            apply_projection_cell_sizes(self, spec.cell_sizes)
 
         def getDimension(self) -> int:  # noqa: N802
             return int(spec.dimension)
 
         def defaultCellSizes(self) -> None:  # noqa: N802
-            sizes = [float(c) for c in spec.cell_sizes]
-            if hasattr(self, "setCellSizes"):
-                self.setCellSizes(sizes)
+            apply_projection_cell_sizes(self, spec.cell_sizes)
 
         def project(self, state: Any, projection: Any) -> None:
             physical = physical_state_from_ompl(
