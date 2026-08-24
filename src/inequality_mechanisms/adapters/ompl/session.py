@@ -22,7 +22,11 @@ from inequality_mechanisms.adapters.ompl.goals import (
     _goal_descriptor,
     select_and_build_goal,
 )
-from inequality_mechanisms.adapters.ompl.metrics import planner_data_metrics
+from inequality_mechanisms.adapters.ompl.metrics import (
+    attach_checkpoint_summaries,
+    namespace_family_metrics,
+    planner_data_metrics,
+)
 from inequality_mechanisms.adapters.ompl.objective import build_ompl_objective
 from inequality_mechanisms.adapters.ompl.planner_geometry import (
     PlannerGeometryRecord,
@@ -356,6 +360,7 @@ def build_ompl_session(
     extras["reproducibility_contract"] = "not_claimed_in_process"
     if adapter_config.extras_base:
         extras.update(dict(adapter_config.extras_base))
+    namespace_family_metrics(extras)
     extras["planner_geometry"] = geometry.to_dict()
 
     seed_applied = _apply_ompl_seed(run.seed)
@@ -670,6 +675,7 @@ def run_checkpointed(
     session.ompl_metrics["checkpoint_cost_nonincreasing"] = (
         checkpoint_costs_nonincreasing(records)
     )
+    attach_checkpoint_summaries(session, planner)
     has_exact = bool(session.ompl_metrics.get("ompl_exact_solution"))
     if not has_exact:
         return None
@@ -682,7 +688,7 @@ def finalize_ompl_result(
     path: Any,
 ) -> PlanningResult:
     """Convert an exact OMPL path into a Version 3 ``PlanningResult``."""
-    del planner
+    attach_checkpoint_summaries(session, planner)
     problem = session.problem
     task_class = session.task_class
     if task_class is None:
@@ -765,6 +771,14 @@ def finalize_ompl_result(
         session.candidates, selected, atol=float(ROUND_TRIP_TOL)
     )
     cost = float(problem.objective.trajectory_cost(states))
+    session.ompl_metrics["objective_cost"] = cost
+    session.ompl_metrics["objective_cost_units"] = "actuator_travel_polyline"
+    last_exact = session.ompl_metrics.get("final_exact_cost")
+    if last_exact is not None:
+        session.ompl_metrics["last_exact_checkpoint_best_cost"] = last_exact
+        # Checkpoint best_cost is OMPL path.length() on the session-owned
+        # solution; objective_cost is ActuatorTravelObjective on the
+        # extracted polyline. Compare only the session-owned best_cost chain.
     return session.finish(
         status=PlanningStatus.SUCCESS,
         task_class=task_class,

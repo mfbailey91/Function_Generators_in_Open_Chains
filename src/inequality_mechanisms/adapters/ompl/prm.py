@@ -81,6 +81,9 @@ class OmplPRMPlanner:
             goal_generator=self.goal_generator,
             max_goal_candidates=self.max_goal_candidates,
             solve_time_s=self.solve_time_s,
-            extras_base={"ompl_planner": "PRM", "max_nearest_neighbors": knn},
+            extras_base={
+                "ompl_planner": "PRM",
+                "family_metrics": {"max_nearest_neighbors": knn},
+            },
             trace_sink=self.trace_sink,
         )

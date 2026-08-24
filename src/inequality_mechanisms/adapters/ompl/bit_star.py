@@ -141,13 +141,15 @@ class OmplBITStarPlanner:
 
         extras: dict[str, Any] = {
             "ompl_planner": "BITstar",
-            "samples_per_batch": int(self.samples_per_batch),
-            "rewire_factor": float(self.rewire_factor),
-            "use_k_nearest": bool(self.use_k_nearest),
-            "pruning": bool(self.pruning),
-            "strict_queue_ordering": bool(self.strict_queue_ordering),
-            "checkpoints_s": list(checkpoints) if checkpoints is not None else None,
-            "binding_methods": method_log,
+            "family_metrics": {
+                "samples_per_batch": int(self.samples_per_batch),
+                "rewire_factor": float(self.rewire_factor),
+                "use_k_nearest": bool(self.use_k_nearest),
+                "pruning": bool(self.pruning),
+                "strict_queue_ordering": bool(self.strict_queue_ordering),
+                "checkpoints_s": list(checkpoints) if checkpoints is not None else None,
+                "binding_methods": method_log,
+            },
         }
         return solve_with_ompl_planner(
             problem,

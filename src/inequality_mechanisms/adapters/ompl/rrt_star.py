@@ -171,16 +171,18 @@ class OmplRRTStarPlanner:
 
         extras: dict[str, Any] = {
             "ompl_planner": "RRTstar",
-            "range_fraction": float(self.range_fraction),
-            "range_u": range_u,
-            "goal_bias": float(self.goal_bias),
-            "rewire_factor": float(self.rewire_factor),
-            "k_nearest": bool(self.k_nearest),
-            "delay_cc": bool(self.delay_cc),
-            "tree_pruning": bool(self.tree_pruning),
-            "informed_sampling": bool(self.informed_sampling),
-            "checkpoints_s": list(checkpoints) if checkpoints is not None else None,
-            "binding_methods": method_log,
+            "family_metrics": {
+                "range_fraction": float(self.range_fraction),
+                "range_u": range_u,
+                "goal_bias": float(self.goal_bias),
+                "rewire_factor": float(self.rewire_factor),
+                "k_nearest": bool(self.k_nearest),
+                "delay_cc": bool(self.delay_cc),
+                "tree_pruning": bool(self.tree_pruning),
+                "informed_sampling": bool(self.informed_sampling),
+                "checkpoints_s": list(checkpoints) if checkpoints is not None else None,
+                "binding_methods": method_log,
+            },
         }
         return solve_with_ompl_planner(
             problem,

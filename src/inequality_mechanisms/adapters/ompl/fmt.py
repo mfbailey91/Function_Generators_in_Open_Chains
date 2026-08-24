@@ -147,15 +147,19 @@ class OmplFMTPlanner:
 
         extras: dict[str, Any] = {
             "ompl_planner": "FMT",
-            "num_samples": int(self.num_samples),
-            "effective_sample_count": int(self.num_samples),
-            "nearest_k": bool(self.nearest_k),
-            "radius_multiplier": float(self.radius_multiplier),
-            "heuristics": bool(self.heuristics),
-            "extended_fmt": bool(self.extended_fmt),
-            "cache_cc": bool(self.cache_cc),
-            "continuation": "independent_sample_count",
-            "binding_methods": method_log,
+            "family_metrics": {
+                "num_samples": int(self.num_samples),
+                "effective_sample_count": int(self.num_samples),
+                "nearest_k": bool(self.nearest_k),
+                "radius_multiplier": float(self.radius_multiplier),
+                "heuristics": bool(self.heuristics),
+                "extended_fmt": bool(self.extended_fmt),
+                "cache_cc": bool(self.cache_cc),
+                "continuation": "independent_sample_count",
+                "checkpoints_s": None,
+                "unavailable_reason": "fmt_is_independent_sample_count_run",
+                "binding_methods": method_log,
+            },
         }
         return solve_with_ompl_planner(
             problem,

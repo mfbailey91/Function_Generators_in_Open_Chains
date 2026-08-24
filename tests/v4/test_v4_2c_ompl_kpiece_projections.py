@@ -312,7 +312,7 @@ def test_kpiece_smoke_exact_start_and_cost(strategy: str) -> None:
     assert extras["planner_geometry"]["exploration_projection"] == strategy
     assert extras["ompl_planner"] == "KPIECE1"
     assert planner.planner_id == _PLANNER_IDS[strategy]
-    assert extras["projection"]["cell_sizes"] == list(
+    assert extras["family_metrics"]["projection"]["cell_sizes"] == list(
         extras["planner_geometry"]["projection_cell_sizes"]
     )
     if result.status is PlanningStatus.SUCCESS:

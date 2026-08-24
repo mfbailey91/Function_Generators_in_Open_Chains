@@ -266,16 +266,18 @@ class OmplKPIECEPlanner:
 
         extras: dict[str, Any] = {
             "ompl_planner": "KPIECE1",
-            "range_fraction": float(self.range_fraction),
-            "range_u": range_u,
-            "goal_bias": float(self.goal_bias),
-            "border_fraction": float(self.border_fraction),
-            "min_valid_path_fraction": float(self.min_valid_path_fraction),
-            "cells_per_axis": int(self.cells_per_axis),
-            "projection": spec_to_dict(spec),
-            "binding_methods": method_log,
-            "kpiece_cell_occupancy": None,
-            "unavailable_reason": "kpiece_cell_stats_not_exposed_by_binding",
+            "family_metrics": {
+                "range_fraction": float(self.range_fraction),
+                "range_u": range_u,
+                "goal_bias": float(self.goal_bias),
+                "border_fraction": float(self.border_fraction),
+                "min_valid_path_fraction": float(self.min_valid_path_fraction),
+                "cells_per_axis": int(self.cells_per_axis),
+                "projection": spec_to_dict(spec),
+                "binding_methods": method_log,
+                "kpiece_cell_occupancy": None,
+                "unavailable_reason": "kpiece_cell_stats_not_exposed_by_binding",
+            },
         }
         return solve_with_ompl_planner(
             problem,
