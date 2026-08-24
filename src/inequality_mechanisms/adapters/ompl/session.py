@@ -88,7 +88,7 @@ def _goal_usable(problem: PlanningProblem) -> bool:
 def _apply_ompl_seed(seed: int) -> bool:
     """Best-effort process-global OMPL RNG seed request."""
     try:
-        import ompl.util as ou  # type: ignore[attr-defined]
+        import ompl.util as ou  # type: ignore[import-not-found, unused-ignore]
 
         if hasattr(ou, "RNG") and hasattr(ou.RNG, "setSeed"):
             ou.RNG.setSeed(int(seed) % (2**32))
@@ -492,6 +492,10 @@ def configure_goal(
     """Attach finite OMPL goal states from generated or frozen candidates."""
     if session.early_result is not None:
         return session
+    space = session.space
+    pdef = session.pdef
+    if space is None or pdef is None:
+        raise RuntimeError("configure_goal requires an initialized OMPL space")
     problem = session.problem
     ob, _og = require_ompl()
     if frozen_candidates is not None:
@@ -510,8 +514,8 @@ def configure_goal(
         goal_ompl = ob.GoalStates(session.si)
         owned_goal_states: list[Any] = []
         for cand in candidates:
-            st = session.space.allocState()
-            write_u_to_ompl_state(session.space, st, cand.state.u)
+            st = space.allocState()
+            write_u_to_ompl_state(space, st, cand.state.u)
             goal_ompl.addState(st)
             owned_goal_states.append(st)
     else:
@@ -543,7 +547,10 @@ def configure_goal(
     session.candidates = list(candidates)
     session.goal_ompl = goal_ompl
     session.goal_metadata = dict(metadata)
-    session.presearch_state_checks = 1 + int(metadata["goal_samples_generated"])
+    generated = metadata["goal_samples_generated"]
+    if not isinstance(generated, int):
+        raise TypeError("goal_samples_generated must be int")
+    session.presearch_state_checks = 1 + generated
 
     if not candidates:
         session.early_result = session.finish(
@@ -570,7 +577,7 @@ def configure_goal(
         candidates_representable=True,
         connector_succeeded=direct_succeeded,
     )
-    session.pdef.setGoal(goal_ompl)
+    pdef.setGoal(goal_ompl)
     return session
 
 
@@ -578,10 +585,13 @@ def configure_objective(session: OmplSolveSession) -> OmplSolveSession:
     """Attach the actuator-travel path-length objective to the problem definition."""
     if session.early_result is not None:
         return session
+    pdef = session.pdef
+    if pdef is None:
+        raise RuntimeError("configure_objective requires a problem definition")
     ompl_objective, objective_metadata = build_ompl_objective(
         session.si, session.problem
     )
-    session.pdef.setOptimizationObjective(ompl_objective)
+    pdef.setOptimizationObjective(ompl_objective)
     session.ompl_metrics.update(objective_metadata)
     session.extras.update(objective_metadata)
     return session
@@ -597,7 +607,10 @@ def run_single_shot(session: OmplSolveSession, planner: Any) -> Any:
     _has_solution, has_exact_solution, _difference = _record_solution_flags(session)
     if not has_exact_solution:
         return None
-    return session.pdef.getSolutionPath()
+    pdef = session.pdef
+    if pdef is None:
+        return None
+    return pdef.getSolutionPath()
 
 
 def run_checkpointed(
@@ -637,7 +650,8 @@ def run_checkpointed(
         best_cost = _best_path_cost(session.pdef) if has_exact_solution else None
         if has_exact_solution:
             try:
-                last_path = session.pdef.getSolutionPath()
+                pdef = session.pdef
+                last_path = None if pdef is None else pdef.getSolutionPath()
             except Exception:
                 last_path = None
         records.append(

@@ -16,6 +16,7 @@ from inequality_mechanisms.audits.v4_2c_artifact import (
     write_calibration_selection,
 )
 from inequality_mechanisms.audits.v4_artifact_guard import (
+    CANONICAL_REPO_ROOT,
     ArtifactPathForbiddenError,
     DirtySourceError,
 )
@@ -191,6 +192,16 @@ def package_root(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
         calibration_config_digest=cal.digest(),
     )
     return root
+
+
+def test_v4_2c_closeout_keeps_v4_3_unauthorized() -> None:
+    text = (
+        CANONICAL_REPO_ROOT / "docs" / "software" / "planning" / "ACTIVE_SPRINT.md"
+    ).read_text(encoding="utf-8")
+    assert "**Code authorization:** none." in text
+    assert "Sprint V4.2C is **completed**" in text
+    assert "Sprint V4.3 remains **drafted / blocked**" in text
+    assert "Do not implement V4.3 / V4-300+" in text
 
 
 def test_package_and_verify_synthetic_root(package_root: Path) -> None:

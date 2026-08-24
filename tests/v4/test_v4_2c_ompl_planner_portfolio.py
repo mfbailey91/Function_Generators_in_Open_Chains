@@ -125,9 +125,7 @@ def test_v4_2b_digest_mismatch_fails_before_planning(
         return _complete_worker(request)
 
     with pytest.raises(V4OmplPortfolioRunnerError, match="files_digest"):
-        run_ompl_planner_portfolio(
-            config, worker_invoker=invoker, repo_root=tmp_path
-        )
+        run_ompl_planner_portfolio(config, worker_invoker=invoker, repo_root=tmp_path)
     assert called["n"] == 0
 
 
@@ -210,9 +208,7 @@ def test_config_drift_inside_output_root_is_refused(
     run_ompl_planner_portfolio(config, worker_invoker=invoker, repo_root=tmp_path)
     drifted = config.model_copy(update={"seed_base": config.seed_base + 1})
     with pytest.raises(V4OmplPortfolioRunnerError, match="drift"):
-        run_ompl_planner_portfolio(
-            drifted, worker_invoker=invoker, repo_root=tmp_path
-        )
+        run_ompl_planner_portfolio(drifted, worker_invoker=invoker, repo_root=tmp_path)
 
 
 def test_audit_refuses_without_matching_calibration_selection(

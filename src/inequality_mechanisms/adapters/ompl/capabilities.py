@@ -400,8 +400,8 @@ def _construct_planner(og: Any, si: Any, class_name: str) -> Any:
 
 
 def _probe_construct(class_name: str) -> dict[str, Any]:
-    import ompl.base as ob
-    import ompl.geometric as og
+    import ompl.base as ob  # type: ignore[import-not-found, unused-ignore]
+    import ompl.geometric as og  # type: ignore[import-not-found, unused-ignore]
 
     _space, si = _tiny_space_information(ob)
     planner = _construct_planner(og, si, class_name)
@@ -412,8 +412,8 @@ def _probe_construct(class_name: str) -> dict[str, Any]:
 
 
 def _probe_methods(class_name: str, methods: Sequence[str]) -> dict[str, Any]:
-    import ompl.base as ob
-    import ompl.geometric as og
+    import ompl.base as ob  # type: ignore[import-not-found, unused-ignore]
+    import ompl.geometric as og  # type: ignore[import-not-found, unused-ignore]
 
     _space, si = _tiny_space_information(ob)
     planner = _construct_planner(og, si, class_name)
@@ -430,8 +430,8 @@ def _probe_methods(class_name: str, methods: Sequence[str]) -> dict[str, Any]:
 
 
 def _probe_multi_goal(class_name: str) -> dict[str, Any]:
-    import ompl.base as ob
-    import ompl.geometric as og
+    import ompl.base as ob  # type: ignore[import-not-found, unused-ignore]
+    import ompl.geometric as og  # type: ignore[import-not-found, unused-ignore]
 
     space, si = _tiny_space_information(ob)
     planner = _construct_planner(og, si, class_name)
@@ -463,8 +463,8 @@ def _probe_multi_goal(class_name: str) -> dict[str, Any]:
 
 
 def _probe_repeated_solve() -> dict[str, Any]:
-    import ompl.base as ob
-    import ompl.geometric as og
+    import ompl.base as ob  # type: ignore[import-not-found, unused-ignore]
+    import ompl.geometric as og  # type: ignore[import-not-found, unused-ignore]
 
     space, si = _tiny_space_information(ob)
     planner = _construct_planner(og, si, "RRTConnect")
@@ -486,7 +486,7 @@ def _probe_repeated_solve() -> dict[str, Any]:
 
 
 def _make_identity_projection(ob: Any, space: Any) -> Any:
-    class _IdentityProjection(ob.ProjectionEvaluator):
+    class _IdentityProjection(ob.ProjectionEvaluator):  # type: ignore[misc]
         def getDimension(self) -> int:  # noqa: N802
             return 1
 
@@ -497,7 +497,7 @@ def _make_identity_projection(ob: Any, space: Any) -> Any:
 
 
 def _probe_projection_evaluator() -> dict[str, Any]:
-    import ompl.base as ob
+    import ompl.base as ob  # type: ignore[import-not-found, unused-ignore]
 
     space, _si = _tiny_space_information(ob)
     if not hasattr(ob, "ProjectionEvaluator"):
@@ -519,7 +519,7 @@ def _probe_projection_evaluator() -> dict[str, Any]:
 
 
 def _probe_projection_cell_sizes() -> dict[str, Any]:
-    import ompl.base as ob
+    import ompl.base as ob  # type: ignore[import-not-found, unused-ignore]
 
     space, _si = _tiny_space_information(ob)
     if not hasattr(ob, "ProjectionEvaluator"):
@@ -538,8 +538,8 @@ def _probe_projection_cell_sizes() -> dict[str, Any]:
 
 
 def _probe_planner_data() -> dict[str, Any]:
-    import ompl.base as ob
-    import ompl.geometric as og
+    import ompl.base as ob  # type: ignore[import-not-found, unused-ignore]
+    import ompl.geometric as og  # type: ignore[import-not-found, unused-ignore]
 
     _space, si = _tiny_space_information(ob)
     planner = _construct_planner(og, si, "RRTConnect")
@@ -563,7 +563,7 @@ def _probe_planner_data() -> dict[str, Any]:
 
 
 def _probe_sampler_allocator() -> dict[str, Any]:
-    import ompl.base as ob
+    import ompl.base as ob  # type: ignore[import-not-found, unused-ignore]
 
     space, _si = _tiny_space_information(ob)
     if not hasattr(space, "setStateSamplerAllocator"):
@@ -578,7 +578,7 @@ def _probe_sampler_allocator() -> dict[str, Any]:
 
 
 def _probe_sampler_precomputed() -> dict[str, Any]:
-    import ompl.base as ob
+    import ompl.base as ob  # type: ignore[import-not-found, unused-ignore]
 
     names = (
         "PrecomputedStateSampler",
@@ -598,7 +598,7 @@ def _probe_sampler_precomputed() -> dict[str, Any]:
 
 
 def _probe_sampler_deterministic() -> dict[str, Any]:
-    import ompl.util as ou
+    import ompl.util as ou  # type: ignore[import-not-found, unused-ignore]
 
     rng = getattr(ou, "RNG", None)
     if rng is None or not hasattr(rng, "setSeed"):
@@ -613,7 +613,7 @@ def _probe_sampler_deterministic() -> dict[str, Any]:
 
 
 def _probe_exact_solution_api() -> dict[str, Any]:
-    import ompl.base as ob
+    import ompl.base as ob  # type: ignore[import-not-found, unused-ignore]
 
     _space, si = _tiny_space_information(ob)
     pdef = ob.ProblemDefinition(si)

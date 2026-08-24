@@ -271,8 +271,12 @@ def _trajectory_series(
 
 def extract_row_view(record: Mapping[str, Any]) -> dict[str, Any]:
     """Return a compact provenance+metric view of one retained row or attempt."""
-    worker = record.get("worker") if isinstance(record.get("worker"), Mapping) else {}
-    result = worker.get("result") if isinstance(worker.get("result"), Mapping) else None
+    raw_worker = record.get("worker")
+    worker: Mapping[str, Any] = raw_worker if isinstance(raw_worker, Mapping) else {}
+    raw_result = worker.get("result")
+    result: Mapping[str, Any] | None = (
+        raw_result if isinstance(raw_result, Mapping) else None
+    )
     status = str(worker.get("status") or record.get("status") or "unknown")
     family: dict[str, Any] = {}
     extras = None
@@ -733,9 +737,9 @@ def _plot_kpiece_occupancy(views: Sequence[Mapping[str, Any]], path: Path) -> li
     for ax, planner_id in zip(
         axes, ("ompl_kpiece_u", "ompl_kpiece_q", "ompl_kpiece_x"), strict=True
     ):
-        view = selected[planner_id]
+        chosen = selected[planner_id]
         ax.set_title(planner_id)
-        family = view.get("family_metrics") if view is not None else {}
+        family = chosen.get("family_metrics") if chosen is not None else {}
         grid = (
             family.get("kpiece_cell_occupancy") if isinstance(family, Mapping) else None
         )

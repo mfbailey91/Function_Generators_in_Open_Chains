@@ -275,9 +275,7 @@ def _build_v4_2b_problem(request: Mapping[str, Any]) -> tuple[Any, Any]:
         realized_map[case_id] = realize_mounted_span_case(
             cases[case_id], _V4_2B_CACHE["registry"]
         )
-    arms = sampling_arms_for_mounted(
-        realized_map[case_id], L1=PLANAR_L1, L2=PLANAR_L2
-    )
+    arms = sampling_arms_for_mounted(realized_map[case_id], L1=PLANAR_L1, L2=PLANAR_L2)
     if mechanism not in arms:
         raise ValueError(f"unknown_mechanism:{mechanism}")
     arm = arms[mechanism]

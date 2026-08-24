@@ -186,9 +186,10 @@ def test_historical_package_digests_unchanged() -> None:
 def test_v4_3_remains_blocked() -> None:
     text = ACTIVE_SPRINT.read_text(encoding="utf-8")
     assert "**Code authorization:** none." in text
-    assert "Sprint V4.2B is completed" in text
-    assert "Sprint V4.3 remains drafted / blocked" in text
-    assert "V4-300" not in text
+    assert "**Sprint V4.2B**" in text
+    assert "Sprint V4.2C is **completed**" in text
+    assert "Sprint V4.3 remains **drafted / blocked**" in text
+    assert "Do not implement V4.3 / V4-300+" in text
     with pytest.raises(ArtifactPathForbiddenError, match="unauthorized V4 package"):
         assert_v4_2b_output_allowed(V4_3_OUTPUT)
     hits = [

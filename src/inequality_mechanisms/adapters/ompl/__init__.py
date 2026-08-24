@@ -17,6 +17,8 @@ There is no reliable single pip wheel for every platform; see optional extra
 
 from __future__ import annotations
 
+from typing import Any
+
 from inequality_mechanisms.adapters.ompl._availability import (
     is_ompl_available,
     ompl_version_string,
@@ -36,7 +38,7 @@ __all__ = [
 ]
 
 
-def __getattr__(name: str):
+def __getattr__(name: str) -> Any:
     """Lazily import planner classes so bare package import stays OMPL-free."""
     if name == "OmplPRMPlanner":
         from inequality_mechanisms.adapters.ompl.prm import OmplPRMPlanner

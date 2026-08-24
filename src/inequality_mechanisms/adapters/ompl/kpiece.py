@@ -71,7 +71,7 @@ def _make_projection_evaluator(
     robot = problem.robot
     assembly = dict(problem.start.assembly_state)
 
-    class _PhysicalProjection(ob.ProjectionEvaluator):
+    class _PhysicalProjection(ob.ProjectionEvaluator):  # type: ignore[misc]
         def __init__(self) -> None:
             super().__init__(space)
             apply_projection_cell_sizes(self, spec.cell_sizes)

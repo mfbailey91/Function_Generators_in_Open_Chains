@@ -24,9 +24,7 @@ from inequality_mechanisms.experiments.v4.span_common_physical_bank import (
 )
 
 SCHEMA_VERSION = "v4.2c.ompl_planner_portfolio.v1"
-CALIBRATION_SELECTION_SCHEMA = (
-    "v4.2c.ompl_planner_portfolio.calibration_selection.v1"
-)
+CALIBRATION_SELECTION_SCHEMA = "v4.2c.ompl_planner_portfolio.calibration_selection.v1"
 NO_INFERENCE_STATEMENT = (
     "OMPL planner-geometry portfolio; descriptive only; no mechanism "
     "performance inference."
@@ -41,11 +39,9 @@ FROZEN_V4_2B_FILES_DIGEST = (
 FROZEN_V4_2B_N_FILES = 23
 FROZEN_V4_2B_N_GEOMETRY_ROWS = 55539
 CONTROL_PLANNER_IDS = frozenset({"ompl_prm", "ompl_rrt_connect"})
-PROJECTION_PLANNER_IDS = frozenset(
-    {"ompl_kpiece_u", "ompl_kpiece_q", "ompl_kpiece_x"}
-)
+PROJECTION_PLANNER_IDS = frozenset({"ompl_kpiece_u", "ompl_kpiece_q", "ompl_kpiece_x"})
 PRIMARY_PLANNER_IDS = frozenset({"ompl_rrt_star", "ompl_bit_star", "ompl_fmt"})
-MECHANISM_IDS = ("fourbar", "gearbox")
+MECHANISM_IDS: tuple[Literal["fourbar", "gearbox"], ...] = ("fourbar", "gearbox")
 ModeName = Literal["smoke", "calibration", "audit", "all_cases_optional"]
 StageName = Literal["stage_a", "stage_b", "stage_c", "all_cases_optional"]
 MODE_STAGE: dict[str, StageName] = {
@@ -464,7 +460,7 @@ class OmplPlannerPortfolioConfig(BaseModel):
 def frozen_source_lock() -> SourceLock:
     """Return the committed V4.2B closeout lock used by every portfolio config."""
     return SourceLock(
-        v4_2b_package=V4_2B_ALLOWED_PACKAGE,
+        v4_2b_package="v4_2b_span_controlled_corrective_closeout",
         v4_2b_git_tracked_sha256=FROZEN_V4_2B_GIT_TRACKED_SHA256,
         v4_2b_git_tracked_n_files=FROZEN_V4_2B_GIT_TRACKED_N_FILES,
         v4_2b_files_digest=FROZEN_V4_2B_FILES_DIGEST,

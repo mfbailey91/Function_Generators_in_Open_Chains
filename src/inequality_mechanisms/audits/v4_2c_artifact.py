@@ -154,13 +154,16 @@ def _stage_counts(stage_dir: Path) -> dict[str, Any]:
 
 
 def _checkpoints_from_row(row: Mapping[str, Any]) -> list[dict[str, Any]]:
-    worker = row.get("worker") if isinstance(row.get("worker"), Mapping) else {}
-    result = worker.get("result") if isinstance(worker.get("result"), Mapping) else {}
-    records = (
-        result.get("planner_metrics", {}).get("ompl", {}).get("checkpoints")
-        if isinstance(result.get("planner_metrics"), Mapping)
-        else None
-    )
+    raw_worker = row.get("worker")
+    worker: Mapping[str, Any] = raw_worker if isinstance(raw_worker, Mapping) else {}
+    raw_result = worker.get("result")
+    result: Mapping[str, Any] = raw_result if isinstance(raw_result, Mapping) else {}
+    metrics = result.get("planner_metrics")
+    records = None
+    if isinstance(metrics, Mapping):
+        ompl_metrics = metrics.get("ompl")
+        if isinstance(ompl_metrics, Mapping):
+            records = ompl_metrics.get("checkpoints")
     if not isinstance(records, list):
         return []
     out = []
@@ -321,8 +324,7 @@ def package_ompl_planner_portfolio(
         if leftover and not allow_dirty:
             raise DirtySourceError(
                 "Refusing dirty-source V4.2C packaging; only untracked files "
-                f"under {V4_2C_ALLOWED_PACKAGE} are allowed.\n"
-                + "\n".join(leftover)
+                f"under {V4_2C_ALLOWED_PACKAGE} are allowed.\n" + "\n".join(leftover)
             )
     else:
         revision = str(source_git_revision)
