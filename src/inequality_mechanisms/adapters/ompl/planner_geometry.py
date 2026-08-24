@@ -10,12 +10,14 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any, Final
 
-PLANNER_ROLES: Final[frozenset[str]] = frozenset({"architecture_control"})
+PLANNER_ROLES: Final[frozenset[str]] = frozenset(
+    {"architecture_control", "primary_optimizing"}
+)
 STATE_COORDINATES: Final[frozenset[str]] = frozenset({"u"})
 SAMPLING_MEASURES: Final[frozenset[str]] = frozenset({"uniform_raw_u"})
 NEAREST_NEIGHBOR_DISTANCES: Final[frozenset[str]] = frozenset({"euclidean_u"})
 OPTIMIZATION_OBJECTIVES: Final[frozenset[str]] = frozenset({"actuator_travel"})
-COST_TO_GO_HEURISTICS: Final[frozenset[str]] = frozenset({"none"})
+COST_TO_GO_HEURISTICS: Final[frozenset[str]] = frozenset({"none", "euclidean_u"})
 EXPLORATION_PROJECTIONS: Final[frozenset[str]] = frozenset({"none"})
 PROJECTION_NORMALIZATIONS: Final[frozenset[str]] = frozenset({"none"})
 GOAL_REPRESENTATIONS: Final[frozenset[str]] = frozenset({"finite_goal_states"})
@@ -120,6 +122,31 @@ def primary_ompl_geometry() -> PlannerGeometryRecord:
         nearest_neighbor_distance="euclidean_u",
         optimization_objective="actuator_travel",
         cost_to_go_heuristic="none",
+        exploration_projection="none",
+        projection_normalization="none",
+        projection_cell_sizes=(),
+        goal_representation="finite_goal_states",
+        local_motion_model="input_linear",
+    )
+
+
+def optimizing_ompl_geometry(
+    *,
+    cost_to_go_heuristic: str = "none",
+) -> PlannerGeometryRecord:
+    """Return the primary V4.2C geometry for RRT* / BIT* / FMT rows.
+
+    Same physical contract as :func:`primary_ompl_geometry`, with
+    ``planner_role="primary_optimizing"`` so architecture-control rows stay
+    distinct. FMT heuristics-on rows pass ``cost_to_go_heuristic="euclidean_u"``.
+    """
+    return PlannerGeometryRecord(
+        planner_role="primary_optimizing",
+        state_coordinates="u",
+        sampling_measure="uniform_raw_u",
+        nearest_neighbor_distance="euclidean_u",
+        optimization_objective="actuator_travel",
+        cost_to_go_heuristic=cost_to_go_heuristic,
         exploration_projection="none",
         projection_normalization="none",
         projection_cell_sizes=(),

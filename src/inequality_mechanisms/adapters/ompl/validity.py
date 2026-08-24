@@ -55,9 +55,7 @@ def make_state_validity_checker(
 
         def isValid(self, state: Any) -> bool:  # noqa: N802 — OMPL API
             counters.state_checks += 1
-            return _is_state_valid(
-                problem, space, state, assembly_state=assembly_state
-            )
+            return _is_state_valid(problem, space, state, assembly_state=assembly_state)
 
     return _Checker()
 

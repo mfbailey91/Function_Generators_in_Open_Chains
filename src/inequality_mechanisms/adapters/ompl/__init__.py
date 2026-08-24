@@ -24,8 +24,11 @@ from inequality_mechanisms.adapters.ompl._availability import (
 )
 
 __all__ = [
+    "OmplBITStarPlanner",
+    "OmplFMTPlanner",
     "OmplPRMPlanner",
     "OmplRRTConnectPlanner",
+    "OmplRRTStarPlanner",
     "is_ompl_available",
     "ompl_version_string",
     "require_ompl",
@@ -39,7 +42,21 @@ def __getattr__(name: str):
 
         return OmplPRMPlanner
     if name == "OmplRRTConnectPlanner":
-        from inequality_mechanisms.adapters.ompl.rrt_connect import OmplRRTConnectPlanner
+        from inequality_mechanisms.adapters.ompl.rrt_connect import (
+            OmplRRTConnectPlanner,
+        )
 
         return OmplRRTConnectPlanner
+    if name == "OmplRRTStarPlanner":
+        from inequality_mechanisms.adapters.ompl.rrt_star import OmplRRTStarPlanner
+
+        return OmplRRTStarPlanner
+    if name == "OmplFMTPlanner":
+        from inequality_mechanisms.adapters.ompl.fmt import OmplFMTPlanner
+
+        return OmplFMTPlanner
+    if name == "OmplBITStarPlanner":
+        from inequality_mechanisms.adapters.ompl.bit_star import OmplBITStarPlanner
+
+        return OmplBITStarPlanner
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

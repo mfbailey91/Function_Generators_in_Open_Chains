@@ -2,14 +2,18 @@
 
 V4-232 keeps this module as the compatibility orchestrator. PRM and RRTConnect
 continue to call :func:`solve_with_ompl_planner` with one ``planner.solve``.
+V4-233 optimizing adapters may pass ``checkpoints`` and a non-control geometry.
 """
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from typing import Any
 
-from inequality_mechanisms.adapters.ompl.planner_geometry import primary_ompl_geometry
+from inequality_mechanisms.adapters.ompl.planner_geometry import (
+    PlannerGeometryRecord,
+    primary_ompl_geometry,
+)
 from inequality_mechanisms.adapters.ompl.session import (
     OmplAdapterConfig,
     _canonicalize_exact_start,
@@ -19,6 +23,7 @@ from inequality_mechanisms.adapters.ompl.session import (
     configure_objective,
     extract_path_states,
     finalize_ompl_result,
+    run_checkpointed,
     run_single_shot,
 )
 from inequality_mechanisms.core.goals import GoalStateGenerator
@@ -46,8 +51,10 @@ def solve_with_ompl_planner(
     solve_time_s: float,
     extras_base: dict[str, Any] | None = None,
     trace_sink: Any | None = None,
+    geometry: PlannerGeometryRecord | None = None,
+    checkpoints: Sequence[float] | None = None,
 ) -> PlanningResult:
-    """Classify, set up OMPL, solve once, and return a Version 3 ``PlanningResult``.
+    """Classify, set up OMPL, solve, and return a Version 3 ``PlanningResult``.
 
     Parameters
     ----------
@@ -56,6 +63,11 @@ def solve_with_ompl_planner(
     trace_sink
         Optional audit sink. Only a final ``PlannerData`` snapshot is emitted;
         stepwise OMPL history is marked unavailable.
+    geometry
+        Planner-geometry declaration. Defaults to the PRM/RRTConnect control.
+    checkpoints
+        Optional strictly increasing cumulative times. When omitted, the
+        existing one-shot ``planner.solve(solve_time_s)`` path is used.
     """
     config = OmplAdapterConfig(
         planner_id=planner_id,
@@ -67,7 +79,7 @@ def solve_with_ompl_planner(
         solve_time_s=solve_time_s,
         extras_base=extras_base,
         trace_sink=trace_sink,
-        geometry=primary_ompl_geometry(),
+        geometry=geometry or primary_ompl_geometry(),
     )
     session = build_ompl_session(problem, config)
     if session.early_result is not None:
@@ -79,5 +91,8 @@ def solve_with_ompl_planner(
     planner = make_planner(session.si)
     planner.setProblemDefinition(session.pdef)
     planner.setup()
-    path = run_single_shot(session, planner)
+    if checkpoints is None:
+        path = run_single_shot(session, planner)
+    else:
+        path = run_checkpointed(session, planner, checkpoints)
     return finalize_ompl_result(session, planner, path)

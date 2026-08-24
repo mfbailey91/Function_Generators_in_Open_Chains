@@ -17,6 +17,7 @@ from inequality_mechanisms.adapters.ompl._availability import (
     ompl_version_string,
     require_ompl,
 )
+from inequality_mechanisms.adapters.ompl.binding import checkpoint_costs_nonincreasing
 from inequality_mechanisms.adapters.ompl.goals import (
     _goal_descriptor,
     select_and_build_goal,
@@ -666,6 +667,9 @@ def run_checkpointed(
         )
     _record_solution_flags(session)
     session.ompl_metrics["ompl_status"] = str(records[-1]["ompl_status"])
+    session.ompl_metrics["checkpoint_cost_nonincreasing"] = (
+        checkpoint_costs_nonincreasing(records)
+    )
     has_exact = bool(session.ompl_metrics.get("ompl_exact_solution"))
     if not has_exact:
         return None

@@ -1,0 +1,106 @@
+"""Guarded OMPL binding-method application (V4-233).
+
+Importing this module does not import ``ompl``. Missing required setters are a
+typed adapter rejection, not a silent default.
+"""
+
+from __future__ import annotations
+
+from collections.abc import Sequence
+from typing import Any
+
+
+class OmplBindingRejectedError(ValueError):
+    """Required OMPL class or method is absent from the installed binding."""
+
+
+def missing_ompl_methods(planner: Any, methods: Sequence[str]) -> tuple[str, ...]:
+    """Return method names ``planner`` does not expose."""
+    return tuple(name for name in methods if not hasattr(planner, name))
+
+
+def require_ompl_methods(
+    planner: Any,
+    methods: Sequence[str],
+    *,
+    planner_id: str,
+) -> None:
+    """Raise :class:`OmplBindingRejectedError` if any required method is missing."""
+    missing = missing_ompl_methods(planner, methods)
+    if missing:
+        raise OmplBindingRejectedError(
+            f"{planner_id} missing required OMPL binding methods: {list(missing)}"
+        )
+
+
+def apply_ompl_method(
+    planner: Any,
+    method_name: str,
+    value: Any,
+    *,
+    planner_id: str,
+    required: bool = True,
+) -> dict[str, Any]:
+    """Call ``planner.method_name(value)`` and record whether it applied.
+
+    If ``required`` and the method is absent, raise
+    :class:`OmplBindingRejectedError`. Optional missing methods are recorded
+    rather than approximated.
+    """
+    if not hasattr(planner, method_name):
+        if required:
+            raise OmplBindingRejectedError(
+                f"{planner_id} missing required OMPL binding method {method_name}"
+            )
+        return {
+            "method": method_name,
+            "applied": False,
+            "reason": "missing_method",
+            "requested": value,
+        }
+    getattr(planner, method_name)(value)
+    recorded: Any = value
+    getter = "get" + method_name[3:] if method_name.startswith("set") else None
+    if getter is not None and hasattr(planner, getter):
+        try:
+            recorded = getattr(planner, getter)()
+        except Exception:
+            recorded = value
+    return {
+        "method": method_name,
+        "applied": True,
+        "requested": value,
+        "recorded": recorded,
+    }
+
+
+def require_ompl_class(og: Any, class_name: str, *, planner_id: str) -> Any:
+    """Return ``og.class_name`` or raise :class:`OmplBindingRejectedError`."""
+    cls = getattr(og, class_name, None)
+    if cls is None:
+        raise OmplBindingRejectedError(
+            f"{planner_id} missing ompl.geometric.{class_name}"
+        )
+    return cls
+
+
+def validate_checkpoints(checkpoints: Sequence[float]) -> tuple[float, ...]:
+    """Return a strictly increasing nonnegative checkpoint tuple."""
+    times = tuple(float(t) for t in checkpoints)
+    if not times:
+        raise ValueError("checkpoints must be a nonempty strictly increasing sequence")
+    if any(t < 0.0 for t in times):
+        raise ValueError("checkpoints must be nonnegative")
+    if any(times[i] <= times[i - 1] for i in range(1, len(times))):
+        raise ValueError("checkpoints must be strictly increasing")
+    return times
+
+
+def checkpoint_costs_nonincreasing(records: Sequence[dict[str, Any]]) -> bool | None:
+    """Return whether exact-solution best costs never increase, or None."""
+    costs = [
+        record["best_cost"] for record in records if record.get("best_cost") is not None
+    ]
+    if len(costs) < 2:
+        return None
+    return all(costs[i] <= costs[i - 1] + 1e-12 for i in range(1, len(costs)))
