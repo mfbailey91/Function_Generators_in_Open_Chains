@@ -11,15 +11,17 @@ from dataclasses import dataclass
 from typing import Any, Final
 
 PLANNER_ROLES: Final[frozenset[str]] = frozenset(
-    {"architecture_control", "primary_optimizing"}
+    {"architecture_control", "primary_optimizing", "projection_diagnostic"}
 )
 STATE_COORDINATES: Final[frozenset[str]] = frozenset({"u"})
 SAMPLING_MEASURES: Final[frozenset[str]] = frozenset({"uniform_raw_u"})
 NEAREST_NEIGHBOR_DISTANCES: Final[frozenset[str]] = frozenset({"euclidean_u"})
 OPTIMIZATION_OBJECTIVES: Final[frozenset[str]] = frozenset({"actuator_travel"})
 COST_TO_GO_HEURISTICS: Final[frozenset[str]] = frozenset({"none", "euclidean_u"})
-EXPLORATION_PROJECTIONS: Final[frozenset[str]] = frozenset({"none"})
-PROJECTION_NORMALIZATIONS: Final[frozenset[str]] = frozenset({"none"})
+EXPLORATION_PROJECTIONS: Final[frozenset[str]] = frozenset(
+    {"none", "normalized_u", "normalized_mounted_q", "normalized_cartesian_x"}
+)
+PROJECTION_NORMALIZATIONS: Final[frozenset[str]] = frozenset({"none", "minmax_unit"})
 GOAL_REPRESENTATIONS: Final[frozenset[str]] = frozenset({"finite_goal_states"})
 LOCAL_MOTION_MODELS: Final[frozenset[str]] = frozenset({"input_linear"})
 
@@ -90,10 +92,33 @@ class PlannerGeometryRecord:
                     f"PlannerGeometryRecord.{name}={value!r} is not allowed; "
                     f"expected one of {sorted(allowed)}"
                 )
-        if self.projection_cell_sizes != ():
+        cells = self.projection_cell_sizes
+        if self.exploration_projection == "none":
+            if cells != ():
+                raise ValueError(
+                    "PlannerGeometryRecord.projection_cell_sizes must be empty "
+                    f"when exploration_projection is 'none'; got {cells!r}"
+                )
+            if self.projection_normalization != "none":
+                raise ValueError(
+                    "PlannerGeometryRecord.projection_normalization must be 'none' "
+                    "when exploration_projection is 'none'"
+                )
+            return
+        if self.projection_normalization != "minmax_unit":
             raise ValueError(
-                "PlannerGeometryRecord.projection_cell_sizes must be empty "
-                f"for the primary OMPL geometry; got {self.projection_cell_sizes!r}"
+                "PlannerGeometryRecord.projection_normalization must be "
+                "'minmax_unit' when an exploration projection is declared"
+            )
+        if cells == ():
+            raise ValueError(
+                "PlannerGeometryRecord.projection_cell_sizes must be nonempty "
+                "when an exploration projection is declared"
+            )
+        if any((not (c == c) or c <= 0.0) for c in cells):
+            raise ValueError(
+                "PlannerGeometryRecord.projection_cell_sizes must be positive "
+                f"and finite; got {cells!r}"
             )
 
     def to_dict(self) -> dict[str, Any]:
@@ -150,6 +175,26 @@ def optimizing_ompl_geometry(
         exploration_projection="none",
         projection_normalization="none",
         projection_cell_sizes=(),
+        goal_representation="finite_goal_states",
+        local_motion_model="input_linear",
+    )
+
+
+def kpiece_ompl_geometry(
+    exploration_projection: str,
+    cell_sizes: tuple[float, ...],
+) -> PlannerGeometryRecord:
+    """Return projection-diagnostic geometry for KPIECE U/Q/X rows."""
+    return PlannerGeometryRecord(
+        planner_role="projection_diagnostic",
+        state_coordinates="u",
+        sampling_measure="uniform_raw_u",
+        nearest_neighbor_distance="euclidean_u",
+        optimization_objective="actuator_travel",
+        cost_to_go_heuristic="none",
+        exploration_projection=exploration_projection,
+        projection_normalization="minmax_unit",
+        projection_cell_sizes=cell_sizes,
         goal_representation="finite_goal_states",
         local_motion_model="input_linear",
     )

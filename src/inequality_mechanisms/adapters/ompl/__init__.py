@@ -26,6 +26,7 @@ from inequality_mechanisms.adapters.ompl._availability import (
 __all__ = [
     "OmplBITStarPlanner",
     "OmplFMTPlanner",
+    "OmplKPIECEPlanner",
     "OmplPRMPlanner",
     "OmplRRTConnectPlanner",
     "OmplRRTStarPlanner",
@@ -55,6 +56,10 @@ def __getattr__(name: str):
         from inequality_mechanisms.adapters.ompl.fmt import OmplFMTPlanner
 
         return OmplFMTPlanner
+    if name == "OmplKPIECEPlanner":
+        from inequality_mechanisms.adapters.ompl.kpiece import OmplKPIECEPlanner
+
+        return OmplKPIECEPlanner
     if name == "OmplBITStarPlanner":
         from inequality_mechanisms.adapters.ompl.bit_star import OmplBITStarPlanner
 
