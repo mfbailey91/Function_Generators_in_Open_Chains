@@ -6,12 +6,22 @@ typed adapter rejection, not a silent default.
 
 from __future__ import annotations
 
+import json
 from collections.abc import Sequence
 from typing import Any
 
 
 class OmplBindingRejectedError(ValueError):
     """Required OMPL class or method is absent from the installed binding."""
+
+
+def _json_safe(value: Any) -> Any:
+    """Return ``value`` or a type tag when it cannot be JSON-encoded."""
+    try:
+        json.dumps(value)
+    except (TypeError, ValueError):
+        return {"nonserializable_type": type(value).__name__}
+    return value
 
 
 def missing_ompl_methods(planner: Any, methods: Sequence[str]) -> tuple[str, ...]:
@@ -56,7 +66,7 @@ def apply_ompl_method(
             "method": method_name,
             "applied": False,
             "reason": "missing_method",
-            "requested": value,
+            "requested": _json_safe(value),
         }
     getattr(planner, method_name)(value)
     recorded: Any = value
@@ -69,8 +79,8 @@ def apply_ompl_method(
     return {
         "method": method_name,
         "applied": True,
-        "requested": value,
-        "recorded": recorded,
+        "requested": _json_safe(value),
+        "recorded": _json_safe(recorded),
     }
 
 

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import os
 import subprocess
 import sys
@@ -132,6 +133,26 @@ def test_missing_required_binding_method_is_typed_rejection() -> None:
     )
     assert record["applied"] is False
     assert record["reason"] == "missing_method"
+
+
+def test_apply_ompl_method_records_json_safe_objects() -> None:
+    class _Planner:
+        def setProjectionEvaluator(self, value: object) -> None:
+            self.value = value
+
+        def getProjectionEvaluator(self) -> object:
+            return object()
+
+    record = apply_ompl_method(
+        _Planner(),
+        "setProjectionEvaluator",
+        object(),
+        planner_id="ompl_kpiece_u",
+    )
+    json.dumps(record)
+    assert record["applied"] is True
+    assert record["requested"]["nonserializable_type"] == "object"
+    assert record["recorded"]["nonserializable_type"] == "object"
 
 
 def test_projection_cell_sizes_use_per_dimension_binding() -> None:

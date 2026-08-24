@@ -17,7 +17,7 @@ import sys
 import time
 import traceback
 from collections.abc import Callable, Mapping, Sequence
-from dataclasses import fields
+from dataclasses import dataclass, fields, replace
 from pathlib import Path
 from typing import Any, Final
 
@@ -314,6 +314,97 @@ def _failed_attempt(
     }
 
 
+@dataclass(frozen=True, slots=True)
+class _SingleCandidateGenerator:
+    """Yield exactly one frozen goal candidate (OMPL PRM multi-goal workaround)."""
+
+    candidate: Any
+
+    def generate(
+        self,
+        robot: Any,
+        goal: Any,
+        request: Any,
+    ) -> tuple[Any, ...]:
+        return (self.candidate,)
+
+
+def _merge_sequential_prm(results: list[Any], *, wall_s: float) -> Any:
+    """Pick the best exact success among sequential single-goal PRM solves."""
+    from inequality_mechanisms.core.results import PlanningStatus
+
+    successes = [
+        result
+        for result in results
+        if result.status == PlanningStatus.SUCCESS and result.objective_cost is not None
+    ]
+    if successes:
+        best = min(successes, key=lambda result: float(result.objective_cost))
+    elif results:
+        best = results[-1]
+    else:
+        raise RuntimeError("OMPL PRM sequential solve produced no results")
+    metrics = dict(best.planner_metrics)
+    metrics["ompl_prm_sequential_goal_states"] = True
+    metrics["ompl_prm_sequential_attempts"] = len(results)
+    metrics["ompl_prm_sequential_successes"] = len(successes)
+    extras = dict(best.provenance.extras)
+    extras["ompl_prm_sequential_goal_states"] = True
+    extras["ompl_prm_multi_goalstates_workaround"] = (
+        "nanobind OMPL PRM hangs with GoalStates size>1; "
+        "V4.2C evaluates the frozen represented set via sequential single-goal solves"
+    )
+    return replace(
+        best,
+        total_wall_time_s=float(wall_s),
+        planner_metrics=metrics,
+        provenance=replace(best.provenance, extras=extras),
+        state_validity_checks=sum(
+            (result.state_validity_checks or 0) for result in results
+        ),
+        motion_validity_checks=sum(
+            (result.motion_validity_checks or 0) for result in results
+        ),
+    )
+
+
+def _solve_ompl_prm_sequential(
+    *,
+    problem: Any,
+    generator: Any,
+    seed: int,
+    solve_time_s: float,
+    max_candidates: int,
+    max_nearest_neighbors: int | None,
+) -> Any:
+    """Avoid multi-GoalStates PRM hang by solving one represented goal at a time."""
+    from inequality_mechanisms.adapters.ompl.prm import OmplPRMPlanner
+    from inequality_mechanisms.core.goals import GoalSamplingRequest
+
+    request = GoalSamplingRequest(max_candidates=max_candidates)
+    candidates = list(generator.generate(problem.robot, problem.goal, request))
+    if not candidates:
+        return OmplPRMPlanner(
+            seed=seed,
+            goal_generator=generator,
+            max_goal_candidates=1,
+            solve_time_s=solve_time_s,
+            max_nearest_neighbors=max_nearest_neighbors,
+        ).solve(problem)
+    started = time.perf_counter()
+    results = [
+        OmplPRMPlanner(
+            seed=seed,
+            goal_generator=_SingleCandidateGenerator(candidate),
+            max_goal_candidates=1,
+            solve_time_s=solve_time_s,
+            max_nearest_neighbors=max_nearest_neighbors,
+        ).solve(problem)
+        for candidate in candidates
+    ]
+    return _merge_sequential_prm(results, wall_s=time.perf_counter() - started)
+
+
 def execute_request(request: Mapping[str, Any]) -> dict[str, Any]:
     """Run one resolved worker request in the current process.
 
@@ -397,14 +488,26 @@ def execute_request(request: Mapping[str, Any]) -> dict[str, Any]:
         params.pop("checkpoints_s", None)
     elif planner_id in CHECKPOINT_PLANNER_IDS and checkpoints is not None:
         params["checkpoints_s"] = checkpoints
-    planner = PLANNER_FACTORIES[planner_id](params)
-    result = planner.solve(problem)
+    if planner_id == "ompl_prm":
+        result = _solve_ompl_prm_sequential(
+            problem=problem,
+            generator=goal_generator,
+            seed=int(params["seed"]),
+            solve_time_s=float(params.get("solve_time_s", 2.0)),
+            max_candidates=int(params.get("max_goal_candidates", 8)),
+            max_nearest_neighbors=params.get("max_nearest_neighbors"),
+        )
+        planner_id_out = "ompl_prm"
+    else:
+        planner = PLANNER_FACTORIES[planner_id](params)
+        result = planner.solve(problem)
+        planner_id_out = planner.planner_id
     from inequality_mechanisms.core.serialize import planning_result_to_dict
 
     return {
         **base,
         "status": STATUS_COMPLETED,
-        "planner_id": planner.planner_id,
+        "planner_id": planner_id_out,
         "result": planning_result_to_dict(result),
     }
 

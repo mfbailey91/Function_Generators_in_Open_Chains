@@ -193,3 +193,37 @@ def test_v4_2b_problem_source_rejects_unknown_case_before_planning() -> None:
     assert row["status"] == STATUS_REJECTED
     assert "unknown_case_id" in str(row.get("unavailable_reason", ""))
     assert row["result"] is None
+
+
+@pytest.mark.ompl
+@pytest.mark.skipif(
+    not is_ompl_available(), reason="OMPL Python bindings not installed"
+)
+def test_kpiece_child_writes_json_serializable_result(tmp_path: Path) -> None:
+    row = invoke_ompl_worker(
+        _request(planner_id="ompl_kpiece_u", seed=7),
+        timeout_s=30.0,
+        work_dir=tmp_path,
+        cwd=REPO_ROOT,
+    )
+    json.dumps(row)
+    assert row["status"] == STATUS_COMPLETED
+
+
+@pytest.mark.ompl
+@pytest.mark.skipif(
+    not is_ompl_available(), reason="OMPL Python bindings not installed"
+)
+def test_prm_sequential_workaround_is_labeled(tmp_path: Path) -> None:
+    row = invoke_ompl_worker(
+        _request(planner_id="ompl_prm", seed=7),
+        timeout_s=30.0,
+        work_dir=tmp_path,
+        cwd=REPO_ROOT,
+    )
+    assert row["status"] == STATUS_COMPLETED
+    extras = row["result"]["provenance"]["extras"]
+    metrics = row["result"]["planner_metrics"]
+    assert extras["ompl_prm_sequential_goal_states"] is True
+    assert metrics["ompl_prm_sequential_attempts"] >= 1
+    assert "ompl_prm_multi_goalstates_workaround" in extras
