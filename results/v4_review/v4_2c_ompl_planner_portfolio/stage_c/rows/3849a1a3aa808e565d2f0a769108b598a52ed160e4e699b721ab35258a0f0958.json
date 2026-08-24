@@ -1,0 +1,191 @@
+{
+  "case_id": "span_j1_175_j2_175",
+  "mechanism": "gearbox",
+  "planner_id": "ompl_kpiece_u",
+  "repetition": 1,
+  "request": {
+    "case_id": "span_j1_175_j2_175",
+    "mechanism": "gearbox",
+    "planner_id": "ompl_kpiece_u",
+    "planner_params": {
+      "border_fraction": 0.9,
+      "cells_per_axis": 16,
+      "goal_bias": 0.05,
+      "min_valid_path_fraction": 0.5,
+      "range_fraction": 0.1,
+      "solve_time_s": 1.0
+    },
+    "problem_source": "v4_2b_span_controlled_corrective",
+    "repetition": 1,
+    "schema_id": "v4.2c.ompl_worker_request.v1",
+    "seed": 2830,
+    "solve_time_s": 1.0,
+    "task_id": "near_2"
+  },
+  "request_digest": "3849a1a3aa808e565d2f0a769108b598a52ed160e4e699b721ab35258a0f0958",
+  "schema_version": "v4.2c.ompl_planner_portfolio.row.v1",
+  "seed": 2830,
+  "task_id": "near_2",
+  "worker": {
+    "ompl_available": true,
+    "ompl_version": "2.0.1",
+    "planner_id": "ompl_kpiece_u",
+    "platform": "macOS-15.7.4-arm64-arm-64bit-Mach-O",
+    "process_isolated": true,
+    "python": "3.13.15 (main, Aug  5 2026, 12:25:43) [Clang 17.0.0 (clang-1700.6.4.2)]",
+    "request_digest": "3849a1a3aa808e565d2f0a769108b598a52ed160e4e699b721ab35258a0f0958",
+    "result": {
+      "collision_checks": null,
+      "final_goal_residual": {
+        "components": [
+          0.005248145792715597,
+          -0.01569452506464228
+        ],
+        "extras": {
+          "cartesian_distance": 0.016548750746394218,
+          "signed_disk_residual": -0.033451249253605785
+        },
+        "primary": 0.016548750746394218
+      },
+      "goal_residuals": {
+        "attachment": null,
+        "goal_margin": -0.033451249253605785,
+        "physical": {
+          "components": [
+            0.005248145792715597,
+            -0.01569452506464228
+          ],
+          "extras": {
+            "cartesian_distance": 0.016548750746394218,
+            "signed_disk_residual": -0.033451249253605785
+          },
+          "primary": 0.016548750746394218
+        },
+        "representation": null
+      },
+      "motion_validity_checks": null,
+      "objective_cost": 0.0,
+      "path_length_q": 0.0,
+      "path_length_u": 0.0,
+      "path_length_x": null,
+      "planner_metrics": {
+        "ompl": {
+          "direct_connector_available": null,
+          "direct_connector_policy": "input_linear_v1",
+          "nn_distance": "euclidean_u",
+          "ompl_seed_applied": true,
+          "ompl_seed_requested": 2830,
+          "ompl_seed_scope": "process_global_best_effort",
+          "ompl_solved": false,
+          "ompl_version": "2.0.1",
+          "planner_data": {},
+          "repetition_index": 0,
+          "reproducibility_contract": "not_claimed_in_process",
+          "seed": 2830,
+          "seed_protocol": "v3_5_ompl_process_global_best_effort",
+          "solve_time_budget_s": 1.0
+        }
+      },
+      "postprocessing_time_s": null,
+      "preprocessing_time_s": null,
+      "provenance": {
+        "architecture_version": 3,
+        "code_revision": null,
+        "extras": {
+          "family_metrics": {
+            "binding_methods": [],
+            "border_fraction": 0.9,
+            "cells_per_axis": 16,
+            "goal_bias": 0.05,
+            "kpiece_cell_occupancy": null,
+            "min_valid_path_fraction": 0.5,
+            "projection": {
+              "cell_sizes": [
+                0.0625,
+                0.0625
+              ],
+              "formula": "pi_U = (u - u_min) / (u_max - u_min)",
+              "mechanism_id": "span_matched_gearbox",
+              "projection_bounds": {
+                "lower": [
+                  0.09934742862432433,
+                  0.09934742862432433
+                ],
+                "upper": [
+                  6.236052714903016,
+                  6.236052714903016
+                ]
+              },
+              "projection_id": "normalized_u",
+              "projection_normalization": "minmax_unit",
+              "strategy": "normalized_u",
+              "task_id": ""
+            },
+            "range_fraction": 0.1,
+            "range_u": 0.8678611844141992,
+            "unavailable_reason": "kpiece_cell_stats_not_exposed_by_binding"
+          },
+          "nn_distance": "euclidean_u",
+          "ompl_planner": "KPIECE1",
+          "ompl_seed_applied": true,
+          "ompl_seed_requested": 2830,
+          "ompl_seed_scope": "process_global_best_effort",
+          "ompl_version": "2.0.1",
+          "planner_geometry": {
+            "cost_to_go_heuristic": "none",
+            "exploration_projection": "normalized_u",
+            "goal_representation": "finite_goal_states",
+            "local_motion_model": "input_linear",
+            "nearest_neighbor_distance": "euclidean_u",
+            "optimization_objective": "actuator_travel",
+            "planner_role": "projection_diagnostic",
+            "projection_cell_sizes": [
+              0.0625,
+              0.0625
+            ],
+            "projection_normalization": "minmax_unit",
+            "sampling_measure": "uniform_raw_u",
+            "state_coordinates": "u"
+          },
+          "planner_id": "ompl_kpiece_u",
+          "repetition_index": 0,
+          "reproducibility_contract": "not_claimed_in_process",
+          "seed": 2830,
+          "seed_protocol": "v3_5_ompl_process_global_best_effort"
+        },
+        "planner_id": "ompl_kpiece_u"
+      },
+      "query_time_s": 0.0,
+      "selected_goal_candidate": null,
+      "selected_goal_state": {
+        "assembly_state": {
+          "branch_id": "5e58be982d6f86b0bd3510d3d09b107a6f4750201e226b561453b984ee1b2587",
+          "mechanism_name": "span_matched_gearbox"
+        },
+        "auxiliary_state": {},
+        "q": [
+          -0.23168515423260616,
+          0.5461150064054292
+        ],
+        "u": [
+          2.7018915610169074,
+          4.265677275666754
+        ]
+      },
+      "setup_time_s": null,
+      "state_validity_checks": 1,
+      "status": "success",
+      "task_class": "already satisfied",
+      "total_wall_time_s": 0.0006979170138947666,
+      "trajectory": {
+        "states": []
+      }
+    },
+    "returncode": 0,
+    "schema_id": "v4.2c.ompl_worker_request.v1",
+    "seed": 2830,
+    "status": "completed",
+    "stderr": "",
+    "stdout": ""
+  }
+}

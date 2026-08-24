@@ -1,0 +1,754 @@
+{
+  "case_id": "span_j1_145_j2_095",
+  "mechanism": "gearbox",
+  "planner_id": "ompl_fmt",
+  "repetition": 7,
+  "request": {
+    "case_id": "span_j1_145_j2_095",
+    "mechanism": "gearbox",
+    "num_samples": 256,
+    "planner_id": "ompl_fmt",
+    "planner_params": {
+      "nearest_k": true,
+      "num_samples": 256,
+      "solve_time_s": 1.0
+    },
+    "problem_source": "v4_2b_span_controlled_corrective",
+    "repetition": 7,
+    "schema_id": "v4.2c.ompl_worker_request.v1",
+    "seed": 6050,
+    "solve_time_s": 1.0,
+    "task_id": "far_3"
+  },
+  "request_digest": "93724884429f51cbf5adef1589784e0fe7e2308b0528a89fe337e9998e520b0f",
+  "schema_version": "v4.2c.ompl_planner_portfolio.row.v1",
+  "seed": 6050,
+  "task_id": "far_3",
+  "worker": {
+    "ompl_available": true,
+    "ompl_version": "2.0.1",
+    "planner_id": "ompl_fmt",
+    "platform": "macOS-15.7.4-arm64-arm-64bit-Mach-O",
+    "process_isolated": true,
+    "python": "3.13.15 (main, Aug  5 2026, 12:25:43) [Clang 17.0.0 (clang-1700.6.4.2)]",
+    "request_digest": "93724884429f51cbf5adef1589784e0fe7e2308b0528a89fe337e9998e520b0f",
+    "result": {
+      "collision_checks": null,
+      "final_goal_residual": {
+        "components": [
+          0.0,
+          -7.216449660063518e-16
+        ],
+        "extras": {
+          "cartesian_distance": 7.216449660063518e-16,
+          "signed_disk_residual": -0.04999999999999928
+        },
+        "primary": 7.216449660063518e-16
+      },
+      "goal_residuals": {
+        "attachment": null,
+        "goal_margin": -0.04999999999999928,
+        "physical": {
+          "components": [
+            0.0,
+            -7.216449660063518e-16
+          ],
+          "extras": {
+            "cartesian_distance": 7.216449660063518e-16,
+            "signed_disk_residual": -0.04999999999999928
+          },
+          "primary": 7.216449660063518e-16
+        },
+        "representation": 7.216449660063518e-16
+      },
+      "motion_validity_checks": 150,
+      "objective_cost": 1.7751744834097576,
+      "path_length_q": 0.9350022994010043,
+      "path_length_u": 1.7751744834097576,
+      "path_length_x": 1.8984380999200576,
+      "planner_metrics": {
+        "ompl": {
+          "checkpoint_best_cost_units": "ompl_solution_path_length",
+          "cost_improvements": [],
+          "direct_connector_available": true,
+          "direct_connector_policy": "input_linear_v1",
+          "discrete_goal_state_count": 2,
+          "exact_start_residual_u": 0.0,
+          "final_exact_cost": null,
+          "first_exact_cost": null,
+          "first_exact_time_s": null,
+          "first_exact_unavailable_reason": "no_exact_checkpoint",
+          "goal_region_descriptor": {
+            "center": [
+              1.894243084173152,
+              -0.42214469308002045
+            ],
+            "radius": 0.05,
+            "type": "cartesian_disk"
+          },
+          "goal_representation": "finite_goal_states",
+          "goal_samples_accepted": 2,
+          "goal_samples_generated": 2,
+          "ik_families": [
+            "elbow_down",
+            "elbow_up"
+          ],
+          "nn_distance": "euclidean_u",
+          "objective_adapter": "actuator_travel_to_ompl_path_length",
+          "objective_cost": 1.7751744834097576,
+          "objective_cost_units": "actuator_travel_polyline",
+          "objective_equivalence": "exact_for_input_linear_euclidean_u",
+          "ompl_approximate_solution": false,
+          "ompl_exact_solution": true,
+          "ompl_motion_cost": "euclidean_u",
+          "ompl_seed_applied": true,
+          "ompl_seed_requested": 6050,
+          "ompl_seed_scope": "process_global_best_effort",
+          "ompl_solution_difference": 0.0,
+          "ompl_solved": true,
+          "ompl_status": "Exact solution",
+          "ompl_version": "2.0.1",
+          "planner_data": {
+            "num_edges": 149,
+            "num_goal_vertices": 1,
+            "num_start_vertices": 110,
+            "num_vertices": 259
+          },
+          "progress_properties": null,
+          "progress_properties_unavailable_reason": "planner_progress_properties_error:Unable to convert function return value to a Python type! The signature was\n    getPlannerProgressProperties(self) -> std::__1::map<std::__1::basic_string<char, std::__1::char_traits<char>, std::__1::allocator<char>>, std::__1::function<std::__1::basic_string<char, std::__1::char_traits<char>, std::__1::allocator<char>> ()>, std::__1::less<std::__1::basic_string<char, std::__1::char_traits<char>, std::__1::allocator<char>>>, std::__1::allocator<std::__1::pair<std::__1::basic_string<char, std::__1::char_traits<char>, std::__1::allocator<char>> const, std::__1::function<std::__1::basic_string<char, std::__1::char_traits<char>, std::__1::allocator<char>> ()>>>>",
+          "repetition_index": 0,
+          "reproducibility_contract": "not_claimed_in_process",
+          "seed": 6050,
+          "seed_protocol": "v3_5_ompl_process_global_best_effort",
+          "selected_goal_satisfied": true,
+          "solve_time_budget_s": 1.0,
+          "stepwise_history": "unavailable"
+        }
+      },
+      "postprocessing_time_s": null,
+      "preprocessing_time_s": null,
+      "provenance": {
+        "architecture_version": 3,
+        "code_revision": null,
+        "extras": {
+          "cost_improvements": [],
+          "family_metrics": {
+            "binding_methods": [
+              {
+                "applied": true,
+                "method": "setNumSamples",
+                "recorded": 256,
+                "requested": 256
+              },
+              {
+                "applied": true,
+                "method": "setNearestK",
+                "recorded": true,
+                "requested": true
+              },
+              {
+                "applied": true,
+                "method": "setRadiusMultiplier",
+                "recorded": 1.1,
+                "requested": 1.1
+              },
+              {
+                "applied": true,
+                "method": "setHeuristics",
+                "recorded": false,
+                "requested": false
+              },
+              {
+                "applied": true,
+                "method": "setExtendedFMT",
+                "recorded": true,
+                "requested": true
+              },
+              {
+                "applied": true,
+                "method": "setCacheCC",
+                "recorded": true,
+                "requested": true
+              }
+            ],
+            "cache_cc": true,
+            "checkpoints_s": null,
+            "continuation": "independent_sample_count",
+            "effective_sample_count": 256,
+            "extended_fmt": true,
+            "heuristics": false,
+            "nearest_k": true,
+            "num_samples": 256,
+            "radius_multiplier": 1.1,
+            "resolved_getters": {
+              "setCacheCC": true,
+              "setExtendedFMT": true,
+              "setHeuristics": false,
+              "setNearestK": true,
+              "setNumSamples": 256,
+              "setRadiusMultiplier": 1.1
+            },
+            "unavailable_reason": "fmt_is_independent_sample_count_run"
+          },
+          "first_exact_cost": null,
+          "first_exact_time_s": null,
+          "nn_distance": "euclidean_u",
+          "objective_adapter": "actuator_travel_to_ompl_path_length",
+          "objective_equivalence": "exact_for_input_linear_euclidean_u",
+          "ompl_motion_cost": "euclidean_u",
+          "ompl_planner": "FMT",
+          "ompl_seed_applied": true,
+          "ompl_seed_requested": 6050,
+          "ompl_seed_scope": "process_global_best_effort",
+          "ompl_version": "2.0.1",
+          "planner_geometry": {
+            "cost_to_go_heuristic": "none",
+            "exploration_projection": "none",
+            "goal_representation": "finite_goal_states",
+            "local_motion_model": "input_linear",
+            "nearest_neighbor_distance": "euclidean_u",
+            "optimization_objective": "actuator_travel",
+            "planner_role": "primary_optimizing",
+            "projection_cell_sizes": [],
+            "projection_normalization": "none",
+            "sampling_measure": "uniform_raw_u",
+            "state_coordinates": "u"
+          },
+          "planner_id": "ompl_fmt",
+          "progress_properties": null,
+          "repetition_index": 0,
+          "reproducibility_contract": "not_claimed_in_process",
+          "seed": 6050,
+          "seed_protocol": "v3_5_ompl_process_global_best_effort"
+        },
+        "planner_id": "ompl_fmt"
+      },
+      "query_time_s": 0.09419529099250212,
+      "selected_goal_candidate": {
+        "provenance": {
+          "candidate_generator_id": "cartesian_disk_center_ik",
+          "goal_region": "cartesian_disk_center",
+          "goal_sample_id": "disk_center",
+          "goal_sample_index": 0,
+          "goal_sample_point": [
+            1.894243084173152,
+            -0.42214469308002045
+          ],
+          "ik_family": "elbow_up",
+          "inverse": "operating_branch.unique"
+        },
+        "residual": 7.216449660063518e-16,
+        "state": {
+          "assembly_state": {
+            "branch_id": "c9ed1cd2a1521bb11cae8f93f1528a7709502c91d1c63f27221e17d6b2303b2c",
+            "mechanism_name": "span_matched_gearbox"
+          },
+          "auxiliary_state": {},
+          "q": [
+            -0.4633703084652123,
+            0.4881937178472766
+          ],
+          "u": [
+            1.9718368878623727,
+            4.592425393875727
+          ]
+        }
+      },
+      "selected_goal_state": {
+        "assembly_state": {
+          "branch_id": "c9ed1cd2a1521bb11cae8f93f1528a7709502c91d1c63f27221e17d6b2303b2c",
+          "mechanism_name": "span_matched_gearbox"
+        },
+        "auxiliary_state": {},
+        "q": [
+          -0.4633703084652123,
+          0.4881937178472766
+        ],
+        "u": [
+          1.9718368878623727,
+          4.592425393875727
+        ]
+      },
+      "setup_time_s": null,
+      "state_validity_checks": 264,
+      "status": "success",
+      "task_class": "direct/local feasible",
+      "total_wall_time_s": 0.09668533399235457,
+      "trajectory": {
+        "states": [
+          {
+            "assembly_state": {
+              "branch_id": "c9ed1cd2a1521bb11cae8f93f1528a7709502c91d1c63f27221e17d6b2303b2c",
+              "mechanism_name": "span_matched_gearbox"
+            },
+            "auxiliary_state": {},
+            "q": [
+              0.4633703084652123,
+              0.6040362949635805
+            ],
+            "u": [
+              3.7195802740426824,
+              4.883000958150973
+            ]
+          },
+          {
+            "assembly_state": {
+              "branch_id": "c9ed1cd2a1521bb11cae8f93f1528a7709502c91d1c63f27221e17d6b2303b2c",
+              "mechanism_name": "span_matched_gearbox"
+            },
+            "auxiliary_state": {},
+            "q": [
+              0.4345606230766048,
+              0.6003853727511461
+            ],
+            "u": [
+              3.6652479871265755,
+              4.873843109556685
+            ]
+          },
+          {
+            "assembly_state": {
+              "branch_id": "c9ed1cd2a1521bb11cae8f93f1528a7709502c91d1c63f27221e17d6b2303b2c",
+              "mechanism_name": "span_matched_gearbox"
+            },
+            "auxiliary_state": {},
+            "q": [
+              0.40575093768799775,
+              0.5967344505387113
+            ],
+            "u": [
+              3.610915700210468,
+              4.864685260962397
+            ]
+          },
+          {
+            "assembly_state": {
+              "branch_id": "c9ed1cd2a1521bb11cae8f93f1528a7709502c91d1c63f27221e17d6b2303b2c",
+              "mechanism_name": "span_matched_gearbox"
+            },
+            "auxiliary_state": {},
+            "q": [
+              0.3769412522993907,
+              0.593083528326277
+            ],
+            "u": [
+              3.5565834132943612,
+              4.85552741236811
+            ]
+          },
+          {
+            "assembly_state": {
+              "branch_id": "c9ed1cd2a1521bb11cae8f93f1528a7709502c91d1c63f27221e17d6b2303b2c",
+              "mechanism_name": "span_matched_gearbox"
+            },
+            "auxiliary_state": {},
+            "q": [
+              0.34813156691078273,
+              0.5894326061138422
+            ],
+            "u": [
+              3.502251126378254,
+              4.8463695637738216
+            ]
+          },
+          {
+            "assembly_state": {
+              "branch_id": "c9ed1cd2a1521bb11cae8f93f1528a7709502c91d1c63f27221e17d6b2303b2c",
+              "mechanism_name": "span_matched_gearbox"
+            },
+            "auxiliary_state": {},
+            "q": [
+              0.31932188152217567,
+              0.5857816839014074
+            ],
+            "u": [
+              3.447918839462147,
+              4.837211715179534
+            ]
+          },
+          {
+            "assembly_state": {
+              "branch_id": "c9ed1cd2a1521bb11cae8f93f1528a7709502c91d1c63f27221e17d6b2303b2c",
+              "mechanism_name": "span_matched_gearbox"
+            },
+            "auxiliary_state": {},
+            "q": [
+              0.28814673033062643,
+              0.5803186013554011
+            ],
+            "u": [
+              3.3891255122756547,
+              4.823508305491969
+            ]
+          },
+          {
+            "assembly_state": {
+              "branch_id": "c9ed1cd2a1521bb11cae8f93f1528a7709502c91d1c63f27221e17d6b2303b2c",
+              "mechanism_name": "span_matched_gearbox"
+            },
+            "auxiliary_state": {},
+            "q": [
+              0.2569715791390763,
+              0.5748555188093949
+            ],
+            "u": [
+              3.3303321850891625,
+              4.809804895804404
+            ]
+          },
+          {
+            "assembly_state": {
+              "branch_id": "c9ed1cd2a1521bb11cae8f93f1528a7709502c91d1c63f27221e17d6b2303b2c",
+              "mechanism_name": "span_matched_gearbox"
+            },
+            "auxiliary_state": {},
+            "q": [
+              0.22579642794752708,
+              0.5693924362633886
+            ],
+            "u": [
+              3.2715388579026703,
+              4.796101486116839
+            ]
+          },
+          {
+            "assembly_state": {
+              "branch_id": "c9ed1cd2a1521bb11cae8f93f1528a7709502c91d1c63f27221e17d6b2303b2c",
+              "mechanism_name": "span_matched_gearbox"
+            },
+            "auxiliary_state": {},
+            "q": [
+              0.19462127675597696,
+              0.563929353717382
+            ],
+            "u": [
+              3.212745530716178,
+              4.782398076429274
+            ]
+          },
+          {
+            "assembly_state": {
+              "branch_id": "c9ed1cd2a1521bb11cae8f93f1528a7709502c91d1c63f27221e17d6b2303b2c",
+              "mechanism_name": "span_matched_gearbox"
+            },
+            "auxiliary_state": {},
+            "q": [
+              0.16344612556442772,
+              0.5584662711713753
+            ],
+            "u": [
+              3.153952203529686,
+              4.768694666741709
+            ]
+          },
+          {
+            "assembly_state": {
+              "branch_id": "c9ed1cd2a1521bb11cae8f93f1528a7709502c91d1c63f27221e17d6b2303b2c",
+              "mechanism_name": "span_matched_gearbox"
+            },
+            "auxiliary_state": {},
+            "q": [
+              0.1322709743728776,
+              0.553003188625369
+            ],
+            "u": [
+              3.095158876343193,
+              4.754991257054144
+            ]
+          },
+          {
+            "assembly_state": {
+              "branch_id": "c9ed1cd2a1521bb11cae8f93f1528a7709502c91d1c63f27221e17d6b2303b2c",
+              "mechanism_name": "span_matched_gearbox"
+            },
+            "auxiliary_state": {},
+            "q": [
+              0.10109582318132837,
+              0.5475401060793628
+            ],
+            "u": [
+              3.0363655491567014,
+              4.741287847366579
+            ]
+          },
+          {
+            "assembly_state": {
+              "branch_id": "c9ed1cd2a1521bb11cae8f93f1528a7709502c91d1c63f27221e17d6b2303b2c",
+              "mechanism_name": "span_matched_gearbox"
+            },
+            "auxiliary_state": {},
+            "q": [
+              0.06992067198977825,
+              0.5420770235333565
+            ],
+            "u": [
+              2.9775722219702088,
+              4.727584437679014
+            ]
+          },
+          {
+            "assembly_state": {
+              "branch_id": "c9ed1cd2a1521bb11cae8f93f1528a7709502c91d1c63f27221e17d6b2303b2c",
+              "mechanism_name": "span_matched_gearbox"
+            },
+            "auxiliary_state": {},
+            "q": [
+              0.03874552079822857,
+              0.5366139409873503
+            ],
+            "u": [
+              2.9187788947837165,
+              4.713881027991449
+            ]
+          },
+          {
+            "assembly_state": {
+              "branch_id": "c9ed1cd2a1521bb11cae8f93f1528a7709502c91d1c63f27221e17d6b2303b2c",
+              "mechanism_name": "span_matched_gearbox"
+            },
+            "auxiliary_state": {},
+            "q": [
+              0.007570369606678895,
+              0.5311508584413436
+            ],
+            "u": [
+              2.8599855675972243,
+              4.700177618303884
+            ]
+          },
+          {
+            "assembly_state": {
+              "branch_id": "c9ed1cd2a1521bb11cae8f93f1528a7709502c91d1c63f27221e17d6b2303b2c",
+              "mechanism_name": "span_matched_gearbox"
+            },
+            "auxiliary_state": {},
+            "q": [
+              -0.023604781584870782,
+              0.5256877758953373
+            ],
+            "u": [
+              2.801192240410732,
+              4.686474208616319
+            ]
+          },
+          {
+            "assembly_state": {
+              "branch_id": "c9ed1cd2a1521bb11cae8f93f1528a7709502c91d1c63f27221e17d6b2303b2c",
+              "mechanism_name": "span_matched_gearbox"
+            },
+            "auxiliary_state": {},
+            "q": [
+              -0.05477993277642046,
+              0.5202246933493306
+            ],
+            "u": [
+              2.74239891322424,
+              4.672770798928754
+            ]
+          },
+          {
+            "assembly_state": {
+              "branch_id": "c9ed1cd2a1521bb11cae8f93f1528a7709502c91d1c63f27221e17d6b2303b2c",
+              "mechanism_name": "span_matched_gearbox"
+            },
+            "auxiliary_state": {},
+            "q": [
+              -0.08595508396797014,
+              0.5147616108033244
+            ],
+            "u": [
+              2.6836055860377477,
+              4.659067389241189
+            ]
+          },
+          {
+            "assembly_state": {
+              "branch_id": "c9ed1cd2a1521bb11cae8f93f1528a7709502c91d1c63f27221e17d6b2303b2c",
+              "mechanism_name": "span_matched_gearbox"
+            },
+            "auxiliary_state": {},
+            "q": [
+              -0.11740635267607313,
+              0.5125476197236538
+            ],
+            "u": [
+              2.6242915278564665,
+              4.6535138896274
+            ]
+          },
+          {
+            "assembly_state": {
+              "branch_id": "c9ed1cd2a1521bb11cae8f93f1528a7709502c91d1c63f27221e17d6b2303b2c",
+              "mechanism_name": "span_matched_gearbox"
+            },
+            "auxiliary_state": {},
+            "q": [
+              -0.14885762138417702,
+              0.5103336286439832
+            ],
+            "u": [
+              2.5649774696751853,
+              4.647960390013612
+            ]
+          },
+          {
+            "assembly_state": {
+              "branch_id": "c9ed1cd2a1521bb11cae8f93f1528a7709502c91d1c63f27221e17d6b2303b2c",
+              "mechanism_name": "span_matched_gearbox"
+            },
+            "auxiliary_state": {},
+            "q": [
+              -0.18030889009228046,
+              0.5081196375643127
+            ],
+            "u": [
+              2.505663411493904,
+              4.6424068903998235
+            ]
+          },
+          {
+            "assembly_state": {
+              "branch_id": "c9ed1cd2a1521bb11cae8f93f1528a7709502c91d1c63f27221e17d6b2303b2c",
+              "mechanism_name": "span_matched_gearbox"
+            },
+            "auxiliary_state": {},
+            "q": [
+              -0.2117601588003839,
+              0.5059056464846421
+            ],
+            "u": [
+              2.446349353312623,
+              4.636853390786035
+            ]
+          },
+          {
+            "assembly_state": {
+              "branch_id": "c9ed1cd2a1521bb11cae8f93f1528a7709502c91d1c63f27221e17d6b2303b2c",
+              "mechanism_name": "span_matched_gearbox"
+            },
+            "auxiliary_state": {},
+            "q": [
+              -0.2432114275084878,
+              0.5036916554049711
+            ],
+            "u": [
+              2.3870352951313416,
+              4.6312998911722465
+            ]
+          },
+          {
+            "assembly_state": {
+              "branch_id": "c9ed1cd2a1521bb11cae8f93f1528a7709502c91d1c63f27221e17d6b2303b2c",
+              "mechanism_name": "span_matched_gearbox"
+            },
+            "auxiliary_state": {},
+            "q": [
+              -0.27466269621659123,
+              0.5014776643253009
+            ],
+            "u": [
+              2.32772123695006,
+              4.625746391558458
+            ]
+          },
+          {
+            "assembly_state": {
+              "branch_id": "c9ed1cd2a1521bb11cae8f93f1528a7709502c91d1c63f27221e17d6b2303b2c",
+              "mechanism_name": "span_matched_gearbox"
+            },
+            "auxiliary_state": {},
+            "q": [
+              -0.30611396492469467,
+              0.4992636732456299
+            ],
+            "u": [
+              2.2684071787687787,
+              4.6201928919446695
+            ]
+          },
+          {
+            "assembly_state": {
+              "branch_id": "c9ed1cd2a1521bb11cae8f93f1528a7709502c91d1c63f27221e17d6b2303b2c",
+              "mechanism_name": "span_matched_gearbox"
+            },
+            "auxiliary_state": {},
+            "q": [
+              -0.3375652336327981,
+              0.49704968216595935
+            ],
+            "u": [
+              2.2090931205874975,
+              4.614639392330881
+            ]
+          },
+          {
+            "assembly_state": {
+              "branch_id": "c9ed1cd2a1521bb11cae8f93f1528a7709502c91d1c63f27221e17d6b2303b2c",
+              "mechanism_name": "span_matched_gearbox"
+            },
+            "auxiliary_state": {},
+            "q": [
+              -0.36901650234090155,
+              0.4948356910862888
+            ],
+            "u": [
+              2.1497790624062163,
+              4.609085892717093
+            ]
+          },
+          {
+            "assembly_state": {
+              "branch_id": "c9ed1cd2a1521bb11cae8f93f1528a7709502c91d1c63f27221e17d6b2303b2c",
+              "mechanism_name": "span_matched_gearbox"
+            },
+            "auxiliary_state": {},
+            "q": [
+              -0.40046777104900544,
+              0.4926217000066182
+            ],
+            "u": [
+              2.090465004224935,
+              4.603532393103304
+            ]
+          },
+          {
+            "assembly_state": {
+              "branch_id": "c9ed1cd2a1521bb11cae8f93f1528a7709502c91d1c63f27221e17d6b2303b2c",
+              "mechanism_name": "span_matched_gearbox"
+            },
+            "auxiliary_state": {},
+            "q": [
+              -0.4319190397571089,
+              0.4904077089269476
+            ],
+            "u": [
+              2.031150946043654,
+              4.597978893489516
+            ]
+          },
+          {
+            "assembly_state": {
+              "branch_id": "c9ed1cd2a1521bb11cae8f93f1528a7709502c91d1c63f27221e17d6b2303b2c",
+              "mechanism_name": "span_matched_gearbox"
+            },
+            "auxiliary_state": {},
+            "q": [
+              -0.4633703084652123,
+              0.4881937178472766
+            ],
+            "u": [
+              1.9718368878623727,
+              4.592425393875727
+            ]
+          }
+        ]
+      }
+    },
+    "returncode": 0,
+    "schema_id": "v4.2c.ompl_worker_request.v1",
+    "seed": 6050,
+    "status": "completed",
+    "stderr": "nanobind: leaked 4 instances!\n - leaked instance 0x1043a1fe8 of type \"ompl._ompl.base.RealVectorStateSpace\"\n - leaked instance 0x1044e9ff8 of type \"ompl._ompl.base.SpaceInformation\"\n - leaked instance 0x104575be8 of type \"inequality_mechanisms.adapters.ompl.validity._MotionValidator\"\n - leaked instance 0x1044ea168 of type \"inequality_mechanisms.adapters.ompl.validity._Checker\"\nnanobind: leaked 5 types!\n - leaked type \"ompl._ompl.base.SpaceInformation\"\n - leaked type \"ompl._ompl.base.StateSpace\"\n - leaked type \"ompl._ompl.base.StateValidityChecker\"\n - leaked type \"ompl._ompl.base.RealVectorStateSpace\"\n - leaked type \"ompl._ompl.base.MotionValidator\"\nnanobind: leaked 119 functions!\n - leaked function \"isSetup\"\n - leaked function \"setBounds\"\n - leaked function \"satisfiesBounds\"\n - leaked function \"getValidSegmentCountFactor\"\n - leaked function \"hasDefaultProjection\"\n - leaked function \"isDiscrete\"\n - leaked function \"__init__\"\n - leaked function \"getMotionStates\"\n - leaked function \"probabilityOfValidState\"\n - leaked function \"hasProjection\"\n - ... skipped remainder\nnanobind: this is likely caused by a reference counting issue in the binding code.\nSee https://nanobind.readthedocs.io/en/latest/refleaks.html",
+    "stdout": "Debug:   No state inside goal region\nDebug:   No state inside goal region\nInfo:    FMT: Starting planning with 259 states already in datastructure\nDebug:   Using nearest-neighbors k of 37\nDebug:   Final path cost: 1.775174\n"
+  }
+}
