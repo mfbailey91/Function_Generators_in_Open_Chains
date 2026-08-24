@@ -80,6 +80,9 @@ class OmplRRTConnectPlanner:
             goal_generator=self.goal_generator,
             max_goal_candidates=self.max_goal_candidates,
             solve_time_s=self.solve_time_s,
-            extras_base={"ompl_planner": "RRTConnect", "range_u": range_u},
+            extras_base={
+                "ompl_planner": "RRTConnect",
+                "family_metrics": {"range_u": range_u},
+            },
             trace_sink=self.trace_sink,
         )

@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"/>
+<title>V4.2C OMPL planner-geometry portfolio</title>
+<style>
+@media print {
+  .anim-live { display: none !important; }
+  .contact-sheet { display: block !important; }
+  .section { break-before: page; page-break-before: always; }
+  a[href]::after { content: ""; }
+}
+@media screen {
+  .contact-sheet.fallback-only { display: none; }
+}
+body { font-family: Georgia, "Times New Roman", serif; margin: 1.2rem; color: #222; }
+nav a { margin-right: 0.8rem; }
+table { border-collapse: collapse; width: 100%; margin: 0.6rem 0 1.2rem; font-size: 0.92rem; }
+th, td { border: 1px solid #bbb; padding: 0.35rem 0.45rem; vertical-align: top; }
+th { background: #f3f3f3; }
+img { max-width: 100%; height: auto; border: 1px solid #ddd; margin: 0.25rem 0; }
+.muted { color: #555; }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0.8rem; }
+code, pre { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 0.85rem; }
+
+figure { margin: 1rem 0 1.6rem; }
+figcaption { font-size: 0.9rem; color: #444; }
+#lede { font-size: 1.05rem; }
+</style></head><body>
+<p id="lede"><strong>U is the authoritative planning state. A free-space direct actuator-travel reference is available. Planner families expose different internal metrics, so those units are not pooled. This report is descriptive and is not a global ranking.</strong></p>
+<h1>V4.2C OMPL planner-geometry portfolio</h1>
+<p><strong>No-inference:</strong> OMPL planner-geometry portfolio; descriptive only; no mechanism performance inference.</p>
+<p class="muted">mode <code>smoke</code>
+· stage <code>stage_a</code>
+· config digest <code>027964fd84450e9cbf42b4cfe0cd594ca30d81338c206bad528e60e7c9961942</code>
+· schema <code>v4.2c.ompl_planner_portfolio.report.v1</code></p>
+<p>
+<a href="summary.json">summary.json</a> ·
+<a href="../resolved_config.json">resolved_config.json</a> ·
+<a href="../request_matrix.json">request_matrix.json</a> ·
+<a href="../progress.json">progress.json</a>
+</p>
+<nav><a href="#contract_and_capability">1. Contract and capability matrix</a> <a href="#frozen_matrix">2. Frozen case/task/repetition matrix</a> <a href="#direct_and_deterministic_references">3. Direct and deterministic references</a> <a href="#optimizer_convergence">4. Optimizer convergence: RRT*, BIT*, FMT</a> <a href="#kpiece_projection_ablation">5. KPIECE U/Q/X projection ablation</a> <a href="#prm_rrtconnect_controls">6. PRM/RRTConnect controls</a> <a href="#optional_pdst">7. Optional PDST</a> <a href="#tasks_failures_unsupported">8. Task classes, failures, and unsupported capabilities</a> <a href="#mechanism_paired_summaries">9. Mechanism-paired summaries by case and task</a> <a href="#methods_provenance_nonclaims">10. Methods, provenance, and nonclaims</a></nav>
+<section id="contract_and_capability" class="section">
+<h2>1. Contract and capability matrix</h2>
+<p>Physical state identity is complete PhysicalState encoded to OMPL in
+actuator coordinates U. Local motion is input-linear. The objective is
+Euclidean actuator travel. Goals are a frozen finite physical set. Q and X
+appear only as projections, tasks, metrics, and interpretation.</p>
+<table><thead><tr><th>feature</th><th>status</th><th>required</th><th>detail</th></tr></thead><tbody><tr><td>planner_prm</td><td>supported</td><td>True</td><td>PRM</td></tr><tr><td>planner_rrtconnect</td><td>supported</td><td>True</td><td>RRTConnect</td></tr><tr><td>planner_rrtstar</td><td>supported</td><td>True</td><td>RRTstar</td></tr><tr><td>planner_bitstar</td><td>supported</td><td>True</td><td>BITstar</td></tr><tr><td>planner_fmt</td><td>supported</td><td>True</td><td>FMT</td></tr><tr><td>planner_kpiece1</td><td>supported</td><td>True</td><td>KPIECE1</td></tr><tr><td>planner_pdst</td><td>missing_symbol</td><td>False</td><td>AttributeError: ompl.geometric.PDST</td></tr><tr><td>methods_rrtstar</td><td>supported</td><td>True</td><td>setRange, setGoalBias</td></tr><tr><td>methods_bitstar</td><td>supported</td><td>True</td><td>setSamplesPerBatch, setRewireFactor</td></tr><tr><td>methods_fmt</td><td>supported</td><td>True</td><td>setNumSamples, setNearestK, setRadiusMultiplier, setHeuristics, setExtendedFMT</td></tr><tr><td>methods_kpiece1</td><td>supported</td><td>True</td><td>setRange, setGoalBias, setProjectionEvaluator</td></tr><tr><td>methods_pdst</td><td>missing_symbol</td><td>False</td><td>AttributeError: ompl.geometric.PDST</td></tr><tr><td>multi_goal_rrtstar</td><td>supported</td><td>True</td><td>solved=True n_goals=2</td></tr><tr><td>multi_goal_bitstar</td><td>supported</td><td>True</td><td>solved=True n_goals=2</td></tr><tr><td>multi_goal_fmt</td><td>supported</td><td>True</td><td>solved=True n_goals=2</td></tr><tr><td>multi_goal_kpiece1</td><td>supported</td><td>True</td><td>solved=True n_goals=2</td></tr><tr><td>multi_goal_prm</td><td>supported</td><td>True</td><td>solved=True n_goals=2</td></tr><tr><td>repeated_solve</td><td>supported</td><td>True</td><td>first=True second=True</td></tr><tr><td>projection_evaluator</td><td>supported</td><td>True</td><td>_IdentityProjection</td></tr><tr><td>projection_cell_sizes</td><td>supported</td><td>True</td><td>setCellSizes:dim_cellSize</td></tr><tr><td>planner_data</td><td>supported</td><td>True</td><td>numVertices=0</td></tr><tr><td>sampler_allocator</td><td>missing_symbol</td><td>True</td><td>setStateSamplerAllocator</td></tr><tr><td>sampler_precomputed</td><td>unsupported</td><td>False</td><td>no precomputed sampler class</td></tr><tr><td>sampler_deterministic</td><td>supported</td><td>False</td><td>RNG.setSeed</td></tr><tr><td>exact_solution_api</td><td>supported</td><td>True</td><td>hasSolution,hasExactSolution</td></tr></tbody></table>
+<h3>Family metric units (not interchangeable)</h3>
+<table><thead><tr><th>planner_id</th><th>unit</th></tr></thead><tbody><tr><td>ompl_bit_star</td><td>actuator travel in raw U (Euclidean); cumulative checkpoints in seconds; batch/queue events stay in family_metrics</td></tr><tr><td>ompl_fmt</td><td>actuator travel in raw U (Euclidean); independent sample-count runs (not cumulative wall-clock continuation)</td></tr><tr><td>ompl_kpiece_q</td><td>normalized mounted-Q projection cells; physical state remains U</td></tr><tr><td>ompl_kpiece_u</td><td>normalized-U projection cells; not comparable to tree vertices</td></tr><tr><td>ompl_kpiece_x</td><td>normalized Cartesian-X projection cells; physical state remains U</td></tr><tr><td>ompl_pdst_u</td><td>optional geometric PDST; reported as unsupported unless a retained capability/result row says otherwise</td></tr><tr><td>ompl_prm</td><td>roadmap vertices/edges; architecture control, not primary evidence</td></tr><tr><td>ompl_rrt_connect</td><td>first-feasible tree control; feasible cost is not asymptotic optimality</td></tr><tr><td>ompl_rrt_star</td><td>actuator travel in raw U (Euclidean); cumulative checkpoints in seconds; PlannerData vertices/edges</td></tr></tbody></table>
+</section>
+<section id="frozen_matrix" class="section">
+<h2>2. Frozen case/task/repetition matrix</h2>
+<p>Case and task IDs were frozen before planner outcomes. Matrix rows:
+<code>32</code>.</p>
+<p>Cases: <code>span_j1_145_j2_145</code></p>
+<p>Tasks: <code>near_0, far_0</code></p>
+<p>Mechanisms: <code>fourbar, gearbox</code></p>
+<p>Planners present:
+<code>ompl_bit_star, ompl_fmt, ompl_kpiece_q, ompl_kpiece_u, ompl_kpiece_x, ompl_prm, ompl_rrt_connect, ompl_rrt_star</code></p>
+</section>
+<section id="direct_and_deterministic_references" class="section">
+<h2>3. Direct and deterministic references</h2>
+<p>The free-space direct U-linear represented-set reference remains available
+from the Version 3 / V4.2B planning contract. This portfolio does not disable
+valid direct edges. Lattice Dijkstra/A* references live in the frozen V4.2B
+planning audit and are not recomputed here.</p>
+<p>V4.2B files digest
+<code>ce7bbea03c9ac9ea77bad761e371d5abcd96965e7aa55daf76269ee51469be9a</code>
+· git-tracked
+<code>31f2a141e42297223b21f647b5ad670d104382fc53b7abae4eface11e3977a8e</code>.</p>
+</section>
+<section id="optimizer_convergence" class="section">
+<h2>4. Optimizer convergence: RRT*, BIT*, FMT</h2>
+<p>RRT* and BIT* continue cumulatively inside one process. FMT is an
+independent sample-count run; sample count is not a wall-clock continuation.
+Units remain actuator travel in U plus family-specific internals.</p>
+<figure id="optimizer_cost_vs_checkpoint"><img src="figures/optimizer_cost_vs_checkpoint.png" alt="Optimizer best-cost versus checkpoint"/><figcaption><strong>Optimizer best-cost versus checkpoint</strong> · unit: actuator travel in raw U (Euclidean); cumulative checkpoints in seconds; PlannerData vertices/edges</figcaption><p class="muted">Plotted row provenance</p><p class="muted">No plotted rows.</p></figure>
+<figure id="first_vs_final_cost"><img src="figures/first_vs_final_cost.png" alt="First exact cost versus final cost"/><figcaption><strong>First exact cost versus final cost</strong> · unit: actuator travel in raw U</figcaption><p class="muted">Plotted row provenance</p><p class="muted">No plotted rows.</p></figure>
+<figure id="planner_data_growth"><img src="figures/planner_data_growth.png" alt="PlannerData vertex growth"/><figcaption><strong>PlannerData vertex growth</strong> · unit: PlannerData vertices (family-specific)</figcaption><p class="muted">Plotted row provenance</p><p class="muted">No plotted rows.</p></figure>
+</section>
+<section id="kpiece_projection_ablation" class="section">
+<h2>5. KPIECE U/Q/X projection ablation</h2>
+<p>The three KPIECE IDs share physical U-state, local motion, objective, and
+non-projection knobs. Only the declared exploration projection changes.
+Cell occupancy is shown when retained; otherwise the binding omission is kept
+visible as null plus reason.</p>
+<figure id="kpiece_projection_occupancy"><img src="figures/kpiece_projection_occupancy.png" alt="KPIECE projection occupancy"/><figcaption><strong>KPIECE projection occupancy</strong> · unit: normalized-U projection cells; not comparable to tree vertices</figcaption><p class="muted">Plotted row provenance</p><ul><li><a href="../rows/1537649fa14716fc41b49d9dc31d9d52fa09b939bb22909cf2251efc4f8fd551.json">ompl_kpiece_q · gearbox · near_0 · rep 0 · 1537649fa147</a></li><li><a href="../rows/173b2857cd9203668a4186ece5243d10d8442204625f8eec5e078a40a77dc174.json">ompl_kpiece_x · fourbar · near_0 · rep 0 · 173b2857cd92</a></li><li><a href="../rows/2ad599c0138862ec3191290b00afd1c254ed17fbf8d9d25596ae75fb2be981ae.json">ompl_kpiece_u · gearbox · far_0 · rep 0 · 2ad599c01388</a></li></ul></figure>
+<figure id="synchronized_uqx_path"><img src="figures/synchronized_uqx_path.png" alt="Synchronized U/Q/X path views"/><figcaption><strong>Synchronized U/Q/X path views</strong> · unit: U, mounted Q, Cartesian X path coordinates</figcaption><p class="muted">Plotted row provenance</p><ul><li><a href="../rows/06b128be9114ef8ef495a9117aa92c611cba9d9a4ed31dce15ba7490bdea7470.json">ompl_fmt · fourbar · far_0 · rep 0 · 06b128be9114</a></li></ul></figure>
+</section>
+<section id="prm_rrtconnect_controls" class="section">
+<h2>6. PRM/RRTConnect controls</h2>
+<p>PRM and RRTConnect remain architecture controls. They are not promoted to
+primary mechanism evidence. Multi-goal binding workarounds stay explicit in
+row provenance rather than being relabeled as a true multi-goal solve.</p>
+<p>Control planner IDs:
+<code>ompl_prm, ompl_rrt_connect</code>.</p>
+</section>
+<section id="optional_pdst" class="section">
+<h2>7. Optional PDST</h2>
+<p>Geometric PDST is optional and nonblocking. It remains visible when
+disabled or unsupported.</p>
+<table><thead><tr><th>planner_id</th><th>status</th><th>required</th></tr></thead><tbody><tr><td>ompl_pdst_u</td><td>not_run_optional_disabled</td><td>False</td></tr></tbody></table>
+</section>
+<section id="tasks_failures_unsupported" class="section">
+<h2>8. Task classes, failures, and unsupported capabilities</h2>
+<p>Failed attempts are retained and are not rewritten as successes.
+Unsupported capabilities stay in the table.</p>
+<table><thead><tr><th>row</th><th>status</th><th>unavailable_reason</th></tr></thead><tbody><tr><td><span class="muted">none retained</span></td><td></td><td></td></tr></tbody></table>
+<figure id="selected_goal_ids"><img src="figures/selected_goal_ids.png" alt="Selected goal candidate IDs"/><figcaption><strong>Selected goal candidate IDs</strong> · unit: candidate ID counts (dimensionless)</figcaption><p class="muted">Plotted row provenance</p><p class="muted">No plotted rows.</p></figure>
+</section>
+<section id="mechanism_paired_summaries" class="section">
+<h2>9. Mechanism-paired summaries by case and task</h2>
+<p>Each difference is four-bar minus gearbox inside one planner/case/task
+condition. These are descriptive paired deltas, not a mechanism ranking.</p>
+<table><thead><tr><th>planner</th><th>case</th><th>task</th><th>rep</th><th>fourbar−gearbox</th><th>fourbar digest</th><th>gearbox digest</th></tr></thead><tbody><tr><td>ompl_bit_star</td><td>span_j1_145_j2_145</td><td>far_0</td><td>0</td><td>-0.5659956899745371</td><td><code>11c367561b2e54b683d9ded6fe512d1b5dc92797befdcdb495a9259761799d57</code></td><td><code>66e58942175f8bc963b39c2f22ce46bfe1784ccfe3754a33f7ff70eb0aa3f9f1</code></td></tr><tr><td>ompl_bit_star</td><td>span_j1_145_j2_145</td><td>near_0</td><td>0</td><td>-0.08160851414491876</td><td><code>479c6a7ea2e683524b25e064d4a3c82fd8c76e958577cc89ae697490f977c36f</code></td><td><code>dfa95166b1dc85a46ca9a3dc19e686d70a5fb2c6fc01ddb2d59504291828a9f9</code></td></tr><tr><td>ompl_fmt</td><td>span_j1_145_j2_145</td><td>far_0</td><td>0</td><td>-0.5659956899745371</td><td><code>06b128be9114ef8ef495a9117aa92c611cba9d9a4ed31dce15ba7490bdea7470</code></td><td><code>3e0a4c1dfe8d6c1ace110d32c2f79178bfe95344793ff8cf973be6a18cd84541</code></td></tr><tr><td>ompl_fmt</td><td>span_j1_145_j2_145</td><td>near_0</td><td>0</td><td>-0.08160851414491876</td><td><code>4f20e7108af5cd50041c9c55e0e0f7e61a4a7d87a5bb41e320d52e5bc1c5d119</code></td><td><code>9a52b7f92d36b973be3d23492c3dac3fd9940be04f9c642c8960f3f4b6b1ef91</code></td></tr><tr><td>ompl_kpiece_q</td><td>span_j1_145_j2_145</td><td>far_0</td><td>0</td><td>0.33997354822801906</td><td><code>cf7d250373e09d1433814577e4a6918543e0bf310b7f87a059230c56ab1d91a5</code></td><td><code>d80ce92e57a1fccb58dce0ef7b43070f754bc5441241c17f0e5c405503d8247b</code></td></tr><tr><td>ompl_kpiece_q</td><td>span_j1_145_j2_145</td><td>near_0</td><td>0</td><td>7.454901677884222</td><td><code>66277a2a88a69e8dc2e24c252cc3e04c606022378909e41aea9407837119d83d</code></td><td><code>1537649fa14716fc41b49d9dc31d9d52fa09b939bb22909cf2251efc4f8fd551</code></td></tr><tr><td>ompl_kpiece_u</td><td>span_j1_145_j2_145</td><td>far_0</td><td>0</td><td>1.383359486489593</td><td><code>882d19da922a77dd6053292fdefa313f0a0321f76d48cb46bd4dc5502d3226d6</code></td><td><code>2ad599c0138862ec3191290b00afd1c254ed17fbf8d9d25596ae75fb2be981ae</code></td></tr><tr><td>ompl_kpiece_x</td><td>span_j1_145_j2_145</td><td>far_0</td><td>0</td><td>0.15231812232405684</td><td><code>77bc664a330fae1ec0b973a5f618bf2597220fbc5de146c8a81ff36e3ac94f0b</code></td><td><code>b3cbb479d899b1d2024d6a0ae4c18b5f20834c460ea530289d9c3eaa1bea516f</code></td></tr><tr><td>ompl_kpiece_x</td><td>span_j1_145_j2_145</td><td>near_0</td><td>0</td><td>-2.6869081940566284</td><td><code>173b2857cd9203668a4186ece5243d10d8442204625f8eec5e078a40a77dc174</code></td><td><code>77b34775924c62f58c812f4d0c264a93ef2d8c21ddad4eb33101f1b378f4148c</code></td></tr><tr><td>ompl_prm</td><td>span_j1_145_j2_145</td><td>far_0</td><td>0</td><td>-0.5659956899745371</td><td><code>38c271468c178657e81352b303d9e856b7c7da539c1ee2a7d1f41ae1ac087673</code></td><td><code>57b99ba78a84fd13e3b43c619c52c912eddb9be79fa2b1a931553a7ddd42d884</code></td></tr><tr><td>ompl_prm</td><td>span_j1_145_j2_145</td><td>near_0</td><td>0</td><td>-0.08160851414491876</td><td><code>21840fb9f5679addc9d91047c9453892cb783d18f7f67620fdcf5ddc53b96644</code></td><td><code>b4f7c7b8588810b7f5b3c9c865f22dbebbb497fa02a836c0921e7420fcc79d5c</code></td></tr><tr><td>ompl_rrt_connect</td><td>span_j1_145_j2_145</td><td>far_0</td><td>0</td><td>-0.3836257773680962</td><td><code>498867bcc84fedd668b9b87533732f561e9f68ce0e437cf124728d9e227ebb1a</code></td><td><code>13a711d480fe3127280977ff84e759d1161af682707638235b50a3f6b5f21528</code></td></tr><tr><td>ompl_rrt_connect</td><td>span_j1_145_j2_145</td><td>near_0</td><td>0</td><td>-0.3514319787515474</td><td><code>ba4194c72f77ea3fd64cf2d7c9794a3bc492e2f3a6e5dc054fda6e74bc31d512</code></td><td><code>479a7dedc57b6fbf77669c33f1a7046b0a3d6afd79b3e5bbea31789e88c312c6</code></td></tr></tbody></table>
+<figure id="paired_mechanism_delta"><img src="figures/paired_mechanism_delta.png" alt="Four-bar minus gearbox objective cost"/><figcaption><strong>Four-bar minus gearbox objective cost</strong> · unit: actuator travel in raw U (paired difference)</figcaption><p class="muted">Plotted row provenance</p><ul><li><a href="../rows/06b128be9114ef8ef495a9117aa92c611cba9d9a4ed31dce15ba7490bdea7470.json">ompl_fmt · fourbar · far_0 · rep 0 · 06b128be9114</a></li><li><a href="../rows/11c367561b2e54b683d9ded6fe512d1b5dc92797befdcdb495a9259761799d57.json">ompl_bit_star · fourbar · far_0 · rep 0 · 11c367561b2e</a></li><li><a href="../rows/13a711d480fe3127280977ff84e759d1161af682707638235b50a3f6b5f21528.json">ompl_rrt_connect · gearbox · far_0 · rep 0 · 13a711d480fe</a></li><li><a href="../rows/1537649fa14716fc41b49d9dc31d9d52fa09b939bb22909cf2251efc4f8fd551.json">ompl_kpiece_q · gearbox · near_0 · rep 0 · 1537649fa147</a></li><li><a href="../rows/173b2857cd9203668a4186ece5243d10d8442204625f8eec5e078a40a77dc174.json">ompl_kpiece_x · fourbar · near_0 · rep 0 · 173b2857cd92</a></li><li><a href="../rows/21840fb9f5679addc9d91047c9453892cb783d18f7f67620fdcf5ddc53b96644.json">ompl_prm · fourbar · near_0 · rep 0 · 21840fb9f567</a></li><li><a href="../rows/2ad599c0138862ec3191290b00afd1c254ed17fbf8d9d25596ae75fb2be981ae.json">ompl_kpiece_u · gearbox · far_0 · rep 0 · 2ad599c01388</a></li><li><a href="../rows/38c271468c178657e81352b303d9e856b7c7da539c1ee2a7d1f41ae1ac087673.json">ompl_prm · fourbar · far_0 · rep 0 · 38c271468c17</a></li><li><a href="../rows/3e0a4c1dfe8d6c1ace110d32c2f79178bfe95344793ff8cf973be6a18cd84541.json">ompl_fmt · gearbox · far_0 · rep 0 · 3e0a4c1dfe8d</a></li><li><a href="../rows/479a7dedc57b6fbf77669c33f1a7046b0a3d6afd79b3e5bbea31789e88c312c6.json">ompl_rrt_connect · gearbox · near_0 · rep 0 · 479a7dedc57b</a></li><li><a href="../rows/479c6a7ea2e683524b25e064d4a3c82fd8c76e958577cc89ae697490f977c36f.json">ompl_bit_star · fourbar · near_0 · rep 0 · 479c6a7ea2e6</a></li><li><a href="../rows/498867bcc84fedd668b9b87533732f561e9f68ce0e437cf124728d9e227ebb1a.json">ompl_rrt_connect · fourbar · far_0 · rep 0 · 498867bcc84f</a></li><li><a href="../rows/4f20e7108af5cd50041c9c55e0e0f7e61a4a7d87a5bb41e320d52e5bc1c5d119.json">ompl_fmt · fourbar · near_0 · rep 0 · 4f20e7108af5</a></li><li><a href="../rows/57b99ba78a84fd13e3b43c619c52c912eddb9be79fa2b1a931553a7ddd42d884.json">ompl_prm · gearbox · far_0 · rep 0 · 57b99ba78a84</a></li><li><a href="../rows/66277a2a88a69e8dc2e24c252cc3e04c606022378909e41aea9407837119d83d.json">ompl_kpiece_q · fourbar · near_0 · rep 0 · 66277a2a88a6</a></li><li><a href="../rows/66e58942175f8bc963b39c2f22ce46bfe1784ccfe3754a33f7ff70eb0aa3f9f1.json">ompl_bit_star · gearbox · far_0 · rep 0 · 66e58942175f</a></li><li><a href="../rows/77b34775924c62f58c812f4d0c264a93ef2d8c21ddad4eb33101f1b378f4148c.json">ompl_kpiece_x · gearbox · near_0 · rep 0 · 77b34775924c</a></li><li><a href="../rows/77bc664a330fae1ec0b973a5f618bf2597220fbc5de146c8a81ff36e3ac94f0b.json">ompl_kpiece_x · fourbar · far_0 · rep 0 · 77bc664a330f</a></li><li><a href="../rows/882d19da922a77dd6053292fdefa313f0a0321f76d48cb46bd4dc5502d3226d6.json">ompl_kpiece_u · fourbar · far_0 · rep 0 · 882d19da922a</a></li><li><a href="../rows/9a52b7f92d36b973be3d23492c3dac3fd9940be04f9c642c8960f3f4b6b1ef91.json">ompl_fmt · gearbox · near_0 · rep 0 · 9a52b7f92d36</a></li><li><a href="../rows/b3cbb479d899b1d2024d6a0ae4c18b5f20834c460ea530289d9c3eaa1bea516f.json">ompl_kpiece_x · gearbox · far_0 · rep 0 · b3cbb479d899</a></li><li><a href="../rows/b4f7c7b8588810b7f5b3c9c865f22dbebbb497fa02a836c0921e7420fcc79d5c.json">ompl_prm · gearbox · near_0 · rep 0 · b4f7c7b85888</a></li><li><a href="../rows/ba4194c72f77ea3fd64cf2d7c9794a3bc492e2f3a6e5dc054fda6e74bc31d512.json">ompl_rrt_connect · fourbar · near_0 · rep 0 · ba4194c72f77</a></li><li><a href="../rows/cf7d250373e09d1433814577e4a6918543e0bf310b7f87a059230c56ab1d91a5.json">ompl_kpiece_q · fourbar · far_0 · rep 0 · cf7d250373e0</a></li><li><a href="../rows/d80ce92e57a1fccb58dce0ef7b43070f754bc5441241c17f0e5c405503d8247b.json">ompl_kpiece_q · gearbox · far_0 · rep 0 · d80ce92e57a1</a></li><li><a href="../rows/dfa95166b1dc85a46ca9a3dc19e686d70a5fb2c6fc01ddb2d59504291828a9f9.json">ompl_bit_star · gearbox · near_0 · rep 0 · dfa95166b1dc</a></li></ul></figure>
+</section>
+<section id="methods_provenance_nonclaims" class="section">
+<h2>10. Methods, provenance, and nonclaims</h2>
+<p id="interpretation-boundary">The certified free-space actuator box and the direct U-linear connector are a strong reference and a weak routing challenge. V4.2C diagnoses planner geometry, finite-time convergence, and U/Q/X projection sensitivity. It does not establish obstacle-routing superiority or general application performance. Valid direct connections are not disabled.</p>
+<p>Prohibited claims:</p>
+<ul><li>no universal planner ranking</li><li>no universal mechanism advantage</li><li>no pooled cross-family effort score</li><li>no obstacle-routing inference from free space</li><li>finite-time failure is not unreachability</li><li>optional PDST does not prove metric independence</li></ul>
+<p>Source of truth is <a href="summary.json">summary.json</a> plus the
+retained row JSON under the stage directory. HTML does not introduce
+calculations that cannot be regenerated from those files.</p>
+</section>
+</body></html>

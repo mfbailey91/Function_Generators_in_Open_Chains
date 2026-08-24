@@ -24,11 +24,15 @@ algorithms.
   **Sprint V4.2B** is completed
   ([ADR-029](docs/software/architecture/adr/ADR-029-mounted-output-coordinate.md),
   [ADR-030](docs/software/architecture/adr/ADR-030-paired-final-topology-and-nonfinite-edge-semantics.md)).
+  **Sprint V4.2C** is completed
+  ([ADR-031](docs/software/architecture/adr/ADR-031-ompl-planner-geometry-contract.md)).
   V4.3 (intrinsic wrench on V4.2B snapshots) remains drafted and unauthorized.
 
-Do not overwrite frozen V3 or V4.0–V4.2A packages. Canonical V4.2B evidence is
+Do not overwrite frozen V3 or V4.0–V4.2C packages. Canonical V4.2B evidence is
 retained under
 `results/v4_review/v4_2b_span_controlled_corrective_closeout/`.
+Canonical V4.2C evidence is retained under
+`results/v4_review/v4_2c_ompl_planner_portfolio/`.
 
 ## Requirements
 
@@ -127,3 +131,5 @@ Start at [docs/README.md](docs/README.md). Canonical software paths are under
   mounted output coordinates
 - [ADR-030](docs/software/architecture/adr/ADR-030-paired-final-topology-and-nonfinite-edge-semantics.md) —
   paired final topology and nonfinite edge semantics
+- [ADR-031](docs/software/architecture/adr/ADR-031-ompl-planner-geometry-contract.md) —
+  OMPL planner geometry must be explicit (implemented by completed V4.2C)
