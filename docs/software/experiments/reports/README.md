@@ -2,6 +2,9 @@
 
 Reports record code revision, configuration, result location, exclusions, plots, statistical interpretation, and limitations for an accepted study. A report does not replace its protocol.
 
+- [Version 4 project-status printout](V4_PROJECT_STATUS.html) (snapshot through V4.2C / V4-238; not a retained evidence package)
+- [Version 3 project-status printout](V3_PROJECT_STATUS.html) (historical through V3.5)
+
 - [V2.8 Shared-Q paired study summary](V2_8_SHARED_Q_PAIRED_STUDY_SUMMARY.md)
 - [V2.9 U-distance-only shared-Q paired study summary](V2_9_SHARED_Q_U_DISTANCE_SUMMARY.md)
 - [V2.10 Dijkstra production Monte Carlo summary](V2_10_PRODUCTION_DIJKSTRA_SUMMARY.md) · [HTML dashboard](V2_10_PRODUCTION_DIJKSTRA.html) (Experiment A, Dijkstra cell)

@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Inequality Mechanisms — Project Status through V4.2C / V4-238</title>
+  <style>
+    :root {
+      --ink: #122033; --muted: #5b6b7c; --line: #d7dee6;
+      --paper: #f7f8fa; --card: #ffffff; --accent: #1f4e79;
+      --ok: #1b6b3a; --active: #8a5a00; --held: #6b4c7a; --todo: #5b6b7c;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "IBM Plex Sans", "Segoe UI", sans-serif;
+      color: var(--ink); background: var(--paper); line-height: 1.45;
+    }
+    header { background: var(--accent); color: #fff; padding: 1.6rem 2rem 1.4rem; }
+    header h1 { margin: 0 0 0.35rem; font-size: 1.55rem; font-weight: 650; }
+    header p { margin: 0; max-width: 72rem; color: #dbe7f3; }
+    main { max-width: 72rem; margin: 0 auto; padding: 1.25rem 1.25rem 3rem; }
+    .chips { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.9rem; }
+    .chip {
+      background: rgba(255,255,255,0.14); border: 1px solid rgba(255,255,255,0.22);
+      padding: 0.18rem 0.55rem; border-radius: 999px; font-size: 0.82rem;
+    }
+    .stats {
+      display: grid; grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 0.75rem; margin: 1rem 0 1.25rem;
+    }
+    .stat {
+      background: var(--card); border: 1px solid var(--line);
+      border-radius: 10px; padding: 0.85rem 0.95rem;
+    }
+    .stat .v { font-size: 1.4rem; font-weight: 700; color: var(--accent); }
+    .stat .l { color: var(--muted); font-size: 0.86rem; margin-top: 0.15rem; }
+    section {
+      background: var(--card); border: 1px solid var(--line);
+      border-radius: 12px; padding: 1rem 1.1rem 1.15rem;
+      margin-bottom: 1rem; break-inside: avoid;
+    }
+    h2 { margin: 0 0 0.35rem; font-size: 1.12rem; }
+    p.note { color: var(--muted); font-size: 0.88rem; margin: 0 0 0.75rem; }
+    .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+    th, td {
+      border-bottom: 1px solid var(--line); text-align: left;
+      padding: 0.4rem 0.45rem; vertical-align: top;
+    }
+    th { color: var(--muted); font-weight: 600; }
+    code { background: #eef2f6; padding: 0.05rem 0.3rem; border-radius: 4px; font-size: 0.86em; }
+    .badge {
+      display: inline-block; font-size: 0.75rem; font-weight: 650;
+      padding: 0.12rem 0.45rem; border-radius: 999px; border: 1px solid transparent;
+      white-space: nowrap;
+    }
+    .badge.done { color: var(--ok); background: #e8f6ee; border-color: #b7e0c5; }
+    .badge.active { color: var(--active); background: #fff4d9; border-color: #f0d48a; }
+    .badge.held { color: var(--held); background: #f3eaf7; border-color: #d8c2e6; }
+    .badge.next { color: var(--todo); background: #eef2f6; border-color: #d7dee6; }
+    ul.tight { margin: 0.35rem 0 0; padding-left: 1.15rem; }
+    ul.tight li { margin: 0.2rem 0; }
+    footer { color: var(--muted); font-size: 0.84rem; padding: 0.25rem 0.2rem; }
+    .flow {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.78rem; line-height: 1.55; background: #f0f3f7;
+      border: 1px solid var(--line); border-radius: 8px; padding: 0.75rem 0.9rem;
+      overflow-x: auto; white-space: pre;
+    }
+    @media (max-width: 900px) {
+      .stats, .grid2 { grid-template-columns: 1fr; }
+      header, main { padding-left: 1rem; padding-right: 1rem; }
+    }
+    @media print {
+      body { background: #fff; }
+      header {
+        background: #fff; color: #122033;
+        border-bottom: 2px solid #1f4e79; padding: 0 0 0.8rem;
+      }
+      header p, header .chip { color: #334; border-color: #ccd; background: #f4f7fa; }
+      section, .stat { break-inside: avoid; }
+      main { max-width: none; padding: 0.6rem 0 0; }
+      a { color: inherit; text-decoration: none; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Inequality Mechanisms — Project Status through V4.2C / V4-238</h1>
+    <p>
+      Planner-agnostic, mechanism-aware motion planning for open-chain function generators.
+      Version 4 keeps the Version 3 physical planning contract and adds a shared
+      kinematic-transmission geometry consumed by planning, velocity, wrench, and flow.
+      Sprint V4.2C has landed the OMPL planner-geometry portfolio implementation through
+      the HTML/JSON report. Retained Stage A/B/C evidence and authorization reset remain open.
+    </p>
+    <div class="chips">
+      <span class="chip">branch · Version_4_Kinematic_Transmission_Geometry @ ec48f346</span>
+      <span class="chip">active · Sprint V4.2C (V4-230–V4-239)</span>
+      <span class="chip">landed through · V4-238 report</span>
+      <span class="chip">open · V4-239 retained artifact / closeout</span>
+      <span class="chip">as of · 2026-08-24</span>
+      <span class="chip">print-ready · use browser Print</span>
+    </div>
+  </header>
+
+  <main>
+    <div class="stats">
+      <div class="stat">
+        <div class="v">V4.0–V4.2B</div>
+        <div class="l">Closed geometry / span lineage<br/>V4.2B is the canonical mounted-Q source</div>
+      </div>
+      <div class="stat">
+        <div class="v">V4-230–238</div>
+        <div class="l">V4.2C implementation landed<br/>V4-239 evidence and auth reset open</div>
+      </div>
+      <div class="stat">
+        <div class="v">55,539</div>
+        <div class="l">Frozen V4.2B geometry rows<br/>17 cases × 33 × 33 × 3 mechanisms</div>
+      </div>
+      <div class="stat">
+        <div class="v">32 / 768 / 6,200</div>
+        <div class="l">Frozen Stage A / B / C matrix sizes<br/>no retained V4.2C package yet</div>
+      </div>
+    </div>
+
+    <section>
+      <h2>One-sentence verdict</h2>
+      <p class="note" style="margin-bottom:0.4rem;">What the project has established so far.</p>
+      <p style="margin:0;">
+        Certified monotonic transmissions change planning through
+        \(\mathcal U \xrightarrow{g} \mathcal Q \xrightarrow{f} \mathcal X\);
+        Versions 1–3 froze that question under graph, lattice, and planner-independent
+        contracts, and Version 4 now owns one verified transmission geometry plus a
+        mounted-Q corrective span bank. V4.2C has implemented the OMPL planner-geometry
+        portfolio that will diagnose how that map enters sampling, optimization, and
+        U/Q/X projections — descriptively, in free space, without a global ranking.
+      </p>
+    </section>
+
+    <div class="grid2">
+      <section>
+        <h2>Architecture versions</h2>
+        <p class="note">From <code>docs/software/VERSION_MATRIX.md</code>.</p>
+        <table>
+          <thead>
+            <tr><th>Version</th><th>Center</th><th>Status</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>V1</td>
+              <td>Full-cycle / noninjective graphs in \(\mathcal U\)</td>
+              <td><span class="badge done">preserved baseline</span></td>
+            </tr>
+            <tr>
+              <td>V2</td>
+              <td>Certified branch graphs in \(\mathcal Q\) + attached \(u\)</td>
+              <td><span class="badge held">frozen evidence</span></td>
+            </tr>
+            <tr>
+              <td>V3</td>
+              <td>Planner-independent <code>PlanningProblem</code></td>
+              <td><span class="badge done">V3.6C–F closed; residual 3R blocked</span></td>
+            </tr>
+            <tr>
+              <td>V4</td>
+              <td>Shared \(U/Q/X\) geometry; four sibling effect columns</td>
+              <td><span class="badge active">V4.2C active through V4-239</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section>
+        <h2>Physical chain (unchanged)</h2>
+        <p class="note">Mechanism embedding remains the scientific object of study.</p>
+        <div class="flow">U  --g-->  Q  --f-->  X
+actuator     mounted     Cartesian
+coords       output      task space
+J_xu = J_f J_g</div>
+        <ul class="tight">
+          <li>Authoritative planning state is complete PhysicalState encoded in \(U\).</li>
+          <li>Mounted \(Q\) follows ADR-029; native follower angles are not robot joints.</li>
+          <li>Local motion is input-linear; objective is Euclidean actuator travel.</li>
+          <li>Start is exact; goals are a frozen finite physical set from V4.2B.</li>
+        </ul>
+      </section>
+    </div>
+
+    <section>
+      <h2>Version 4 sprint timeline</h2>
+      <p class="note">Authorization is only the range named in <code>ACTIVE_SPRINT.md</code>.</p>
+      <table>
+        <thead>
+          <tr><th>Sprint</th><th>Packages</th><th>Delivered</th><th>Status</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>V4.0</td><td>V4-000+</td>
+            <td>Kinematic geometry core: \(J_g\), \(J_f\), \(J_{xu}\), metric, mobility, rank</td>
+            <td><span class="badge done">closed</span></td>
+          </tr>
+          <tr>
+            <td>V4.1</td><td>V4-100+</td>
+            <td>Planar-2R intrinsic geometry atlas on shared \(Q\)</td>
+            <td><span class="badge done">closed</span></td>
+          </tr>
+          <tr>
+            <td>V4.2 / 4.2A</td><td>V4-200–219</td>
+            <td>Original span atlas and visual audit</td>
+            <td><span class="badge held">historical; not overwritten</span></td>
+          </tr>
+          <tr>
+            <td>V4.2B</td><td>V4-220–229</td>
+            <td>Mounted-Q corrective closeout; canonical 55,539-row package</td>
+            <td><span class="badge done">closed @ 6680d648</span></td>
+          </tr>
+          <tr>
+            <td>V4.2C</td><td>V4-230–239</td>
+            <td>OMPL planner-geometry portfolio; report landed; no retained rows yet</td>
+            <td><span class="badge active">active through V4-238</span></td>
+          </tr>
+          <tr>
+            <td>V4.3</td><td>V4-300+</td>
+            <td>Intrinsic gravity-free wrench atlas on frozen V4.2B snapshots</td>
+            <td><span class="badge next">drafted / blocked</span></td>
+          </tr>
+          <tr>
+            <td>V4.4–V4.8</td><td>—</td>
+            <td>Velocity/IK, flow, integrated report, population, trade-space</td>
+            <td><span class="badge next">not drafted</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>V4.2C work packages (this increment)</h2>
+      <p class="note">Implementation is in; Stage A/B/C retained evidence is not.</p>
+      <table>
+        <thead>
+          <tr><th>ID</th><th>Work</th><th>Commit</th><th>Status</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>V4-230</td>
+            <td>One writable artifact root; refuse V4.0–V4.2B and V3 packages</td>
+            <td><code>7b12723a</code></td>
+            <td><span class="badge done">landed</span></td>
+          </tr>
+          <tr>
+            <td>V4-231</td>
+            <td>OMPL 2.0.1 Python-binding capability probe in fresh processes</td>
+            <td><code>c2c90f04</code></td>
+            <td><span class="badge done">landed</span></td>
+          </tr>
+          <tr>
+            <td>V4-232</td>
+            <td>Shared OMPL session + planner-geometry record</td>
+            <td><code>34fa2d54</code></td>
+            <td><span class="badge done">landed</span></td>
+          </tr>
+          <tr>
+            <td>V4-233</td>
+            <td>RRT*, FMT, BIT* adapters on the shared session</td>
+            <td><code>c7d6242c</code></td>
+            <td><span class="badge done">landed</span></td>
+          </tr>
+          <tr>
+            <td>V4-234</td>
+            <td>Normalized U / mounted-Q / Cartesian-X KPIECE projections</td>
+            <td><code>35241e0b</code></td>
+            <td><span class="badge done">landed</span></td>
+          </tr>
+          <tr>
+            <td>V4-235 / 236</td>
+            <td>Process worker, optional PDST gate, namespaced checkpoint metrics</td>
+            <td><code>086b0634</code></td>
+            <td><span class="badge done">landed</span></td>
+          </tr>
+          <tr>
+            <td>V4-237</td>
+            <td>Digest-locked staged runner; frozen smoke / calibration / audit configs</td>
+            <td><code>b6b69ce4</code></td>
+            <td><span class="badge done">landed</span></td>
+          </tr>
+          <tr>
+            <td>V4-238</td>
+            <td>Question-grouped HTML/JSON report; no winner table</td>
+            <td><code>ec48f346</code></td>
+            <td><span class="badge done">landed</span></td>
+          </tr>
+          <tr>
+            <td>V4-239</td>
+            <td>Stage A/B/C retained package, review, closeout, authorization reset</td>
+            <td>—</td>
+            <td><span class="badge active">not started</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>Dependency map</h2>
+      <div class="flow">V1 baseline
+  └── V2 frozen evidence (production inference held)
+        └── V3.0–V3.5 planner-independent problem
+              └── V3.6C planar-2R free-space closeout
+                    ├── V3.6D–F span corpus + gravity-free wrench atlas
+                    └── V4.0 geometry kernel
+                          └── V4.1 intrinsic atlas
+                                └── V4.2 / V4.2A historical span diagnostics
+                                      └── V4.2B mounted-Q corrective closeout  ← frozen source
+                                            └── V4.2C OMPL planner-geometry portfolio  ← here
+                                                  ├── V4-230–238 implementation  (done)
+                                                  └── V4-239 retained evidence   (open)
+                                            └── V4.3 intrinsic wrench  (blocked; separate activation)</div>
+    </section>
+
+    <div class="grid2">
+      <section>
+        <h2>V4.2C planner portfolio</h2>
+        <p class="note">Same physical contract; families expose different internal metrics.</p>
+        <table>
+          <thead><tr><th>Planner ID</th><th>Role</th></tr></thead>
+          <tbody>
+            <tr><td><code>ompl_rrt_star</code></td><td>primary optimizer (cumulative)</td></tr>
+            <tr><td><code>ompl_bit_star</code></td><td>primary optimizer (cumulative)</td></tr>
+            <tr><td><code>ompl_fmt</code></td><td>primary; independent sample-count runs</td></tr>
+            <tr><td><code>ompl_kpiece_u</code></td><td>projection ablation (normalized U)</td></tr>
+            <tr><td><code>ompl_kpiece_q</code></td><td>projection ablation (mounted Q)</td></tr>
+            <tr><td><code>ompl_kpiece_x</code></td><td>projection ablation (Cartesian X)</td></tr>
+            <tr><td><code>ompl_prm</code></td><td>architecture control</td></tr>
+            <tr><td><code>ompl_rrt_connect</code></td><td>architecture control</td></tr>
+            <tr><td><code>ompl_pdst_u</code></td><td>optional; disabled / nonblocking</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section>
+        <h2>Locked V4.2C design rules</h2>
+        <ul class="tight">
+          <li>\(U\) remains authoritative; \(Q\) and \(X\) are projections, tasks, metrics, interpretation.</li>
+          <li>Input-linear local motion; Euclidean actuator-travel objective.</li>
+          <li>Exact start; frozen finite physical goal set from V4.2B.</li>
+          <li>Valid direct edges are not disabled.</li>
+          <li>No per-mechanism parameter retuning after outcomes are visible.</li>
+          <li>No pooled cross-family effort score; no global winner table.</li>
+          <li>Finite-time failure is not unreachability.</li>
+          <li>Writers may use only <code>results/v4_review/v4_2c_ompl_planner_portfolio/</code>.</li>
+        </ul>
+      </section>
+    </div>
+
+    <section>
+      <h2>Frozen retained packages (do not mutate)</h2>
+      <p class="note">V4.2C consumes V4.2B by digest lock; it does not regenerate it.</p>
+      <table>
+        <thead><tr><th>Package</th><th>What it is</th><th>Lock</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><code>results/v3_review/</code></td>
+            <td>All committed Version 3 review packages</td>
+            <td>immutable</td>
+          </tr>
+          <tr>
+            <td><code>v4_0_kinematic_geometry_core</code></td>
+            <td>Geometry kernel smoke</td>
+            <td>closed</td>
+          </tr>
+          <tr>
+            <td><code>v4_1_planar2r_geometry_atlas</code></td>
+            <td>Intrinsic atlas</td>
+            <td>closed</td>
+          </tr>
+          <tr>
+            <td><code>v4_2_span_controlled_geometry_atlas</code></td>
+            <td>Original span atlas</td>
+            <td>historical</td>
+          </tr>
+          <tr>
+            <td><code>v4_2a_span_controlled_visual_audit</code></td>
+            <td>Original visual audit</td>
+            <td>historical</td>
+          </tr>
+          <tr>
+            <td><code>v4_2b_span_controlled_corrective_closeout</code></td>
+            <td>Canonical mounted-Q span bank; 17 cases; 55,539 geometry rows</td>
+            <td>
+              content <code>ce7bbea03c9ac9ea…be9a</code>
+              · 23 files · git-tracked <code>31f2a141…7a8e</code> (14,098 paths)
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>Frozen V4.2C configs (not yet executed for retention)</h2>
+      <p class="note">Matrix sizes are locked in committed JSON. The real artifact root still does not exist.</p>
+      <table>
+        <thead><tr><th>Mode</th><th>Stage dir</th><th>Rows</th><th>Config</th></tr></thead>
+        <tbody>
+          <tr>
+            <td>smoke</td><td><code>stage_a</code></td><td>32</td>
+            <td><code>configs/v4/ompl_planner_portfolio_smoke_v1.json</code></td>
+          </tr>
+          <tr>
+            <td>calibration</td><td><code>stage_b</code></td><td>768</td>
+            <td><code>configs/v4/ompl_planner_portfolio_calibration_v1.json</code></td>
+          </tr>
+          <tr>
+            <td>audit</td><td><code>stage_c</code></td><td>6,200</td>
+            <td><code>configs/v4/ompl_planner_portfolio_audit_v1.json</code></td>
+          </tr>
+        </tbody>
+      </table>
+      <ul class="tight">
+        <li>Mechanisms: four-bar and gearbox, paired inside the same planner condition.</li>
+        <li>Controls (PRM, RRTConnect) have one repetition; stochastic families use the frozen repetition count.</li>
+        <li>Audit mode refuses to run without a matching <code>calibration_selection.json</code>.</li>
+        <li>Report reader writes <code>summary.json</code> + figures + <code>index.html</code> from retained JSON only.</li>
+      </ul>
+    </section>
+
+    <div class="grid2">
+      <section>
+        <h2>Explicitly held</h2>
+        <ul class="tight">
+          <li>V2 Cartesian production inference / new Monte Carlo campaigns</li>
+          <li>Obstacles, MoveIt, 3R / 6R, dynamics, trajectory optimization</li>
+          <li>Native OMPL clones; certificate retuning</li>
+          <li>Sprint V3.7 residual; V3.8+</li>
+          <li>Sprint V4.3+ (wrench atlas and later columns)</li>
+          <li>Gravity-aware wrench; force-aware planning; mechanism resynthesis</li>
+          <li>Stage D <code>all_cases_optional</code> sweep (not required for V4.2C exit)</li>
+          <li>Deferred items <code>V3-DEFER-001</code>, <code>V3-DEFER-002</code></li>
+        </ul>
+      </section>
+
+      <section>
+        <h2>Next authorized frontier</h2>
+        <p class="note">Still inside V4-230–V4-239. Do not activate V4.3 in the closeout.</p>
+        <ul class="tight">
+          <li><strong>V4-239</strong> — generate Stage A, freeze calibration after Stage B, generate Stage C from clean <code>ec48f346</code> (plus any packager committed before generation)</li>
+          <li>Retain hashed package under <code>results/v4_review/v4_2c_ompl_planner_portfolio/</code></li>
+          <li>Evidence commit separate from implementation</li>
+          <li>Then a docs-only closeout: review note, <code>ACTIVE_SPRINT.md</code> → no authorization</li>
+        </ul>
+        <p class="note" style="margin-top:0.75rem;margin-bottom:0;">
+          Active authorization today remains <strong>V4-230 through V4-239 only</strong>
+          (<code>ACTIVE_SPRINT.md</code>).
+        </p>
+      </section>
+    </div>
+
+    <section>
+      <h2>Prohibited claims (print these with the evidence)</h2>
+      <ul class="tight">
+        <li>No universal planner ranking.</li>
+        <li>No universal mechanism advantage.</li>
+        <li>No pooled cross-family effort score.</li>
+        <li>No obstacle-routing inference from free space.</li>
+        <li>Finite-time failure is not unreachability.</li>
+        <li>Optional PDST does not prove metric independence.</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>Recent V4.2C commits on <code>Version_4_Kinematic_Transmission_Geometry</code></h2>
+      <table>
+        <thead><tr><th>Commit</th><th>Summary</th></tr></thead>
+        <tbody>
+          <tr><td><code>ec48f346</code></td><td>Add V4-238 question-grouped OMPL planner-portfolio report</td></tr>
+          <tr><td><code>b6b69ce4</code></td><td>Add V4-237 staged OMPL planner-portfolio runner and frozen configs</td></tr>
+          <tr><td><code>086b0634</code></td><td>Add V4-235/V4-236 process worker and namespaced checkpoint metrics</td></tr>
+          <tr><td><code>35241e0b</code></td><td>Add V4-234 normalized U/Q/X KPIECE projections</td></tr>
+          <tr><td><code>c7d6242c</code></td><td>Add V4-233 RRT*, FMT, and BIT* OMPL optimizing adapters</td></tr>
+          <tr><td><code>34fa2d54</code></td><td>Extract V4-232 shared OMPL solve session and planner-geometry record</td></tr>
+          <tr><td><code>c2c90f04</code></td><td>Add V4-231 OMPL Python-binding capability probe</td></tr>
+          <tr><td><code>7b12723a</code></td><td>Guard V4.2C writes to one fresh artifact root</td></tr>
+          <tr><td><code>f58034a0</code></td><td>Authorize Sprint V4.2C work packages V4-230 through V4-239</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>How to verify locally</h2>
+      <div class="flow">PYTHONPATH=src MPLBACKEND=Agg .venv/bin/python -m pytest -q \
+  tests/v4/test_v4_2c_ompl_planner_portfolio_report.py \
+  tests/v4/test_v4_2c_ompl_planner_portfolio.py \
+  tests/v4/test_v4_2c_artifact_guard.py
+PYTHONPATH=src .venv/bin/python scripts/verify_v4_2b_artifact.py \
+  results/v4_review/v4_2b_span_controlled_corrective_closeout/
+# Expected V4.2B files_digest:
+# ce7bbea03c9ac9ea77bad761e371d5abcd96965e7aa55daf76269ee51469be9a</div>
+      <p class="note" style="margin-top:0.75rem;margin-bottom:0;">
+        Core package imports without OMPL. V4.2C planner tests require the OMPL-enabled environment.
+        Do not write retained rows under the real V4.2C artifact root until V4-239.
+      </p>
+    </section>
+
+    <footer>
+      Generated as a project-status printout (not a retained V4.2C evidence package and not a Monte Carlo campaign).
+      Sources: <code>ACTIVE_SPRINT.md</code>, <code>VERSION_MATRIX.md</code>,
+      <code>docs/software/planning/sprints/v4/</code>,
+      <code>docs/software/architecture/notes/V4_2B_SPAN_CONTROLLED_CORRECTIVE_CLOSEOUT.md</code>,
+      branch <code>Version_4_Kinematic_Transmission_Geometry</code> @ <code>ec48f346</code>.
+      Use the browser Print dialog for PDF.
+    </footer>
+  </main>
+</body>
+</html>

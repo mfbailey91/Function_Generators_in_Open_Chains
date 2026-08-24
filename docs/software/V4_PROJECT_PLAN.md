@@ -1,6 +1,6 @@
 # Version 4 Project Plan — Kinematic Transmission Geometry in Planar 2R
 
-- **Status:** V4.0 geometry kernel and V4.1 atlas closed; V4.2/V4.2A closed as retained historical diagnostics; V4.2B mounted-coordinate closeout completed; V4.2C is a drafted sibling planning diagnostic (unauthorized until `ACTIVE_SPRINT.md` names V4-230–V4-239); V4.3 remains drafted and unauthorized until a later activation consumes frozen V4.2B snapshots
+- **Status:** V4.0 geometry kernel and V4.1 atlas closed; V4.2/V4.2A closed as retained historical diagnostics; V4.2B mounted-coordinate closeout completed; V4.2C OMPL planner-geometry portfolio completed; V4.3 remains drafted and unauthorized until a later activation consumes frozen V4.2B snapshots
 - **Predecessor:** Version 3 planner-independent physical-state and motion-planning contracts
 - **Immediate dependency:** V4.2B closeout is complete; activate any sibling downstream sprint only through a separate explicit `ACTIVE_SPRINT.md` transition
 - **Initial robot:** planar 2R open chain
@@ -510,7 +510,7 @@ results/v4_review/
 ├── v4_2_span_controlled_geometry_atlas/          # historical; do not overwrite
 ├── v4_2a_span_controlled_visual_audit/           # historical; do not overwrite
 ├── v4_2b_span_controlled_corrective_closeout/    # canonical V4.2B closeout
-├── v4_2c_ompl_planner_portfolio/                 # drafted V4.2C; unauthorized until activation
+├── v4_2c_ompl_planner_portfolio/                 # canonical V4.2C closeout
 └── v4_3_intrinsic_static_wrench/                 # drafted / blocked; V4.2B snapshots only
 ```
 
@@ -564,16 +564,12 @@ Every generated package includes:
 
 ## 14. Relationship to the current active program
 
-Landing the V4.2C planning documents and ADR-031 does not change the active sprint. V4.2B is closed; V4.3 remains unauthorized.
+Sprint V4.2C is closed. Canonical evidence is retained under
+`results/v4_review/v4_2c_ompl_planner_portfolio/`. `ACTIVE_SPRINT.md` returns to
+no authorization. V4.3 remains unauthorized and does not reopen V4.2C.
 
-Before V4.2C source implementation:
-
-1. close and verify the corrected V4.2B artifact;
-2. return `ACTIVE_SPRINT.md` to no authorization;
-3. review ADR-031 and the V4.2C capability/budget contract;
-4. activate only V4-230–V4-239 in a separate explicit change;
-5. do not co-activate V4.3 or modify V4.3's independent wrench mathematics;
-6. preserve all V3 and V4.0–V4.2B evidence as immutable provenance.
+V4.2B and V4.2C evidence, and all V3 and V4.0–V4.2A packages, remain immutable
+provenance.
 
 The planned Version 3 dimensional roadmap remains documented. Version 4 reorders the immediate research focus; it does not erase the 3R/6R work.
 

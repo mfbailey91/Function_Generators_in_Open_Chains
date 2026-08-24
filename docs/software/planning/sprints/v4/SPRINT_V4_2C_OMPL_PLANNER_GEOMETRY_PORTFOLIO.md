@@ -1,6 +1,6 @@
 # Sprint V4.2C — OMPL Planner-Geometry Portfolio and Projection Diagnostics
 
-- **Status:** active; V4-230–V4-239 authorized by `ACTIVE_SPRINT.md`; V4.3 remains drafted / blocked
+- **Status:** completed; canonical evidence retained; no current authorization
 - **Depends on:** corrected V4.2B mounted-coordinate planning bank and case realization; closed V3.5 OMPL adapter; accepted ADR-023 through ADR-026; accepted ADR-029; accepted ADR-030 (paired topology); accepted ADR-031
 - **Independent sibling:** V4.3 intrinsic static wrench may be activated separately after V4.2B; V4.2C does not alter the wrench mathematics or its artifact lineage
 - **Blocks:** any V4.6 integrated-report claim that the planning column has been tested across mechanism-sensitive sampling, optimization, and projection-guided planner families

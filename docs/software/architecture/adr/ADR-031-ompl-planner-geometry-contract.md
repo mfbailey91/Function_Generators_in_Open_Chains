@@ -1,6 +1,6 @@
 # ADR-031 — OMPL Planner Geometry Must Be Explicit
 
-**Status:** Accepted — implementation pending Sprint V4.2C activation
+**Status:** Accepted; implemented by completed Sprint V4.2C
 **Applies to:** Version 3 OMPL adapter; Version 4 Column A planning diagnostics
 **Related:** ADR-021, ADR-022, ADR-023, ADR-024, ADR-025, ADR-026, ADR-029, ADR-030
 **Supersedes:** nothing; does not close `V3-DEFER-001`
@@ -142,7 +142,11 @@ Additional informed, task-space, transition-based, trajectory-optimization, dyna
 
 ### 10. Documentation does not authorize implementation
 
-Landing ADR-031 and the V4.2C sprint plan does not change `ACTIVE_SPRINT.md`. Implementation starts only after a separate change explicitly authorizes V4-230–V4-239. This ADR does not supersede ADR-030 (paired final topology and nonfinite edge semantics).
+Landing ADR-031 and the V4.2C sprint plan did not, by itself, change
+`ACTIVE_SPRINT.md`. Implementation started only after a separate change
+authorized V4-230–V4-239. Sprint V4.2C later implemented this decision and
+returned authorization to none without activating V4.3. This ADR does not
+supersede ADR-030 (paired final topology and nonfinite edge semantics).
 
 ## Consequences
 
