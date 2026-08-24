@@ -23,6 +23,7 @@ from typing import Any, Final
 
 SCHEMA_ID: Final = "v4.2c.ompl_worker_request.v1"
 PROBLEM_SOURCE_SMOKE: Final = "smoke_sampling_2r"
+PROBLEM_SOURCE_V4_2B: Final = "v4_2b_span_controlled_corrective"
 REQUIRED_PLANNER_IDS: Final[tuple[str, ...]] = (
     "ompl_prm",
     "ompl_rrt_connect",
@@ -215,6 +216,78 @@ def _build_smoke_problem(request: Mapping[str, Any]) -> tuple[Any, Any]:
     return problem, CartesianDiskGoalGenerator(planar_fk=fk)
 
 
+_V4_2B_CACHE: dict[str, Any] = {}
+
+
+def _build_v4_2b_problem(request: Mapping[str, Any]) -> tuple[Any, Any]:
+    """Build one V4.2B mounted-span planning problem for the worker."""
+    from inequality_mechanisms.audits.v4_artifact_guard import CANONICAL_REPO_ROOT
+    from inequality_mechanisms.benchmarks.free_space_bank_v2 import build_problem_v2
+    from inequality_mechanisms.experiments.span_cases import (
+        generate_span_cases,
+        realize_mounted_span_case,
+    )
+    from inequality_mechanisms.experiments.v4.span_common_physical_bank import (
+        PLANAR_L1,
+        PLANAR_L2,
+        load_common_physical_bank,
+    )
+    from inequality_mechanisms.experiments.v4.span_controlled_atlas_config import (
+        FROZEN_V3_6D_DIGEST,
+        FROZEN_V3_6D_REGISTRY_REL,
+    )
+    from inequality_mechanisms.experiments.v4.span_controlled_corrective_audit import (
+        sampling_arms_for_mounted,
+        tasks_from_common_physical_bank,
+    )
+    from inequality_mechanisms.kinematics.planar_2r_goals import (
+        CartesianDiskGoalGenerator,
+    )
+    from inequality_mechanisms.mechanisms.span_registry import load_span_registry
+
+    if "bank" not in _V4_2B_CACHE:
+        _V4_2B_CACHE["bank"] = load_common_physical_bank()
+        _V4_2B_CACHE["tasks"] = tasks_from_common_physical_bank(_V4_2B_CACHE["bank"])
+        registry_path = CANONICAL_REPO_ROOT / FROZEN_V3_6D_REGISTRY_REL
+        payload = json.loads(registry_path.read_text(encoding="utf-8"))
+        registry = load_span_registry(payload)
+        digest = getattr(registry, "sha256", None)
+        if digest is not None and digest != FROZEN_V3_6D_DIGEST:
+            raise ValueError(
+                "V3.6D registry digest mismatch: "
+                f"file={digest} lock={FROZEN_V3_6D_DIGEST}"
+            )
+        _V4_2B_CACHE["registry"] = registry
+        _V4_2B_CACHE["cases"] = {case.case_id: case for case in generate_span_cases()}
+        _V4_2B_CACHE["realized"] = {}
+
+    case_id = str(request.get("case_id", ""))
+    task_id = str(request.get("task_id", ""))
+    mechanism = str(request.get("mechanism", ""))
+    cases = _V4_2B_CACHE["cases"]
+    if case_id not in cases:
+        raise ValueError(f"unknown_case_id:{case_id}")
+    tasks = _V4_2B_CACHE["tasks"]
+    if task_id not in tasks:
+        raise ValueError(f"unknown_task_id:{task_id}")
+    realized_map = _V4_2B_CACHE["realized"]
+    if case_id not in realized_map:
+        realized_map[case_id] = realize_mounted_span_case(
+            cases[case_id], _V4_2B_CACHE["registry"]
+        )
+    arms = sampling_arms_for_mounted(
+        realized_map[case_id], L1=PLANAR_L1, L2=PLANAR_L2
+    )
+    if mechanism not in arms:
+        raise ValueError(f"unknown_mechanism:{mechanism}")
+    arm = arms[mechanism]
+    problem = build_problem_v2(arm, tasks[task_id])
+    fk = arm.robot.planar_fk
+    if fk is None:
+        raise ValueError("v4.2b arm is missing planar_fk")
+    return problem, CartesianDiskGoalGenerator(planar_fk=fk)
+
+
 def _failed_attempt(
     *,
     status: str,
@@ -292,14 +365,25 @@ def execute_request(request: Mapping[str, Any]) -> dict[str, Any]:
             "result": None,
         }
     source = str(request.get("problem_source", PROBLEM_SOURCE_SMOKE))
-    if source != PROBLEM_SOURCE_SMOKE:
+    if source == PROBLEM_SOURCE_SMOKE:
+        problem, goal_generator = _build_smoke_problem(request)
+    elif source == PROBLEM_SOURCE_V4_2B:
+        try:
+            problem, goal_generator = _build_v4_2b_problem(request)
+        except ValueError as exc:
+            return {
+                **base,
+                "status": STATUS_REJECTED,
+                "unavailable_reason": str(exc),
+                "result": None,
+            }
+    else:
         return {
             **base,
             "status": STATUS_REJECTED,
             "unavailable_reason": f"unsupported_problem_source:{source}",
             "result": None,
         }
-    problem, goal_generator = _build_smoke_problem(request)
     params = dict(request.get("planner_params") or {})
     params["seed"] = int(request["seed"])
     params["goal_generator"] = goal_generator

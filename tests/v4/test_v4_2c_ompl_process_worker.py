@@ -12,6 +12,7 @@ from inequality_mechanisms.adapters.ompl._availability import is_ompl_available
 from inequality_mechanisms.benchmarks.ompl_process_worker_v4_2c import (
     OPTIONAL_PLANNER_IDS,
     PLANNER_FACTORIES,
+    PROBLEM_SOURCE_V4_2B,
     REQUIRED_PLANNER_IDS,
     STATUS_CHILD_CRASH,
     STATUS_CHILD_TIMEOUT,
@@ -178,3 +179,17 @@ def test_fmt_independent_sample_count_run(tmp_path: Path) -> None:
     assert family["checkpoints_s"] is None
     assert family["unavailable_reason"] == "fmt_is_independent_sample_count_run"
     assert family["num_samples"] == 50
+
+
+def test_v4_2b_problem_source_rejects_unknown_case_before_planning() -> None:
+    row = execute_request(
+        _request(
+            problem_source=PROBLEM_SOURCE_V4_2B,
+            case_id="not_a_real_case",
+            task_id="near_0",
+            mechanism="fourbar",
+        )
+    )
+    assert row["status"] == STATUS_REJECTED
+    assert "unknown_case_id" in str(row.get("unavailable_reason", ""))
+    assert row["result"] is None
