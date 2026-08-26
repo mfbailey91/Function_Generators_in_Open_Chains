@@ -198,7 +198,7 @@ def test_v4_2c_closeout_keeps_v4_3_unauthorized() -> None:
     text = (
         CANONICAL_REPO_ROOT / "docs" / "software" / "planning" / "ACTIVE_SPRINT.md"
     ).read_text(encoding="utf-8")
-    assert "**Code authorization:** V4.2C-R only." in text
+    assert "**Code authorization:** none." in text
     assert "Sprint V4.2C is **completed**" in text
     assert "Sprint V4.3 remains **drafted / blocked**" in text
     assert "Do not implement V4.3 / V4-300+" in text
