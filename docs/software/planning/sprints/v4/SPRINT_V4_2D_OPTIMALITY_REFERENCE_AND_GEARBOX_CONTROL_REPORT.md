@@ -1,6 +1,6 @@
 # Sprint V4.2D — Optimality-Reference and Gearbox-Control Report
 
-**Status:** active; V4-240–V4-249 authorized  
+**Status:** completed; canonical evidence retained; no current authorization  
 **Purpose:** derive and expose the missing optimality controls for the frozen V4.2C OMPL planner portfolio  
 **Reserved work packages:** V4-240 through V4-249  
 **Input evidence:** frozen V4.2B and V4.2C packages only  
