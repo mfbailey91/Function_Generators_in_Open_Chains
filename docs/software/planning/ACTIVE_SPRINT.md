@@ -1,8 +1,8 @@
 # Active sprint
 
-**Current focus:** none. Sprint V4.2C is **completed**. Sprint V4.3 remains **drafted / blocked**.
+**Current focus:** V4.2C-R frozen-data report clarification. Sprint V4.2C is **completed**. Sprint V4.3 remains **drafted / blocked**.
 
-**Code authorization:** none. Do not implement V4.3 / V4-300+, obstacles, MoveIt, 3R/6R, native OMPL clones, or mutate frozen evidence. Canonical V4.2C evidence is retained under `results/v4_review/v4_2c_ompl_planner_portfolio/`. Do not overwrite V4.0–V4.2C or any `results/v3_review/` package.
+**Code authorization:** V4.2C-R only. Write report-clarification code and derived figures under `results/v4_review/v4_2c_r_frozen_data_report/`. Do not implement V4.3 / V4-300+. Do not rerun OMPL, mutate frozen V4.2C rows, obstacles, MoveIt, 3R/6R, native OMPL clones, or overwrite V4.0–V4.2C or any `results/v3_review/` package. Canonical V4.2C evidence remains under `results/v4_review/v4_2c_ompl_planner_portfolio/`.
 
 **Completed:** V2.0–V2.12 smoke/calibration (production held); V3.0–V3.5; V3.6 corrective 2R free-space evidence; **Sprint V3.6A**; **Sprint V3.6B**; **Sprint V3.6C**; **Sprint V4.0** kinematic geometry core; **Sprint V4.1** planar-2R intrinsic geometry atlas; **Sprint V3.6D** canonical span corpus; **Sprint V3.6E** gravity-free static wrench core; **Sprint V3.6F** static wrench atlas; **Sprint V4.2** span-controlled geometry atlas (historical); **Sprint V4.2A** span-controlled visual planning audit (historical); **Sprint V4.2B** mounted-coordinate corrective closeout; **Sprint V4.2C** OMPL planner-geometry portfolio.
 

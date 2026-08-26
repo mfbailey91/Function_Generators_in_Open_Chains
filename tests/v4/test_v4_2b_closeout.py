@@ -185,7 +185,7 @@ def test_historical_package_digests_unchanged() -> None:
 
 def test_v4_3_remains_blocked() -> None:
     text = ACTIVE_SPRINT.read_text(encoding="utf-8")
-    assert "**Code authorization:** none." in text
+    assert "**Code authorization:** V4.2C-R only." in text
     assert "**Sprint V4.2B**" in text
     assert "Sprint V4.2C is **completed**" in text
     assert "Sprint V4.3 remains **drafted / blocked**" in text
