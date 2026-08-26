@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"/>
+<title>V4.2C-R frozen-data report clarification</title>
+<style>
+@media print {
+  .anim-live { display: none !important; }
+  .contact-sheet { display: block !important; }
+  .section { break-before: page; page-break-before: always; }
+  a[href]::after { content: ""; }
+}
+@media screen {
+  .contact-sheet.fallback-only { display: none; }
+}
+body { font-family: Georgia, "Times New Roman", serif; margin: 1.2rem; color: #222; }
+nav a { margin-right: 0.8rem; }
+table { border-collapse: collapse; width: 100%; margin: 0.6rem 0 1.2rem; font-size: 0.92rem; }
+th, td { border: 1px solid #bbb; padding: 0.35rem 0.45rem; vertical-align: top; }
+th { background: #f3f3f3; }
+img { max-width: 100%; height: auto; border: 1px solid #ddd; margin: 0.25rem 0; }
+.muted { color: #555; }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0.8rem; }
+code, pre { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 0.85rem; }
+
+figure { margin: 1rem 0 1.6rem; }
+figcaption { font-size: 0.9rem; color: #444; }
+#lede { font-size: 1.05rem; }
+</style></head><body>
+<p id="lede"><strong>This clarification report reads frozen V4.2C Stage C rows only. Already-satisfied tasks are separated from search evidence. Figures are descriptive and are not a global ranking.</strong></p>
+<h1>V4.2C-R frozen-data report clarification</h1>
+<p><strong>No-inference:</strong> OMPL planner-geometry portfolio; descriptive only; no mechanism performance inference.</p>
+<p>The certified free-space actuator box and the direct U-linear connector are a strong reference and a weak routing challenge. V4.2C diagnoses planner geometry, finite-time convergence, and U/Q/X projection sensitivity. It does not establish obstacle-routing superiority or general application performance. Valid direct connections are not disabled.</p>
+<p class="muted">schema <code>v4.2c_r.frozen_data_report.v1</code>
+· source V4.2C files_digest <code>99ec523a706632391c85e16cae505e6cd11a6f14d15682eb711515aefcf76c93</code>
+· stage <code>stage_c</code>
+· config digest <code>d3fcdf4bbcc1275ac5e39b74c87104591fe54841b8692081e31f70dbfd9dbe5e</code></p>
+<nav><a href="#optimizer_convergence_rrt_star">RRT* optimizer convergence by case and task class</a> <a href="#optimizer_convergence_bit_star">BIT* optimizer convergence by case and task class</a> <a href="#first_to_final_improvement">First-to-final relative improvement</a> <a href="#paired_mechanism_delta_distribution">Paired four-bar minus gearbox objective-cost distribution</a> <a href="#paired_goal_selection">Paired selected-goal agreement by planner, case, and task class</a> <a href="#kpiece_projection_diagnostic">KPIECE U/Q/X available metrics</a> <a href="#final_planner_data_size_vs_solution_time">Final PlannerData size versus first-solution time</a> <a href="#paired_uqx_example">Paired U/Q/X trajectory example</a></nav>
+<section id="interpretation" class="section">
+<h2>How to read this page</h2>
+<p>Sprint V4.2C is closed. These figures re-present frozen rows. They do not
+rerun OMPL, change the physical contract, or support a universal planner or
+mechanism claim.</p>
+<p>Completed rows: 6200. Already satisfied (not search
+evidence): 1240. Nontrivial completed rows:
+4960.</p>
+<p>KPIECE cell occupancy is unavailable from the OMPL 2.0.1 binding
+(<code>kpiece_cell_stats_not_exposed_by_binding</code>). Occupancy heatmaps are not scientific
+evidence here.</p>
+<h3>Prohibited claims</h3>
+<ul><li>no universal planner ranking</li><li>no universal mechanism advantage</li><li>no pooled cross-family effort score</li><li>no obstacle-routing inference from free space</li><li>finite-time failure is not unreachability</li><li>optional PDST does not prove metric independence</li></ul>
+<h3>Family units (do not pool)</h3>
+<ul><li><code>ompl_rrt_star</code>: actuator travel in raw U (Euclidean); cumulative checkpoints in seconds; PlannerData vertices/edges</li><li><code>ompl_bit_star</code>: actuator travel in raw U (Euclidean); cumulative checkpoints in seconds; batch/queue events stay in family_metrics</li><li><code>ompl_fmt</code>: actuator travel in raw U (Euclidean); independent sample-count runs (not cumulative wall-clock continuation)</li><li><code>ompl_kpiece_u</code>: normalized-U projection cells; not comparable to tree vertices</li><li><code>ompl_kpiece_q</code>: normalized mounted-Q projection cells; physical state remains U</li><li><code>ompl_kpiece_x</code>: normalized Cartesian-X projection cells; physical state remains U</li><li><code>ompl_prm</code>: roadmap vertices/edges; architecture control, not primary evidence</li><li><code>ompl_rrt_connect</code>: first-feasible tree control; feasible cost is not asymptotic optimality</li><li><code>ompl_pdst_u</code>: optional geometric PDST; reported as unsupported unless a retained capability/result row says otherwise</li></ul>
+</section>
+<section id="optimizer_convergence_rrt_star" class="section"><h2>RRT* optimizer convergence by case and task class</h2><p class='muted'>unit: actuator travel in raw U (Euclidean); cumulative checkpoints in seconds; PlannerData vertices/edges</p><figure><img src="figures/optimizer_convergence_rrt_star.png" alt="RRT* optimizer convergence by case and task class"/><figcaption>RRT* optimizer convergence by case and task class</figcaption></figure></section><section id="optimizer_convergence_bit_star" class="section"><h2>BIT* optimizer convergence by case and task class</h2><p class='muted'>unit: actuator travel in raw U (Euclidean); cumulative checkpoints in seconds; batch/queue events stay in family_metrics</p><figure><img src="figures/optimizer_convergence_bit_star.png" alt="BIT* optimizer convergence by case and task class"/><figcaption>BIT* optimizer convergence by case and task class</figcaption></figure></section><section id="first_to_final_improvement" class="section"><h2>First-to-final relative improvement</h2><p class='muted'>unit: dimensionless (J_first - J_final) / J_first</p><figure><img src="figures/first_to_final_improvement.png" alt="First-to-final relative improvement"/><figcaption>First-to-final relative improvement</figcaption></figure></section><section id="paired_mechanism_delta_distribution" class="section"><h2>Paired four-bar minus gearbox objective-cost distribution</h2><p class='muted'>unit: actuator travel in raw U (paired difference)</p><figure><img src="figures/paired_mechanism_delta_distribution.png" alt="Paired four-bar minus gearbox objective-cost distribution"/><figcaption>Paired four-bar minus gearbox objective-cost distribution</figcaption></figure></section><section id="paired_goal_selection" class="section"><h2>Paired selected-goal agreement by planner, case, and task class</h2><p class='muted'>unit: agreement rate (dimensionless)</p><figure><img src="figures/paired_goal_selection.png" alt="Paired selected-goal agreement by planner, case, and task class"/><figcaption>Paired selected-goal agreement by planner, case, and task class</figcaption></figure></section><section id="kpiece_projection_diagnostic" class="section"><h2>KPIECE U/Q/X available metrics</h2><p class='muted'>unit: normalized-U projection cells; not comparable to tree vertices</p><figure><img src="figures/kpiece_projection_diagnostic.png" alt="KPIECE U/Q/X available metrics"/><figcaption>KPIECE U/Q/X available metrics</figcaption></figure></section><section id="final_planner_data_size_vs_solution_time" class="section"><h2>Final PlannerData size versus first-solution time</h2><p class='muted'>unit: PlannerData vertices vs seconds; not a within-run growth path</p><figure><img src="figures/final_planner_data_size_vs_solution_time.png" alt="Final PlannerData size versus first-solution time"/><figcaption>Final PlannerData size versus first-solution time</figcaption></figure></section><section id="paired_uqx_example" class="section"><h2>Paired U/Q/X trajectory example</h2><p class='muted'>unit: U, mounted Q, Cartesian X path coordinates</p><figure><img src="figures/paired_uqx_example.png" alt="Paired U/Q/X trajectory example"/><figcaption>Paired U/Q/X trajectory example</figcaption></figure></section>
+<section id="uqx_example_table" class="section">
+<h2>Paired U/Q/X example table</h2>
+<p>Selection rule: nontrivial far_0 on span_j1_145_j2_145; lowest four-bar request_digest among paired trajectories</p><table><thead><tr><th>mechanism</th><th>planner</th><th>digest</th><th>goal</th><th>U length</th><th>Q length</th><th>X length</th></tr></thead><tbody><tr><td>fourbar</td><td><code>ompl_bit_star</code></td><td><code>03cb561e331009b5a152af4235920674c27aeceef94ddc5c6c24f01fa498883d</code></td><td></td><td>1.1953490171841805</td><td>0.9339649339848761</td><td>1.8964394836323752</td></tr><tr><td>gearbox</td><td><code>ompl_bit_star</code></td><td><code>2122c38a8530d62f0f5423d5a5a47bb3e6ba33fa296a7bb8119604c261e05f76</code></td><td></td><td>1.7613447071587176</td><td>0.9339527149387863</td><td>1.8962494439677673</td></tr></tbody></table>
+</section>
+<p class="muted">Regenerated exclusively from frozen V4.2C machine-readable
+stage files. HTML contains no calculations absent from
+<a href="summary.json">summary.json</a>.</p>
+</body></html>
