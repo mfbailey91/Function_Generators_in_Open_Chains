@@ -326,6 +326,9 @@ def extract_row_view(record: Mapping[str, Any]) -> dict[str, Any]:
         if not isinstance(result, Mapping)
         else result.get("path_length_x"),
         "selected_goal_id": _goal_id(result),
+        "task_class": None
+        if not isinstance(result, Mapping)
+        else result.get("task_class"),
         "first_exact_time_s": first_time,
         "first_exact_cost": first_cost,
         "checkpoints": checkpoints,

@@ -1,6 +1,6 @@
 # Version 4 Project Plan — Kinematic Transmission Geometry in Planar 2R
 
-- **Status:** V4.0 geometry kernel and V4.1 atlas closed; V4.2/V4.2A closed as retained historical diagnostics; V4.2B mounted-coordinate closeout completed; V4.2C OMPL planner-geometry portfolio completed; V4.3 remains drafted and unauthorized until a later activation consumes frozen V4.2B snapshots
+- **Status:** V4.0 geometry kernel and V4.1 atlas closed; V4.2/V4.2A closed as retained historical diagnostics; V4.2B mounted-coordinate closeout completed; V4.2C OMPL planner-geometry portfolio completed; V4.2D optimality-reference report completed; V4.3 remains drafted and unauthorized until a later activation consumes frozen V4.2B snapshots
 - **Predecessor:** Version 3 planner-independent physical-state and motion-planning contracts
 - **Immediate dependency:** V4.2B closeout is complete; activate any sibling downstream sprint only through a separate explicit `ACTIVE_SPRINT.md` transition
 - **Initial robot:** planar 2R open chain
@@ -564,12 +564,12 @@ Every generated package includes:
 
 ## 14. Relationship to the current active program
 
-Sprint V4.2C is closed. Canonical evidence is retained under
-`results/v4_review/v4_2c_ompl_planner_portfolio/`. `ACTIVE_SPRINT.md` returns to
-no authorization. V4.3 remains unauthorized and does not reopen V4.2C.
+Sprint V4.2D is closed. Canonical optimality-reference evidence is retained under
+`results/v4_review/v4_2d_optimality_reference_report/`. `ACTIVE_SPRINT.md` returns to
+no authorization. V4.3 remains unauthorized and does not reopen V4.2C or V4.2D.
 
-V4.2B and V4.2C evidence, and all V3 and V4.0–V4.2A packages, remain immutable
-provenance.
+V4.2B, V4.2C, V4.2C-R, and V4.2D evidence, and all V3 and V4.0–V4.2A packages,
+remain immutable provenance.
 
 The planned Version 3 dimensional roadmap remains documented. Version 4 reorders the immediate research focus; it does not erase the 3R/6R work.
 

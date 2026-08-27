@@ -22,6 +22,8 @@ Design notes preserve useful explorations and deferred alternatives. Promote a n
 - [V4.2C Phase 0 repository preflight](V4_2C_PHASE_0_REPOSITORY_PREFLIGHT.md) (Sprint V4.2C; observational)
 - [V4.2C implementation review](V4_2C_IMPLEMENTATION_REVIEW.md) (Sprint V4.2C)
 - [V4.2C OMPL planner-portfolio closeout](V4_2C_OMPL_PLANNER_PORTFOLIO_CLOSEOUT.md) (Sprint V4.2C)
+- [V4.2D implementation review](V4_2D_IMPLEMENTATION_REVIEW.md) (Sprint V4.2D)
+- [V4.2D optimality-reference closeout](V4_2D_OPTIMALITY_REFERENCE_CLOSEOUT.md) (Sprint V4.2D)
 - [Post-V4.0 span/static-wrench planning bundle superseded](V4_POST_V4_0_SPAN_STATIC_WRENCH_BUNDLE_SUPERSEDED.md) (do not apply; live draft is the post-V4.1 program)
 - [V3.6D canonical span corpus closeout](V3_6D_SPAN_CORPUS_CLOSEOUT.md) (Sprint V3.6D)
 - [V3.6D canonical span corpus review](V3_6D_SPAN_CORPUS_REVIEW.md) (Sprint V3.6D; post-closeout defect-first review)

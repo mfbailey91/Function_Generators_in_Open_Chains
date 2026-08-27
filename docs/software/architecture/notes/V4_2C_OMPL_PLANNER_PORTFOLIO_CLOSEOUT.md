@@ -5,6 +5,7 @@
 **Package:** [`results/v4_review/v4_2c_ompl_planner_portfolio/`](../../../../results/v4_review/v4_2c_ompl_planner_portfolio/)
 **Work packages closed:** V4-230 through V4-239
 **Work-package review:** [`V4_2C_IMPLEMENTATION_REVIEW.md`](V4_2C_IMPLEMENTATION_REVIEW.md)
+**Plot guide / V4.2C-R:** [`V4_2C_CLOSEOUT_REVIEW_AND_PLOT_GUIDE.md`](V4_2C_CLOSEOUT_REVIEW_AND_PLOT_GUIDE.md); derived package [`results/v4_review/v4_2c_r_frozen_data_report/`](../../../../results/v4_review/v4_2c_r_frozen_data_report/)
 **No-inference:** OMPL planner-geometry portfolio; descriptive only; no mechanism performance inference.
 
 ## What closed
@@ -85,6 +86,10 @@ V4.2C does not claim:
 Free space here is a planner-semantics, convergence, and projection-sensitivity diagnostic. It is not obstacle routing.
 
 Stage D / `all_cases_optional` was not run.
+
+## V4.2C-R frozen-data report clarification
+
+A later presentation follow-up re-read frozen Stage C rows and wrote sibling figures under [`results/v4_review/v4_2c_r_frozen_data_report/`](../../../../results/v4_review/v4_2c_r_frozen_data_report/). It did not rerun OMPL, change the estimand, or mutate the V4.2C `files_digest`. See the [plot guide](V4_2C_CLOSEOUT_REVIEW_AND_PLOT_GUIDE.md).
 
 ## Authorization
 
