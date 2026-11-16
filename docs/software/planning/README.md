@@ -1,6 +1,6 @@
 # Software planning
 
-- [ACTIVE_SPRINT.md](ACTIVE_SPRINT.md) authorizes V4.3 work packages V4-300–V4-309. Start with the [V4.3 sprint](sprints/v4/SPRINT_V4_3_INTRINSIC_STATIC_WRENCH.md) and [Cursor implementation roadmap](sprints/v4/V4_3_CURSOR_IMPLEMENTATION_ROADMAP.md).
+- [ACTIVE_SPRINT.md](ACTIVE_SPRINT.md) currently authorizes **no** code work packages. Sprint V4.3 is completed ([closeout](../architecture/notes/V4_3_INTRINSIC_STATIC_WRENCH_CLOSEOUT.md)); V4.4+ remains held.
 - [BACKLOG.md](BACKLOG.md) contains accepted work that is not assigned to an active sprint.
 - [sprints/v4/](sprints/v4/) contains the planned planar-2R kinematic-transmission-geometry expansion. It is not active unless `ACTIVE_SPRINT.md` explicitly authorizes a V4 sprint.
 - [sprints/v3/](sprints/v3/) contains the Version 3 planner-agnostic architecture sequence (planner-independent foundation).

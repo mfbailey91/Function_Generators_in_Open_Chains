@@ -1,8 +1,8 @@
 # Version 4 Project Plan — Kinematic Transmission Geometry in Planar 2R
 
-- **Status:** V4.0 geometry kernel and V4.1 atlas closed; V4.2/V4.2A closed as retained historical diagnostics; V4.2B mounted-coordinate closeout completed; V4.2C OMPL planner-geometry portfolio completed; V4.2D optimality-reference report completed; V4.3 active for V4-300–V4-309 on frozen corrected V4.2B snapshots; implementation pending
+- **Status:** V4.0 geometry kernel and V4.1 atlas closed; V4.2/V4.2A closed as retained historical diagnostics; V4.2B mounted-coordinate closeout completed; V4.2C OMPL planner-geometry portfolio completed; V4.2D optimality-reference report completed; V4.3 intrinsic wrench atlas completed on frozen corrected V4.2B snapshots; V4.4+ held
 - **Predecessor:** Version 3 planner-independent physical-state and motion-planning contracts
-- **Immediate dependency:** V4.2B closeout is complete; the separate V4.3 activation is recorded in `ACTIVE_SPRINT.md` on 2026-11-15
+- **Immediate dependency:** V4.3 closeout is complete; V4.4 requires a separate activation in `ACTIVE_SPRINT.md`
 - **Initial robot:** planar 2R open chain
 - **Initial mechanisms:** certified monotonic four-bar pair and span-matched affine gearbox pair
 - **Fresh artifact root:** `results/v4_review/`

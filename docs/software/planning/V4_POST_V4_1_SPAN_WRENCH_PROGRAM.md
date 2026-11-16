@@ -1,6 +1,6 @@
 # Post-V4.1 Program — Span-Controlled Geometry Atlas and Intrinsic Static Wrench
 
-> **Current disposition (2026-11-15):** This is the original program proposal retained for history. Its V4.2 snapshot lineage and activation sequence were superseded by the [V4.2B corrective amendment](V4_2B_CORRECTIVE_PROGRAM_AMENDMENT.md). V4.2B, V4.2C, and V4.2D are closed. [V4.3 is now active](sprints/v4/SPRINT_V4_3_INTRINSIC_STATIC_WRENCH.md) for V4-300–V4-309 using **only frozen corrected V4.2B snapshots**. Follow [ACTIVE_SPRINT.md](ACTIVE_SPRINT.md) and the [V4.3 Cursor roadmap](sprints/v4/V4_3_CURSOR_IMPLEMENTATION_ROADMAP.md); the original metadata and authorization text below do not describe the current execution state.
+> **Current disposition (2026-11-15):** This is the original program proposal retained for history. Its V4.2 snapshot lineage and activation sequence were superseded by the [V4.2B corrective amendment](V4_2B_CORRECTIVE_PROGRAM_AMENDMENT.md). V4.2B, V4.2C, V4.2D, and V4.3 are closed. See the [V4.3 closeout](../architecture/notes/V4_3_INTRINSIC_STATIC_WRENCH_CLOSEOUT.md). Follow [ACTIVE_SPRINT.md](ACTIVE_SPRINT.md) for any later authorization; the original metadata and authorization text below do not describe the current execution state.
 
 **Status:** drafted / blocked. Do not implement until `ACTIVE_SPRINT.md` separately authorizes V4-200–V4-208.
 **Program:** V4.2 then V4.3
