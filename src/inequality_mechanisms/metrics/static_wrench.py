@@ -184,7 +184,12 @@ def directional_capacity(
     tau: NDArray[np.float64],
     direction: ArrayLike,
 ) -> float:
-    """Support of the force set along a unit direction."""
+    """Largest force magnitude along a ray in the given direction.
+
+    This is the ray capacity
+    ``max { alpha >= 0 : alpha * d in F }``,
+    not the support function ``max { <F, d> : F in F }``.
+    """
     d = np.asarray(direction, dtype=np.float64).reshape(-1)
     nrm = float(np.linalg.norm(d))
     if nrm <= DIRECTION_EPS or not np.all(np.isfinite(d)):
