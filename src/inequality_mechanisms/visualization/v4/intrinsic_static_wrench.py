@@ -6,11 +6,12 @@ geometry, recompute ranks, or invent force capacities.
 
 from __future__ import annotations
 
+import gzip
 import html
 import json
 import math
 import shutil
-from collections import defaultdict
+from collections import Counter, defaultdict
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any
@@ -19,14 +20,26 @@ import numpy as np
 
 from inequality_mechanisms.audits import v4_artifact_guard as _v4_guard
 from inequality_mechanisms.audits.v4_3_artifact import (
+    MANIFEST_INVENTORY_RULE,
+    MANIFEST_NAME,
+    case_wrench_rel,
+    files_digest,
+    inventory_package_files,
     schema_documentation,
+    snapshot_predecessor_integrity,
     strict_json_dumps,
 )
 from inequality_mechanisms.audits.v4_artifact_guard import (
     CANONICAL_REPO_ROOT,
+    V4_3_ALLOWED_PACKAGE,
     assert_v4_3_output_allowed,
+    assert_v4_3_output_root_empty,
+    assert_v4_3_source_clean,
+    canonical_v4_3_retained_root,
+    git_rev_parse_head,
     prepare_v4_3_output_dir,
 )
+from inequality_mechanisms.experiments.registry import capture_environment
 from inequality_mechanisms.experiments.span_cases import (
     BIO_SPANS_DEG,
     CORE_SPANS_DEG,
@@ -36,14 +49,21 @@ from inequality_mechanisms.experiments.v4.intrinsic_static_wrench import (
     ConsumedSourceRow,
     PairedPhysicalSample,
     assert_v4_2b_source_lock,
+    consume_v4_2b_corpus,
     load_v4_2b_cases,
     resolve_smoke_selection,
     smoke_selection_record,
 )
 from inequality_mechanisms.experiments.v4.intrinsic_static_wrench_config import (
+    CASE_SUMMARY_SCHEMA_VERSION,
+    DEFAULT_CONFIG_REL,
     FORCE_UNITS,
     FROZEN_MECHANISM_IDS,
+    FROZEN_V4_2B_N_GEOMETRY_ROWS,
+    MANIFEST_SCHEMA_VERSION,
     NO_INFERENCE_STATEMENT,
+    PACKAGE_SCHEMA_VERSION,
+    ROW_SCHEMA_VERSION,
     TORQUE_UNITS,
     load_intrinsic_static_wrench_config,
 )
@@ -53,8 +73,13 @@ from inequality_mechanisms.experiments.v4.intrinsic_static_wrench_fields import 
     PRIMARY_MECHANISM_PAIR,
     analytic_fixture_expectations,
     build_force_record,
+    classify_directional_field,
+    classify_scalar_field,
     paired_comparison_summary,
+    regular_unit_arm_fixture,
     status_mask,
+    stretched_unit_arm_fixture,
+    support_along,
 )
 from inequality_mechanisms.metrics.static_wrench import WrenchStateStatus
 
@@ -143,11 +168,14 @@ def plottable_records(
         iso_field = force["isotropic_radius_field"]
         out.append(
             {
+                "schema_version": ROW_SCHEMA_VERSION,
                 "case_id": item.identity.case_id,
                 "q_sample_id": item.identity.q_sample_id,
                 "mechanism_id": item.identity.mechanism_id,
+                "mechanism_pair_id": item.identity.mechanism_pair_id,
                 "grid_index": list(item.identity.grid_index),
                 "config_digest": item.identity.config_digest,
+                "source_revision": item.identity.source_revision,
                 "source_relpath": item.identity.source_relpath,
                 "status": force.get("status") or "source_failure",
                 "primary_eligible": bool(force.get("primary_eligible")),
@@ -168,6 +196,8 @@ def plottable_records(
                 "j_xu": wrench.get("j_xu"),
                 "torque_limits": wrench.get("torque_limits"),
                 "vertex_feasibility": force.get("vertex_feasibility"),
+                "source_failure_code": item.source_failure_code,
+                "source_failure_message": item.source_failure_message,
             }
         )
     return out
@@ -757,7 +787,8 @@ merged into an unlabeled workspace-capacity claim.</p>
 <pre>{
         html.escape(strict_json_dumps(summary.get("detail_readout") or {{}}, indent=2))
     }</pre>
-<p><a href="cells.json">cells.json</a> · <a href="summary.json">summary.json</a> ·
+<p><a href="{html.escape(str(summary.get("samples_href") or "cells.json"))}">
+samples</a> · <a href="summary.json">summary.json</a> ·
 <a href="../../methods.md">methods.md</a></p>
 <script>const ATLAS_ASSETS = {json.dumps(assets)};</script>
 <script src="../../assets/atlas.js"></script>
@@ -910,14 +941,23 @@ def _pairs_for_case(
     return [pair for pair in pairs if pair.case_id == case_id]
 
 
+def _write_jsonl_gz(path: Path, rows: Sequence[Mapping[str, Any]]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with gzip.open(path, "wt", encoding="utf-8") as handle:
+        for row in rows:
+            handle.write(strict_json_dumps(row, indent=None))
+            handle.write("\n")
+
+
 def write_case_package(
     root: Path,
     *,
     case: Mapping[str, Any],
     items: Sequence[ConsumedSourceRow],
     pairs: Sequence[PairedPhysicalSample],
+    retain_wrench_samples: bool = False,
 ) -> dict[str, Any]:
-    """Write one case directory: figures, cells, summary, HTML."""
+    """Write one case directory: figures, samples, summary, HTML."""
     case_id = str(case["case_id"])
     case_dir = root / "cases" / case_id
     case_dir.mkdir(parents=True, exist_ok=True)
@@ -936,7 +976,11 @@ def write_case_package(
         case.get("j1_status"),
         case.get("j2_status"),
     )
+    samples_href = (
+        Path(case_wrench_rel(case_id)).name if retain_wrench_samples else "cells.json"
+    )
     summary = {
+        "schema_version": CASE_SUMMARY_SCHEMA_VERSION,
         "case_id": case_id,
         "memberships": list(case.get("memberships", [])),
         "j1_status": case.get("j1_status"),
@@ -952,8 +996,12 @@ def write_case_package(
         "force_units": FORCE_UNITS,
         "torque_units": TORQUE_UNITS,
         "axis_label": "mounted_q",
+        "samples_href": samples_href,
     }
-    _write_json(case_dir / "cells.json", records)
+    if retain_wrench_samples:
+        _write_jsonl_gz(case_dir / Path(case_wrench_rel(case_id)).name, records)
+    else:
+        _write_json(case_dir / "cells.json", records)
     _write_json(case_dir / "summary.json", summary)
     _write_text(
         case_dir / "index.html",
@@ -967,12 +1015,45 @@ def write_case_package(
     return summary
 
 
+def _fixture_result_payload(name: str, wrench: Any) -> dict[str, Any]:
+    iso = classify_scalar_field(wrench)
+    directions = {
+        key: classify_directional_field(wrench, key)
+        for key in (wrench.directional_capacity or {})
+    }
+    support: dict[str, float | None] = {"positive_y": None}
+    if wrench.vertices is not None:
+        support["positive_y"] = support_along(
+            wrench.vertices, np.array([0.0, 1.0], dtype=np.float64)
+        )
+    return {
+        "fixture": name,
+        "status": wrench.status.value,
+        "isotropic_radius_field": iso,
+        "directional_fields": directions,
+        "vertices": None if wrench.vertices is None else wrench.vertices.tolist(),
+        "support_diagnostic": support,
+        "rank": int(wrench.rank),
+        "singular_values": [float(v) for v in wrench.singular_values],
+        "rank_attribution": dict(wrench.rank_attribution),
+    }
+
+
 def write_fixtures(root: Path) -> None:
-    """Write analytic fixture expectations for offline inspection."""
+    """Write analytic fixture expectations and evaluated results."""
     fixtures = root / "fixtures"
     fixtures.mkdir(parents=True, exist_ok=True)
     expectations = analytic_fixture_expectations()
     _write_json(fixtures / "analytic_expectations.json", expectations)
+    results = {
+        "regular_unit_arm": _fixture_result_payload(
+            "regular_unit_arm", regular_unit_arm_fixture()
+        ),
+        "stretched_unit_arm": _fixture_result_payload(
+            "stretched_unit_arm", stretched_unit_arm_fixture()
+        ),
+    }
+    _write_json(fixtures / "analytic_results.json", results)
 
 
 def write_intrinsic_static_wrench_smoke_atlas(
@@ -1046,7 +1127,227 @@ def write_intrinsic_static_wrench_smoke_atlas(
     return root
 
 
+def _is_canonical_v4_3_write(resolved: Path) -> bool:
+    """True only for the never-monkeypatched retained package root."""
+    return resolved.resolve() == canonical_v4_3_retained_root()
+
+
+def _begin_v4_3_write(output: Path) -> tuple[str, bool]:
+    """Clean-source + empty-root preflight for canonical V4.3 writes."""
+    resolved = assert_v4_3_output_allowed(output)
+    if _is_canonical_v4_3_write(resolved):
+        sha = assert_v4_3_source_clean()
+        assert_v4_3_output_root_empty(resolved)
+        prepare_v4_3_output_dir(resolved)
+        return sha, False
+    if resolved.exists():
+        shutil.rmtree(resolved)
+    prepare_v4_3_output_dir(resolved)
+    return git_rev_parse_head(), True
+
+
+def _status_histogram(
+    items: Sequence[ConsumedSourceRow],
+) -> dict[str, int]:
+    counts: Counter[str] = Counter()
+    for item in items:
+        if item.source_failure_code is not None:
+            counts["source_failure"] += 1
+            continue
+        if item.wrench is None:
+            counts["missing_wrench"] += 1
+            continue
+        counts[item.wrench.status.value] += 1
+    return dict(sorted(counts.items()))
+
+
+def generate_intrinsic_static_wrench_package(
+    *,
+    config_path: Path | str | None = None,
+    output: Path | None = None,
+    case_ids: Sequence[str] | None = None,
+    require_full_corpus: bool = True,
+) -> dict[str, Any]:
+    """Generate the V4.3 intrinsic static-wrench retained package.
+
+    Canonical writes require a clean git tree and an empty allowed root.
+    Temporary roots used by tests may be dirty and are recreated.
+    """
+    config = load_intrinsic_static_wrench_config(config_path)
+    if output is not None:
+        target = Path(output)
+    else:
+        target = _v4_guard.REPO_ROOT / config.output_dir
+    source_sha, source_dirty = _begin_v4_3_write(target)
+    root = assert_v4_3_output_allowed(target)
+
+    source_lock = assert_v4_2b_source_lock(config.source)
+    predecessor = snapshot_predecessor_integrity()
+    cases = load_v4_2b_cases()
+    selected_ids = (
+        tuple(case_ids)
+        if case_ids is not None
+        else tuple(str(case["case_id"]) for case in cases)
+    )
+    consumed, pairs, coverage = consume_v4_2b_corpus(
+        torque_limits=config.torque.limits,
+        evaluate_wrench=True,
+        case_ids=selected_ids,
+    )
+    if require_full_corpus:
+        if coverage.n_rows != FROZEN_V4_2B_N_GEOMETRY_ROWS:
+            raise ValueError(
+                f"full corpus required: n_rows={coverage.n_rows} "
+                f"!= {FROZEN_V4_2B_N_GEOMETRY_ROWS}"
+            )
+        if coverage.n_typed_failures != 0:
+            raise ValueError(
+                "canonical package refuses typed source failures: "
+                f"n_typed_failures={coverage.n_typed_failures}"
+            )
+        if coverage.n_silent_drops != 0:
+            raise ValueError("n_silent_drops must be 0")
+
+    write_local_assets(root)
+    write_methods_and_pointers(root)
+    write_fixtures(root)
+
+    cases_by_id = {str(case["case_id"]): case for case in cases}
+    selected_cases = [cases_by_id[cid] for cid in selected_ids]
+    grouped = _group_by_case(consumed)
+    case_summaries = []
+    for case in selected_cases:
+        cid = str(case["case_id"])
+        summary = write_case_package(
+            root,
+            case=case,
+            items=grouped[cid],
+            pairs=_pairs_for_case(pairs, cid),
+            retain_wrench_samples=True,
+        )
+        case_summaries.append({**case, **summary, "href": f"cases/{cid}/index.html"})
+
+    selection, _smoke_rows, _smoke_pairs = resolve_smoke_selection(
+        torque_limits=config.torque.limits
+    )
+    package_meta = {
+        "mode": "canonical" if require_full_corpus else "subset",
+        "n_records": coverage.n_rows,
+        "n_cases": coverage.n_cases,
+        "schema_version": PACKAGE_SCHEMA_VERSION,
+        "package": V4_3_ALLOWED_PACKAGE,
+    }
+    write_index_html(root, cases=case_summaries, package_meta=package_meta)
+    _write_json(root / "cases.json", case_summaries)
+    _write_json(root / "smoke_selection.json", smoke_selection_record(selection))
+    _write_json(root / "schema.json", schema_documentation())
+    _write_json(
+        root / "config_resolved.json",
+        {
+            "schema_version": PACKAGE_SCHEMA_VERSION,
+            "config": config.model_dump(mode="json"),
+            "config_digest": config.digest(),
+            "config_path": str(
+                Path(config_path) if config_path is not None else DEFAULT_CONFIG_REL
+            ),
+        },
+    )
+    _write_json(
+        root / "source_lock.json",
+        {
+            **source_lock,
+            "generation_git_revision": source_sha,
+            "generation_git_dirty": source_dirty,
+            "activation_baseline_note": (
+                "V4.2B freeze lock; V4.3 generation revision is separate."
+            ),
+            "inherited_tolerance_policy": INHERITED_TOLERANCE_POLICY,
+        },
+    )
+    _write_json(root / "predecessor_integrity.json", predecessor)
+    status_counts = _status_histogram(consumed)
+    _write_json(
+        root / "coverage.json",
+        {
+            "mode": package_meta["mode"],
+            "n_rows": coverage.n_rows,
+            "n_cases": coverage.n_cases,
+            "n_pairs": coverage.n_pairs,
+            "n_typed_failures": coverage.n_typed_failures,
+            "n_silent_drops": coverage.n_silent_drops,
+            "n_rows_per_arm": dict(coverage.n_rows_per_arm),
+            "mechanisms": list(FROZEN_MECHANISM_IDS),
+            "status_counts": status_counts,
+        },
+    )
+    _write_json(
+        root / "validation.json",
+        {
+            "source_lock": source_lock,
+            "inherited_tolerances": INHERITED_TOLERANCE_POLICY,
+            "no_inference_statement": NO_INFERENCE_STATEMENT,
+            "n_typed_failures": coverage.n_typed_failures,
+            "n_silent_drops": coverage.n_silent_drops,
+            "status_counts": status_counts,
+            "require_full_corpus": require_full_corpus,
+        },
+    )
+    environment = capture_environment()
+    environment.update(
+        {
+            "reproduction_commands": [
+                (
+                    "python scripts/generate_v4_3_intrinsic_static_wrench.py "
+                    "--config configs/v4/intrinsic_static_wrench_v1.json"
+                ),
+                (
+                    "python scripts/verify_v4_3_artifact.py "
+                    "results/v4_review/v4_3_intrinsic_static_wrench"
+                ),
+            ],
+            "generation_git_revision": source_sha,
+            "generation_git_dirty": source_dirty,
+            "numpy_version": environment.get("packages", {}).get("numpy"),
+        }
+    )
+    _write_json(root / "environment.json", environment)
+
+    inventory = inventory_package_files(root, selected_ids)
+    digest = files_digest(inventory)
+    manifest = {
+        "schema_version": MANIFEST_SCHEMA_VERSION,
+        "package": V4_3_ALLOWED_PACKAGE,
+        "manifest_inventory_rule": MANIFEST_INVENTORY_RULE,
+        "source_git_revision": source_sha,
+        "source_git_dirty": source_dirty,
+        "config_digest": config.digest(),
+        "case_ids": list(selected_ids),
+        "n_rows": coverage.n_rows,
+        "n_typed_failures": coverage.n_typed_failures,
+        "n_silent_drops": coverage.n_silent_drops,
+        "n_cases": coverage.n_cases,
+        "n_pairs": coverage.n_pairs,
+        "n_rows_per_arm": dict(coverage.n_rows_per_arm),
+        "status_counts": status_counts,
+        "files": inventory,
+        "files_digest": digest,
+    }
+    _write_json(root / MANIFEST_NAME, manifest)
+    return {
+        "output": str(root),
+        "files_digest": digest,
+        "n_rows": coverage.n_rows,
+        "n_cases": coverage.n_cases,
+        "n_typed_failures": coverage.n_typed_failures,
+        "n_silent_drops": coverage.n_silent_drops,
+        "source_git_revision": source_sha,
+        "source_git_dirty": source_dirty,
+        "config_digest": config.digest(),
+    }
+
+
 __all__ = [
+    "generate_intrinsic_static_wrench_package",
     "plottable_records",
     "write_case_figures",
     "write_case_package",

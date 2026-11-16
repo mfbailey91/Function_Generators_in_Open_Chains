@@ -79,7 +79,7 @@ class ArtifactPathForbiddenError(ValueError):
 
 
 class DirtySourceError(ValueError):
-    """Raised when a V4.2B or V4.2C writer targets a dirty git working tree."""
+    """Raised when a V4.2B/C/D/3 writer targets a dirty git working tree."""
 
     failure_code = "v4_2b_dirty_source"
 
@@ -768,6 +768,29 @@ def assert_v4_2c_source_clean() -> str:
     return git_rev_parse_head()
 
 
+def assert_v4_3_source_clean() -> str:
+    """Refuse a dirty working tree before any V4.3 canonical mkdir.
+
+    Returns
+    -------
+    str
+        Clean ``HEAD`` SHA.
+
+    Raises
+    ------
+    DirtySourceError
+        If ``git status --porcelain --untracked-files=all`` is nonempty.
+    """
+    porcelain = git_status_porcelain()
+    if porcelain.strip():
+        raise DirtySourceError(
+            "Refusing dirty-source V4.3 generation; "
+            "git status --porcelain --untracked-files=all must be empty "
+            f"before creating the output root.\n{porcelain}"
+        )
+    return git_rev_parse_head()
+
+
 def assert_v4_2b_output_root_empty(path: Path) -> Path:
     """Refuse to overwrite a nonempty canonical V4.2B output root.
 
@@ -872,6 +895,18 @@ def v4_2b_git_tracked_package_digest() -> tuple[str, int]:
     return digest_git_tracked_paths(paths)
 
 
+def git_tracked_rel_digest(rel: Path | str) -> tuple[str, int]:
+    """Digest git-tracked files under a repository-relative package path."""
+    root_rel = Path(rel).as_posix().rstrip("/")
+    prefix = f"{root_rel}/"
+    paths = [
+        item
+        for item in git_ls_files(root_rel)
+        if item.startswith(prefix) or item == root_rel
+    ]
+    return digest_git_tracked_paths(paths)
+
+
 def digest_directory_tree(root: Path) -> tuple[str, int]:
     """Return SHA-256 of sorted relative paths and per-file hashes under ``root``."""
     base = Path(root).resolve()
@@ -934,6 +969,8 @@ __all__ = [
     "assert_v4_2b_output_allowed",
     "assert_v4_2b_output_root_empty",
     "assert_v4_2b_source_clean",
+    "assert_v4_3_source_clean",
+    "git_tracked_rel_digest",
     "assert_v4_2c_output_allowed",
     "assert_v4_2c_r_output_allowed",
     "assert_v4_2d_output_allowed",
