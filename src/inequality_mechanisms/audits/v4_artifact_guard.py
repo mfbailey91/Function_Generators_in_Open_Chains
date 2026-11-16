@@ -17,12 +17,14 @@ V4.2C-R writers may write only under
 ``results/v4_review/v4_2c_r_frozen_data_report/``.
 V4.2D writers may write only under
 ``results/v4_review/v4_2d_optimality_reference_report/``.
+V4.3 writers may write only under
+``results/v4_review/v4_3_intrinsic_static_wrench/``.
 
 Every package under ``results/v3_review/`` remains frozen. Other
 ``results/v4_review/`` packages stay unauthorized. The closed V4.0–V4.2C
 packages are retained evidence for V4.2C-R writers. V4.2C-R may not
 overwrite the frozen V4.2C package. V4.2D may not overwrite V4.0–V4.2C
-or V4.2C-R.
+or V4.2C-R. V4.3 may not overwrite V4.0–V4.2D, including V4.2C-R.
 """
 
 from __future__ import annotations
@@ -54,6 +56,8 @@ V4_2C_R_ALLOWED_PACKAGE = "v4_2c_r_frozen_data_report"
 V4_2C_R_ALLOWED_OUTPUT_REL = Path("results") / "v4_review" / V4_2C_R_ALLOWED_PACKAGE
 V4_2D_ALLOWED_PACKAGE = "v4_2d_optimality_reference_report"
 V4_2D_ALLOWED_OUTPUT_REL = Path("results") / "v4_review" / V4_2D_ALLOWED_PACKAGE
+V4_3_ALLOWED_PACKAGE = "v4_3_intrinsic_static_wrench"
+V4_3_ALLOWED_OUTPUT_REL = Path("results") / "v4_review" / V4_3_ALLOWED_PACKAGE
 
 # Accepted V3 closeout packages that V3.6C could write, but V4 must not.
 FROZEN_V3_CLOSEOUT_PACKAGES: frozenset[str] = frozenset(
@@ -120,6 +124,11 @@ def allowed_v4_2d_output_root() -> Path:
     return (REPO_ROOT / V4_2D_ALLOWED_OUTPUT_REL).resolve()
 
 
+def allowed_v4_3_output_root() -> Path:
+    """Absolute allowed V4.3 intrinsic-wrench output root (may be monkeypatched)."""
+    return (REPO_ROOT / V4_3_ALLOWED_OUTPUT_REL).resolve()
+
+
 def canonical_v4_0_retained_root() -> Path:
     """Committed V4.0 smoke package in this repository (never monkeypatched)."""
     return (CANONICAL_REPO_ROOT / V4_0_ALLOWED_OUTPUT_REL).resolve()
@@ -158,6 +167,11 @@ def canonical_v4_2c_r_retained_root() -> Path:
 def canonical_v4_2d_retained_root() -> Path:
     """Canonical V4.2D optimality-report package path (never monkeypatched)."""
     return (CANONICAL_REPO_ROOT / V4_2D_ALLOWED_OUTPUT_REL).resolve()
+
+
+def canonical_v4_3_retained_root() -> Path:
+    """Canonical V4.3 intrinsic-wrench package path (never monkeypatched)."""
+    return (CANONICAL_REPO_ROOT / V4_3_ALLOWED_OUTPUT_REL).resolve()
 
 
 def _is_under(path: Path, parent: Path) -> bool:
@@ -541,6 +555,48 @@ def assert_v4_2d_output_allowed(path: Path) -> Path:
     )
 
 
+def assert_v4_3_output_allowed(path: Path) -> Path:
+    """Resolve ``path`` and assert it is under the V4.3 intrinsic-wrench root.
+
+    V4.3 writers consume frozen V4.2B snapshots and may write only the
+    sibling intrinsic-wrench package. They must reject V4.0–V4.2D
+    overwrite (including V4.2C-R), every V3 review package, sibling
+    lookalikes, escaping symlinks, and arbitrary paths.
+    """
+    resolved = Path(path).expanduser().resolve()
+    allowed = allowed_v4_3_output_root()
+    if _is_under(resolved, allowed):
+        return resolved
+
+    _refuse_v3(resolved, writer="V4.3", allowed=allowed)
+
+    v4_package = _v4_review_package_name(resolved)
+    frozen = {
+        V4_0_ALLOWED_PACKAGE: "frozen V4.0",
+        V4_1_ALLOWED_PACKAGE: "frozen V4.1",
+        V4_2_ALLOWED_PACKAGE: "frozen V4.2",
+        V4_2A_ALLOWED_PACKAGE: "frozen V4.2A",
+        V4_2B_ALLOWED_PACKAGE: "frozen V4.2B",
+        V4_2C_ALLOWED_PACKAGE: "frozen V4.2C",
+        V4_2C_R_ALLOWED_PACKAGE: "frozen V4.2C-R",
+        V4_2D_ALLOWED_PACKAGE: "frozen V4.2D",
+    }
+    if v4_package in frozen:
+        raise ArtifactPathForbiddenError(
+            f"Refusing to write into {frozen[v4_package]} retained evidence "
+            f"at {resolved}. V4.3 may write only under {allowed}."
+        )
+    if v4_package is not None and v4_package != V4_3_ALLOWED_PACKAGE:
+        raise ArtifactPathForbiddenError(
+            f"Refusing to write into unauthorized V4 package {v4_package!r} "
+            f"at {resolved}. V4.3 may write only under {allowed}."
+        )
+
+    raise ArtifactPathForbiddenError(
+        f"V4.3 output path {resolved} is not under the allowed root {allowed}."
+    )
+
+
 def prepare_v4_0_output_dir(path: Path) -> Path:
     """Assert ``path`` is allowed and create the directory from a clean tree.
 
@@ -599,6 +655,27 @@ def prepare_v4_2d_output_dir(path: Path) -> Path:
     """Assert ``path`` is the V4.2D optimality-report root and create it."""
     resolved = assert_v4_2d_output_allowed(path)
     resolved.mkdir(parents=True, exist_ok=True)
+    return resolved
+
+
+def prepare_v4_3_output_dir(path: Path) -> Path:
+    """Assert ``path`` is the V4.3 intrinsic-wrench root and create it."""
+    resolved = assert_v4_3_output_allowed(path)
+    resolved.mkdir(parents=True, exist_ok=True)
+    return resolved
+
+
+def assert_v4_3_output_root_empty(path: Path) -> Path:
+    """Refuse to overwrite a nonempty canonical V4.3 output root.
+
+    Empty or missing directories are allowed. Nonempty trees are not
+    silently removed.
+    """
+    resolved = assert_v4_3_output_allowed(path)
+    if resolved.exists() and any(resolved.iterdir()):
+        raise ArtifactPathForbiddenError(
+            f"Refusing to overwrite non-empty V4.3 output root at {resolved}."
+        )
     return resolved
 
 
@@ -836,6 +913,8 @@ __all__ = [
     "V4_2C_R_ALLOWED_PACKAGE",
     "V4_2D_ALLOWED_OUTPUT_REL",
     "V4_2D_ALLOWED_PACKAGE",
+    "V4_3_ALLOWED_OUTPUT_REL",
+    "V4_3_ALLOWED_PACKAGE",
     "ArtifactPathForbiddenError",
     "DirtySourceError",
     "allowed_v4_0_output_root",
@@ -846,6 +925,7 @@ __all__ = [
     "allowed_v4_2c_output_root",
     "allowed_v4_2c_r_output_root",
     "allowed_v4_2d_output_root",
+    "allowed_v4_3_output_root",
     "assert_not_overwriting_retained_v4_0",
     "assert_v4_0_output_allowed",
     "assert_v4_1_output_allowed",
@@ -858,6 +938,8 @@ __all__ = [
     "assert_v4_2c_r_output_allowed",
     "assert_v4_2d_output_allowed",
     "assert_v4_2c_source_clean",
+    "assert_v4_3_output_allowed",
+    "assert_v4_3_output_root_empty",
     "canonical_v4_0_retained_root",
     "canonical_v4_1_retained_root",
     "canonical_v4_2_retained_root",
@@ -866,6 +948,7 @@ __all__ = [
     "canonical_v4_2c_retained_root",
     "canonical_v4_2c_r_retained_root",
     "canonical_v4_2d_retained_root",
+    "canonical_v4_3_retained_root",
     "digest_directory_tree",
     "digest_git_tracked_paths",
     "git_ls_files",
@@ -879,6 +962,7 @@ __all__ = [
     "prepare_v4_2c_output_dir",
     "prepare_v4_2c_r_output_dir",
     "prepare_v4_2d_output_dir",
+    "prepare_v4_3_output_dir",
     "v4_0_smoke_package_digest",
     "v4_1_atlas_package_digest",
     "v4_2_atlas_package_digest",
