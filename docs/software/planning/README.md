@@ -1,9 +1,9 @@
 # Software planning
 
-- [ACTIVE_SPRINT.md](ACTIVE_SPRINT.md) identifies the current execution document.
+- [ACTIVE_SPRINT.md](ACTIVE_SPRINT.md) authorizes V4.3 work packages V4-300–V4-309. Start with the [V4.3 sprint](sprints/v4/SPRINT_V4_3_INTRINSIC_STATIC_WRENCH.md) and [Cursor implementation roadmap](sprints/v4/V4_3_CURSOR_IMPLEMENTATION_ROADMAP.md).
 - [BACKLOG.md](BACKLOG.md) contains accepted work that is not assigned to an active sprint.
 - [sprints/v4/](sprints/v4/) contains the planned planar-2R kinematic-transmission-geometry expansion. It is not active unless `ACTIVE_SPRINT.md` explicitly authorizes a V4 sprint.
-- [sprints/v3/](sprints/v3/) contains the Version 3 planner-agnostic architecture sequence (current execution lineage).
+- [sprints/v3/](sprints/v3/) contains the Version 3 planner-agnostic architecture sequence (planner-independent foundation).
 - [Post-V3.6C span/wrench program](V3_POST_V3_6C_SPAN_WRENCH_PROGRAM.md) records the completed V3.6D–F span corpus and gravity-free wrench insert.
 - [Post-V4.1 span/wrench program](V4_POST_V4_1_SPAN_WRENCH_PROGRAM.md) records the original V4.2→V4.3 sequence. V4.2/V4.2A are now historical, and the accepted [V4.2B corrective amendment](V4_2B_CORRECTIVE_PROGRAM_AMENDMENT.md) inserts the corrective closeout before V4.3. Canonical V4.2B evidence is retained; the [V4.2B final closeout gate](sprints/v4/V4_2B_FINAL_CLOSEOUT_GATE.md) is closed. Sprint V4.2C is a completed sibling Column A planning diagnostic ([sprint](sprints/v4/SPRINT_V4_2C_OMPL_PLANNER_GEOMETRY_PORTFOLIO.md), [closeout](../architecture/notes/V4_2C_OMPL_PLANNER_PORTFOLIO_CLOSEOUT.md), [ADR-031](../architecture/adr/ADR-031-ompl-planner-geometry-contract.md)); planning documents are not authorization.
 - [sprints/v2/](sprints/v2/) preserves the completed Version 2 rearchitecture and frozen evidence lineage.

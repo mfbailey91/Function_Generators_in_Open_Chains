@@ -26,13 +26,18 @@ algorithms.
   [ADR-030](docs/software/architecture/adr/ADR-030-paired-final-topology-and-nonfinite-edge-semantics.md)).
   **Sprint V4.2C** is completed
   ([ADR-031](docs/software/architecture/adr/ADR-031-ompl-planner-geometry-contract.md)).
-  V4.3 (intrinsic wrench on V4.2B snapshots) remains drafted and unauthorized.
+  **Sprint V4.2D** is completed. **Sprint V4.3** is active for V4-300–V4-309:
+  [intrinsic static-wrench sprint](docs/software/planning/sprints/v4/SPRINT_V4_3_INTRINSIC_STATIC_WRENCH.md)
+  and [Cursor implementation roadmap](docs/software/planning/sprints/v4/V4_3_CURSOR_IMPLEMENTATION_ROADMAP.md).
+  It consumes frozen corrected V4.2B snapshots and the accepted V3.6E force-set API.
 
-Do not overwrite frozen V3 or V4.0–V4.2C packages. Canonical V4.2B evidence is
+Do not overwrite frozen V3 or V4.0–V4.2D packages, including V4.2C-R. Canonical V4.2B evidence is
 retained under
 `results/v4_review/v4_2b_span_controlled_corrective_closeout/`.
 Canonical V4.2C evidence is retained under
 `results/v4_review/v4_2c_ompl_planner_portfolio/`.
+Canonical V4.2D evidence is retained under
+`results/v4_review/v4_2d_optimality_reference_report/`.
 
 ## Requirements
 

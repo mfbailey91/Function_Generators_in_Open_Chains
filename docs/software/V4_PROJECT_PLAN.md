@@ -1,8 +1,8 @@
 # Version 4 Project Plan — Kinematic Transmission Geometry in Planar 2R
 
-- **Status:** V4.0 geometry kernel and V4.1 atlas closed; V4.2/V4.2A closed as retained historical diagnostics; V4.2B mounted-coordinate closeout completed; V4.2C OMPL planner-geometry portfolio completed; V4.2D optimality-reference report completed; V4.3 remains drafted and unauthorized until a later activation consumes frozen V4.2B snapshots
+- **Status:** V4.0 geometry kernel and V4.1 atlas closed; V4.2/V4.2A closed as retained historical diagnostics; V4.2B mounted-coordinate closeout completed; V4.2C OMPL planner-geometry portfolio completed; V4.2D optimality-reference report completed; V4.3 active for V4-300–V4-309 on frozen corrected V4.2B snapshots; implementation pending
 - **Predecessor:** Version 3 planner-independent physical-state and motion-planning contracts
-- **Immediate dependency:** V4.2B closeout is complete; activate any sibling downstream sprint only through a separate explicit `ACTIVE_SPRINT.md` transition
+- **Immediate dependency:** V4.2B closeout is complete; the separate V4.3 activation is recorded in `ACTIVE_SPRINT.md` on 2026-11-15
 - **Initial robot:** planar 2R open chain
 - **Initial mechanisms:** certified monotonic four-bar pair and span-matched affine gearbox pair
 - **Fresh artifact root:** `results/v4_review/`
@@ -155,7 +155,7 @@ The Version 4 geometry core owns these quantities and their rank semantics. Colu
 
 Version 3 already supplies direct, lattice, roadmap, tree, and OMPL planning contracts. Version 4 consumes those results rather than rebuilding the planning stack.
 
-Drafted Sprint V4.2C extends only the external OMPL algorithm portfolio needed to interpret Column A: RRT*, BIT*, FMT, and geometric KPIECE with normalized U/Q/X projection diagnostics, while direct, Dijkstra/A*, PRM, and RRTConnect remain references or controls. [ADR-031](architecture/adr/ADR-031-ompl-planner-geometry-contract.md) requires every row to declare state coordinates, sampling measure, nearest-neighbor distance, objective, heuristic, projection, goal representation, and local motion. Planner-family work metrics remain namespaced and are not collapsed into a global leaderboard.
+Completed Sprint V4.2C extended only the external OMPL algorithm portfolio needed to interpret Column A: RRT*, BIT*, FMT, and geometric KPIECE with normalized U/Q/X projection diagnostics, while direct, Dijkstra/A*, PRM, and RRTConnect remain references or controls. [ADR-031](architecture/adr/ADR-031-ompl-planner-geometry-contract.md) requires every row to declare state coordinates, sampling measure, nearest-neighbor distance, objective, heuristic, projection, goal representation, and local motion. Planner-family work metrics remain namespaced and are not collapsed into a global leaderboard.
 
 ### Application questions
 
@@ -468,7 +468,9 @@ Cross-column reports join records by stable identifiers:
 | **V4.2A** | Span-controlled visual planning audit (historical) | How do paired planners behave on that historical V4.2 atlas? |
 | **V4.2B** | Mounted-coordinate corrective closeout | What fields and planner topology remain after applying frozen V3.6D output mounts, one shared paired graph, and finite-edge admission? |
 | **V4.2C** | OMPL planner-geometry portfolio | How do optimizing, fixed-sample, and projection-guided planners respond to the same corrected \(U\rightarrow Q\rightarrow X\) contract? |
-| **V4.3** | Intrinsic gravity-free static wrench | How does that family redistribute a normalized torque box into planar endpoint force capacity on frozen V4.2B snapshots? |
+| **V4.2C-R** | Frozen-data report clarification (completed) | How should the retained OMPL portfolio plots be read without rerunning planners? |
+| **V4.2D** | Optimality-reference and gearbox-control report (completed) | How do mechanism-specific achievable cost and planner discoverability differ on the frozen goal representation? |
+| **V4.3 (active)** | Intrinsic gravity-free static wrench; [sprint](planning/sprints/v4/SPRINT_V4_3_INTRINSIC_STATIC_WRENCH.md), [Cursor roadmap](planning/sprints/v4/V4_3_CURSOR_IMPLEMENTATION_ROADMAP.md) | How does that family redistribute a normalized torque box into planar endpoint force capacity on frozen V4.2B snapshots? |
 | **V4.4** | Inverse instantaneous kinematics and velocity capability | How does the transmission change actuator-rate demand, conditioning, saturation, and trackable Cartesian velocity? |
 | **V4.5** | Potential fields and continuous flow | How does the transmission precondition descent, convergence, basins, and actuator travel under coordinate controls? |
 | **V4.6** | Application task corpus and integrated 2R report | Do the four columns tell a coherent application-conditioned story on one frozen task bank? |
@@ -511,7 +513,9 @@ results/v4_review/
 ├── v4_2a_span_controlled_visual_audit/           # historical; do not overwrite
 ├── v4_2b_span_controlled_corrective_closeout/    # canonical V4.2B closeout
 ├── v4_2c_ompl_planner_portfolio/                 # canonical V4.2C closeout
-└── v4_3_intrinsic_static_wrench/                 # drafted / blocked; V4.2B snapshots only
+├── v4_2c_r_frozen_data_report/                   # frozen report clarification
+├── v4_2d_optimality_reference_report/            # closed optimality-reference report
+└── v4_3_intrinsic_static_wrench/                 # active; frozen corrected V4.2B snapshots only
 ```
 
 Later velocity, flow, application, and population packages are named when those sprints are drafted. They must not reuse the V4.2B closeout root.
@@ -565,8 +569,12 @@ Every generated package includes:
 ## 14. Relationship to the current active program
 
 Sprint V4.2D is closed. Canonical optimality-reference evidence is retained under
-`results/v4_review/v4_2d_optimality_reference_report/`. `ACTIVE_SPRINT.md` returns to
-no authorization. V4.3 remains unauthorized and does not reopen V4.2C or V4.2D.
+`results/v4_review/v4_2d_optimality_reference_report/`. The separate activation of
+2026-11-15 authorizes only V4.3 work packages V4-300–V4-309 through
+`ACTIVE_SPRINT.md`. The [sprint](planning/sprints/v4/SPRINT_V4_3_INTRINSIC_STATIC_WRENCH.md)
+and [Cursor roadmap](planning/sprints/v4/V4_3_CURSOR_IMPLEMENTATION_ROADMAP.md)
+start with schema/guard and frozen-snapshot ingestion, then fields, presentation,
+retained verification, and closeout. V4.2C and V4.2D remain closed; V4.4 stays held.
 
 V4.2B, V4.2C, V4.2C-R, and V4.2D evidence, and all V3 and V4.0–V4.2A packages,
 remain immutable provenance.

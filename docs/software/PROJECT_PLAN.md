@@ -1,5 +1,7 @@
 # Inequality Mechanisms — Software Project Plan
 
+**Current execution:** [V4.3 intrinsic static wrench](planning/sprints/v4/SPRINT_V4_3_INTRINSIC_STATIC_WRENCH.md), authorized only as stated in [ACTIVE_SPRINT.md](planning/ACTIVE_SPRINT.md). The Version 1–3 planning narrative below is historical context; use [V4_PROJECT_PLAN.md](V4_PROJECT_PLAN.md) and [VERSION_MATRIX.md](VERSION_MATRIX.md) for the current program.
+
 **Repository:** <https://github.com/mfbailey91/Function_Generators_in_Open_Chains>  
 **Planning status:** Version 3 planner-agnostic pivot in progress ([V3_PROJECT_PLAN.md](V3_PROJECT_PLAN.md); [Sprint V3.0](planning/sprints/v3/SPRINT_V3_0_ARCHITECTURE_CONTRACT.md)). Version 2 Experiment A (V2.10 Dijkstra + V2.11 A*) and bounded Experiment B / V2.12 smoke–calibration evidence are frozen historical lineage; V2 Cartesian production inference remains held  
 **Version 1 status:** Preserved as the full-cycle, input-state research baseline  

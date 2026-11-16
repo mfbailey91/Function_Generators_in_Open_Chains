@@ -17,8 +17,13 @@ from inequality_mechanisms.experiments.v4.ompl_planner_portfolio_config import (
     FROZEN_V4_2B_FILES_DIGEST,
 )
 
-ACTIVE_SPRINT = (
-    CANONICAL_REPO_ROOT / "docs" / "software" / "planning" / "ACTIVE_SPRINT.md"
+CLOSEOUT_V4_2D = (
+    CANONICAL_REPO_ROOT
+    / "docs"
+    / "software"
+    / "architecture"
+    / "notes"
+    / "V4_2D_OPTIMALITY_REFERENCE_CLOSEOUT.md"
 )
 SPRINT_V4_2D = (
     CANONICAL_REPO_ROOT
@@ -29,27 +34,15 @@ SPRINT_V4_2D = (
     / "v4"
     / "SPRINT_V4_2D_OPTIMALITY_REFERENCE_AND_GEARBOX_CONTROL_REPORT.md"
 )
-SPRINT_V4_3 = (
-    CANONICAL_REPO_ROOT
-    / "docs"
-    / "software"
-    / "planning"
-    / "sprints"
-    / "v4"
-    / "SPRINT_V4_3_INTRINSIC_STATIC_WRENCH.md"
-)
 
 
-def test_v4_2d_closeout_resets_authorization() -> None:
-    text = ACTIVE_SPRINT.read_text(encoding="utf-8")
-    assert "**Code authorization:** none." in text
-    assert "Sprint V4.2D is **completed**" in text
-    assert "Sprint V4.3 remains **drafted / blocked**" in text
-    assert "Do not implement V4.3 / V4-300+" in text
+def test_v4_2d_closeout_did_not_auto_activate_v4_3() -> None:
+    text = " ".join(CLOSEOUT_V4_2D.read_text(encoding="utf-8").split())
+    assert "**Code authorization: none.**" in text
+    assert "or activate V4.3." in text
+    assert "Sprint V4.3 remains drafted / blocked." in text
     sprint_d = SPRINT_V4_2D.read_text(encoding="utf-8")
     assert "**Status:** completed; canonical evidence retained" in sprint_d
-    sprint = SPRINT_V4_3.read_text(encoding="utf-8")
-    assert "drafted / blocked" in sprint
 
 
 def test_v4_2d_retained_package_matches_closeout_counts() -> None:

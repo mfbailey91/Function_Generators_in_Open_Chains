@@ -41,20 +41,15 @@ from inequality_mechanisms.graphs.paired_edge_admission import PairedCompiledSea
 
 FROZEN_BANK_DIGEST = audit_cfg.FROZEN_BANK_DIGEST
 
-ACTIVE_SPRINT = (
-    CANONICAL_REPO_ROOT / "docs" / "software" / "planning" / "ACTIVE_SPRINT.md"
-)
-SPRINT_V4_3 = (
+CLOSEOUT_V4_2B = (
     CANONICAL_REPO_ROOT
     / "docs"
     / "software"
-    / "planning"
-    / "sprints"
-    / "v4"
-    / "SPRINT_V4_3_INTRINSIC_STATIC_WRENCH.md"
+    / "architecture"
+    / "notes"
+    / "V4_2B_SPAN_CONTROLLED_CORRECTIVE_CLOSEOUT.md"
 )
 V4_3_OUTPUT = REPO_ROOT / "results" / "v4_review" / "v4_3_intrinsic_static_wrench"
-SRC_ROOT = CANONICAL_REPO_ROOT / "src" / "inequality_mechanisms"
 CASE_ID = "span_j1_145_j2_145"
 
 
@@ -183,25 +178,18 @@ def test_historical_package_digests_unchanged() -> None:
     freeze.test_v4_2a_git_tracked_digest_lock_matches_committed_package()
 
 
-def test_v4_3_remains_blocked() -> None:
-    text = ACTIVE_SPRINT.read_text(encoding="utf-8")
-    assert "**Code authorization:** none." in text
-    assert "**Sprint V4.2B**" in text
-    assert "Sprint V4.2C is **completed**" in text
-    assert "Sprint V4.3 remains **drafted / blocked**" in text
-    assert "Do not implement V4.3 / V4-300+" in text
+def test_v4_2b_closeout_did_not_auto_activate_later_sprints() -> None:
+    text = " ".join(CLOSEOUT_V4_2B.read_text(encoding="utf-8").split())
+    assert "**Disposition:** completed; canonical mounted-Q evidence retained" in text
+    assert "**no code authorization**" in text
+    assert "Sprint V4.3 does not reopen this package and is not activated here." in text
+    assert "requires a separate reviewed change" in text
+    assert "V4.2B completion does not authorize later sprints." in text
+
+
+def test_v4_2b_writer_refuses_v4_3_output() -> None:
     with pytest.raises(ArtifactPathForbiddenError, match="unauthorized V4 package"):
         assert_v4_2b_output_allowed(V4_3_OUTPUT)
-    hits = [
-        path
-        for path in SRC_ROOT.rglob("*")
-        if "v4_3" in path.name and " 2" not in path.name
-    ]
-    assert hits == []
-    sprint = SPRINT_V4_3.read_text(encoding="utf-8")
-    assert "drafted / blocked" in sprint
-    assert "V4.2B" in sprint
-    assert "V4.2/V4.2A" in sprint or "historical V4.2/V4.2A" in sprint
 
 
 def test_canonical_package_closeout_when_present() -> None:

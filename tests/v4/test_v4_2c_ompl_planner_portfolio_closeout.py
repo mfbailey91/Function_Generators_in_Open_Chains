@@ -194,14 +194,20 @@ def package_root(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     return root
 
 
-def test_v4_2c_closeout_keeps_v4_3_unauthorized() -> None:
-    text = (
-        CANONICAL_REPO_ROOT / "docs" / "software" / "planning" / "ACTIVE_SPRINT.md"
+def test_v4_2c_closeout_did_not_auto_activate_later_sprints() -> None:
+    closeout = (
+        CANONICAL_REPO_ROOT
+        / "docs"
+        / "software"
+        / "architecture"
+        / "notes"
+        / "V4_2C_OMPL_PLANNER_PORTFOLIO_CLOSEOUT.md"
     ).read_text(encoding="utf-8")
-    assert "**Code authorization:** none." in text
-    assert "Sprint V4.2C is **completed**" in text
-    assert "Sprint V4.3 remains **drafted / blocked**" in text
-    assert "Do not implement V4.3 / V4-300+" in text
+    text = " ".join(closeout.split())
+    assert "**no code authorization**" in text
+    assert "V4.3 remains drafted / blocked" in text
+    assert "requires a separate reviewed change" in text
+    assert "V4.2C completion does not authorize later sprints." in text
 
 
 def test_package_and_verify_synthetic_root(package_root: Path) -> None:
