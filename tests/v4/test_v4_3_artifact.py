@@ -9,6 +9,7 @@ from pathlib import Path
 import pytest
 
 from inequality_mechanisms.audits.v4_3_artifact import (
+    CORRECTIVE_REQUIRED_FIGURES,
     MANIFEST_NAME,
     V4_3ArtifactError,
     case_wrench_rel,
@@ -20,6 +21,7 @@ from inequality_mechanisms.audits.v4_3_artifact import (
 )
 from inequality_mechanisms.audits.v4_artifact_guard import (
     V4_3_ALLOWED_PACKAGE,
+    V4_3_CORRECTIVE_OUTPUT_REL,
     ArtifactPathForbiddenError,
     DirtySourceError,
     assert_v4_3_output_root_empty,
@@ -37,8 +39,8 @@ def _write_minimal_case(root: Path, case_id: str, *, n_rows: int = 3) -> None:
     case_dir = root / "cases" / case_id
     fig = case_dir / "figures"
     fig.mkdir(parents=True, exist_ok=True)
-    for name in ("scalar.png", "polygons.png", "identity_scalar.png"):
-        (fig / name).write_bytes(b"\x89PNG\r\n\x1a\n" + name.encode())
+    for name in CORRECTIVE_REQUIRED_FIGURES:
+        (fig / f"{name}.png").write_bytes(b"\x89PNG\r\n\x1a\n" + name.encode())
     rows = []
     for i in range(n_rows):
         mech = ("fourbar", "span_matched_gearbox", "identity_on_shared_q")[i % 3]
@@ -124,9 +126,7 @@ def test_verify_rejects_manifest_self_inclusion(tmp_path: Path) -> None:
     (root / "fixtures" / "analytic_expectations.json").write_text(
         "{}\n", encoding="utf-8"
     )
-    (root / "fixtures" / "analytic_results.json").write_text(
-        "{}\n", encoding="utf-8"
-    )
+    (root / "fixtures" / "analytic_results.json").write_text("{}\n", encoding="utf-8")
     case_ids = expected_case_ids()
     for cid in case_ids:
         _write_minimal_case(root, cid, n_rows=3)
@@ -191,7 +191,7 @@ def test_nonempty_canonical_root_refused(
     from inequality_mechanisms.audits import v4_artifact_guard
 
     monkeypatch.setattr(v4_artifact_guard, "REPO_ROOT", tmp_path)
-    output = tmp_path / "results" / "v4_review" / V4_3_ALLOWED_PACKAGE
+    output = tmp_path / V4_3_CORRECTIVE_OUTPUT_REL
     output.mkdir(parents=True)
     sentinel = output / "sentinel.txt"
     sentinel.write_text("keep", encoding="utf-8")
@@ -216,7 +216,7 @@ def test_subset_generator_writes_wrench_samples(
     )
 
     monkeypatch.setattr(guard, "REPO_ROOT", tmp_path)
-    root = tmp_path / "results" / "v4_review" / V4_3_ALLOWED_PACKAGE
+    root = tmp_path / V4_3_CORRECTIVE_OUTPUT_REL
     package = generate_intrinsic_static_wrench_package(
         output=root,
         case_ids=["span_j1_145_j2_145"],
@@ -232,32 +232,32 @@ def test_subset_generator_writes_wrench_samples(
     manifest = json.loads((root / MANIFEST_NAME).read_text(encoding="utf-8"))
     assert MANIFEST_NAME not in {item["path"] for item in manifest["files"]}
     assert any(
-        item["path"].endswith("wrench_samples.jsonl.gz")
-        for item in manifest["files"]
+        item["path"].endswith("wrench_samples.jsonl.gz") for item in manifest["files"]
     )
     assert package["n_rows"] == 33 * 33 * 3
     assert package["n_typed_failures"] == 0
 
 
 def test_canonical_dirty_source_refuses_without_mkdir(
+    tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from inequality_mechanisms.audits.v4_artifact_guard import (
-        canonical_v4_3_retained_root,
-    )
+    from inequality_mechanisms.audits import v4_artifact_guard as guard
     from inequality_mechanisms.visualization.v4 import intrinsic_static_wrench as viz
 
-    output = canonical_v4_3_retained_root()
-    assert not output.exists() or not any(output.glob("**/*"))
+    # Simulate the production root without assuming retained evidence is absent.
+    monkeypatch.setattr(guard, "REPO_ROOT", tmp_path)
+    monkeypatch.setattr(guard, "CANONICAL_REPO_ROOT", tmp_path)
+    output = tmp_path / V4_3_CORRECTIVE_OUTPUT_REL
 
     def _raise_dirty() -> str:
         raise DirtySourceError("Refusing dirty-source V4.3 generation")
 
-    monkeypatch.setattr(viz, "assert_v4_3_source_clean", _raise_dirty)
+    monkeypatch.setattr(guard, "assert_v4_3_source_clean", _raise_dirty)
     with pytest.raises(DirtySourceError, match="dirty-source"):
         viz.generate_intrinsic_static_wrench_package(
             output=output,
             case_ids=["span_j1_145_j2_145"],
             require_full_corpus=False,
         )
-    assert not output.exists() or not any(output.glob("**/*"))
+    assert not output.exists()

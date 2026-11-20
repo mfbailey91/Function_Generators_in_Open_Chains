@@ -8,7 +8,7 @@ from pathlib import Path
 import pytest
 
 from inequality_mechanisms.audits import v4_artifact_guard as guard
-from inequality_mechanisms.audits.v4_artifact_guard import V4_3_ALLOWED_PACKAGE
+from inequality_mechanisms.audits.v4_artifact_guard import V4_3_CORRECTIVE_OUTPUT_REL
 
 
 def test_smoke_atlas_writes_under_monkeypatched_root(
@@ -18,9 +18,11 @@ def test_smoke_atlas_writes_under_monkeypatched_root(
         write_intrinsic_static_wrench_smoke_atlas,
     )
 
+    canonical = guard.canonical_v4_3_retained_root()
+    before = guard.digest_directory_tree(canonical)
     monkeypatch.setattr(guard, "REPO_ROOT", tmp_path)
     root = write_intrinsic_static_wrench_smoke_atlas()
-    expected = tmp_path / "results" / "v4_review" / V4_3_ALLOWED_PACKAGE
+    expected = tmp_path / V4_3_CORRECTIVE_OUTPUT_REL
     assert root == expected.resolve()
     assert (root / "index.html").is_file()
     assert (root / "assets" / "atlas.css").is_file()
@@ -64,9 +66,23 @@ def test_smoke_atlas_writes_under_monkeypatched_root(
     assert (shared / "figures" / "scalar.png").is_file()
     assert (shared / "figures" / "polygons.png").is_file()
     assert (shared / "figures" / "identity_scalar.png").is_file()
+    for name in ("delta", "ratio", "status"):
+        assert (shared / "figures" / f"{name}.png").is_file()
+    assert set(summary["comparisons"]) == {
+        "isotropic_radius",
+        "positive_x",
+        "positive_y",
+        "radial",
+        "tangential",
+    }
+    assert len(summary["comparisons"]["isotropic_radius"]["comparisons"]) == 5
+    assert summary["color_scale_policy"]["display_clipped_values"] == 0
+    assert {"hrep_a", "hrep_b", "rank_reports", "direction_vectors"} <= cells[0].keys()
     page = (shared / "index.html").read_text(encoding="utf-8")
     assert "Shape-normalized" in page or "shape-normalized" in page
     assert "identity" in page.lower()
+    assert 'id="cell-select"' in page
+    assert 'id="atlas-data" type="application/json"' in page
 
     methods = (root / "methods.md").read_text(encoding="utf-8")
     assert "ray capacity" in methods.lower() or "Ray capacity" in methods
@@ -77,8 +93,7 @@ def test_smoke_atlas_writes_under_monkeypatched_root(
     assert "BIOLOGICAL_JOINT_RANGE_REFERENCE_TRACE.md" in pointer
 
     # Canonical retained target must remain untouched by the tmp smoke write.
-    canonical = guard.canonical_v4_3_retained_root()
-    assert not canonical.exists() or not any(canonical.glob("**/*"))
+    assert guard.digest_directory_tree(canonical) == before
 
 
 def test_methods_packet_rejects_writing_outside_guard(

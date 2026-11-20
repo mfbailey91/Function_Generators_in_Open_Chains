@@ -31,5 +31,7 @@ jobs:
         run: |
           grep '^src/' tests/v4/data/v4_2b_lint_paths.txt \
             | xargs mypy --follow-imports=silent
+      - name: V4.3A quality gate
+        run: python scripts/check_v4_3a_quality.py
       - name: pytest
         run: pytest

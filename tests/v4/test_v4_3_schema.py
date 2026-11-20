@@ -14,11 +14,20 @@ from inequality_mechanisms.audits.v4_3_artifact import (
     strict_json_dumps,
     to_strict_jsonable,
 )
+from inequality_mechanisms.audits.v4_artifact_guard import (
+    V4_3_ALLOWED_OUTPUT_REL,
+    V4_3_CORRECTIVE_OUTPUT_REL,
+)
 from inequality_mechanisms.experiments.v4.intrinsic_static_wrench_config import (
     CONFIG_SCHEMA_VERSION,
     DEFAULT_CONFIG_REL,
     FIELD_STATUS_SCHEMA_VERSION,
+    LEGACY_MANIFEST_SCHEMA_VERSION,
+    LEGACY_PACKAGE_SCHEMA_VERSION,
+    LEGACY_ROW_SCHEMA_VERSION,
+    MANIFEST_SCHEMA_VERSION,
     PACKAGE_SCHEMA_VERSION,
+    ROW_SCHEMA_VERSION,
     SOURCE_LOCK_SCHEMA_VERSION,
     V4_3ConfigError,
     load_intrinsic_static_wrench_config,
@@ -33,11 +42,35 @@ def test_default_config_loads_and_matches_schema_ids() -> None:
     assert config.source.schema_version == SOURCE_LOCK_SCHEMA_VERSION
     assert config.package == "v4_3_intrinsic_static_wrench"
     assert config.torque.limits == (1.0, 1.0)
+    assert config.output_dir == V4_3_CORRECTIVE_OUTPUT_REL.as_posix()
     catalog = schema_catalog()
     assert catalog["config"] == CONFIG_SCHEMA_VERSION
     assert catalog["package"] == PACKAGE_SCHEMA_VERSION
     docs = schema_documentation()
     assert docs["schemas"] == catalog
+
+
+def test_corrective_scientific_contract_is_distinct_from_frozen_v1() -> None:
+    assert ROW_SCHEMA_VERSION.endswith(".v2")
+    assert MANIFEST_SCHEMA_VERSION.endswith(".v2")
+    assert PACKAGE_SCHEMA_VERSION.endswith(".v2")
+    assert LEGACY_ROW_SCHEMA_VERSION.endswith(".v1")
+    assert LEGACY_MANIFEST_SCHEMA_VERSION.endswith(".v1")
+    assert LEGACY_PACKAGE_SCHEMA_VERSION.endswith(".v1")
+
+
+def test_historical_config_remains_readable_without_changing_default_destination(
+    tmp_path: Path,
+) -> None:
+    payload = json.loads(Path(DEFAULT_CONFIG_REL).read_text(encoding="utf-8"))
+    payload["output_dir"] = V4_3_ALLOWED_OUTPUT_REL.as_posix()
+    path = tmp_path / "historical_config.json"
+    path.write_text(json.dumps(payload), encoding="utf-8")
+    historical = load_intrinsic_static_wrench_config(path)
+    assert historical.output_dir == V4_3_ALLOWED_OUTPUT_REL.as_posix()
+    assert load_intrinsic_static_wrench_config().output_dir == (
+        V4_3_CORRECTIVE_OUTPUT_REL.as_posix()
+    )
 
 
 def test_config_rejects_gravity_nested_key(tmp_path: Path) -> None:

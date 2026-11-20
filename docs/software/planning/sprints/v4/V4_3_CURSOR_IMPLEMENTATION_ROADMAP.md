@@ -1,5 +1,7 @@
 # V4.3 Cursor Implementation Roadmap
 
+**Historical roadmap:** the original implementation and evidence are retained. As of 2026-11-18 use the [V4.3A corrective roadmap](V4_3A_CURSOR_IMPLEMENTATION_ROADMAP.md) and current `ACTIVE_SPRINT.md`. Do not execute the original generation instructions against its occupied retained root. The activation narrative below records the original V4.3 phase.
+
 ## Purpose and current state
 
 V4.3 is active as of 2026-11-15. Its activation baseline is `main` at `027d5af34e72ac33767a9538b17fb96588a2bc60`. This document turns the [authoritative sprint](SPRINT_V4_3_INTRINSIC_STATIC_WRENCH.md) into bounded implementation slices. V4-300 is ready; V4-301–309 are queued. No V4.3 code or evidence is claimed complete by activation.

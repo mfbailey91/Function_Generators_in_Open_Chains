@@ -1,8 +1,8 @@
 # Version 4 Project Plan — Kinematic Transmission Geometry in Planar 2R
 
-- **Status:** V4.0 geometry kernel and V4.1 atlas closed; V4.2/V4.2A closed as retained historical diagnostics; V4.2B mounted-coordinate closeout completed; V4.2C OMPL planner-geometry portfolio completed; V4.2D optimality-reference report completed; V4.3 intrinsic wrench atlas completed on frozen corrected V4.2B snapshots; V4.4+ held
+- **Status:** V4.0–V4.2D closed; original V4.3 intrinsic wrench evidence frozen with reviewed defects; V4.3A corrective pass active for V4-310–V4-319; corrected evidence acceptance pending; V4.4+ held
 - **Predecessor:** Version 3 planner-independent physical-state and motion-planning contracts
-- **Immediate dependency:** V4.3 closeout is complete; V4.4 requires a separate activation in `ACTIVE_SPRINT.md`
+- **Immediate dependency:** complete [V4.3A corrective acceptance](planning/sprints/v4/SPRINT_V4_3A_INTRINSIC_STATIC_WRENCH_CORRECTIVE.md); V4.4 requires a separate activation in `ACTIVE_SPRINT.md`
 - **Initial robot:** planar 2R open chain
 - **Initial mechanisms:** certified monotonic four-bar pair and span-matched affine gearbox pair
 - **Fresh artifact root:** `results/v4_review/`
@@ -470,7 +470,7 @@ Cross-column reports join records by stable identifiers:
 | **V4.2C** | OMPL planner-geometry portfolio | How do optimizing, fixed-sample, and projection-guided planners respond to the same corrected \(U\rightarrow Q\rightarrow X\) contract? |
 | **V4.2C-R** | Frozen-data report clarification (completed) | How should the retained OMPL portfolio plots be read without rerunning planners? |
 | **V4.2D** | Optimality-reference and gearbox-control report (completed) | How do mechanism-specific achievable cost and planner discoverability differ on the frozen goal representation? |
-| **V4.3 (active)** | Intrinsic gravity-free static wrench; [sprint](planning/sprints/v4/SPRINT_V4_3_INTRINSIC_STATIC_WRENCH.md), [Cursor roadmap](planning/sprints/v4/V4_3_CURSOR_IMPLEMENTATION_ROADMAP.md) | How does that family redistribute a normalized torque box into planar endpoint force capacity on frozen V4.2B snapshots? |
+| **V4.3 / V4.3A (corrective active)** | Original intrinsic wrench atlas retained; [corrective sprint](planning/sprints/v4/SPRINT_V4_3A_INTRINSIC_STATIC_WRENCH_CORRECTIVE.md), [Cursor roadmap](planning/sprints/v4/V4_3A_CURSOR_IMPLEMENTATION_ROADMAP.md) | How does that family redistribute the same normalized actuator-effort box into planar endpoint force capacity on frozen V4.2B snapshots? |
 | **V4.4** | Inverse instantaneous kinematics and velocity capability | How does the transmission change actuator-rate demand, conditioning, saturation, and trackable Cartesian velocity? |
 | **V4.5** | Potential fields and continuous flow | How does the transmission precondition descent, convergence, basins, and actuator travel under coordinate controls? |
 | **V4.6** | Application task corpus and integrated 2R report | Do the four columns tell a coherent application-conditioned story on one frozen task bank? |
@@ -569,12 +569,15 @@ Every generated package includes:
 ## 14. Relationship to the current active program
 
 Sprint V4.2D is closed. Canonical optimality-reference evidence is retained under
-`results/v4_review/v4_2d_optimality_reference_report/`. The separate activation of
-2026-11-15 authorizes only V4.3 work packages V4-300–V4-309 through
-`ACTIVE_SPRINT.md`. The [sprint](planning/sprints/v4/SPRINT_V4_3_INTRINSIC_STATIC_WRENCH.md)
-and [Cursor roadmap](planning/sprints/v4/V4_3_CURSOR_IMPLEMENTATION_ROADMAP.md)
-start with schema/guard and frozen-snapshot ingestion, then fields, presentation,
-retained verification, and closeout. V4.2C and V4.2D remain closed; V4.4 stays held.
+`results/v4_review/v4_2d_optimality_reference_report/`. The original V4.3 package is also frozen after implementation review.
+The separate activation of 2026-11-18 authorizes only corrective V4.3A work
+packages V4-310–V4-319 through `ACTIVE_SPRINT.md`. The
+[corrective sprint](planning/sprints/v4/SPRINT_V4_3A_INTRINSIC_STATIC_WRENCH_CORRECTIVE.md)
+and [Cursor roadmap](planning/sprints/v4/V4_3A_CURSOR_IMPLEMENTATION_ROADMAP.md)
+cover evidence protection, complete records, strict verification, normalized-effort
+diagnostics, corrected displays, and final-state acceptance. Corrected evidence
+is generated only from a clean implementation revision into the new empty
+corrective root. V4.2C and V4.2D remain closed; V4.4 stays held.
 
 V4.2B, V4.2C, V4.2C-R, and V4.2D evidence, and all V3 and V4.0–V4.2A packages,
 remain immutable provenance.

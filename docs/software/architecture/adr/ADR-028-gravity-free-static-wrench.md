@@ -1,6 +1,6 @@
 # ADR-028 — Gravity-free static wrench from kinematic geometry
 
-- **Status:** Accepted for V3.6E–F and active Sprint V4.3. V4.3 is the Version 4 **intrinsic** atlas consuming this API on frozen corrected V4.2B mounted-coordinate snapshots; velocity capability remains V4.4. Exact source authorization comes only from `ACTIVE_SPRINT.md`.
+- **Status:** Accepted for V3.6E–F, historical V4.3, and its active V4.3A corrective pass. The Version 4 **intrinsic** atlas consumes this API on frozen corrected V4.2B mounted-coordinate snapshots; velocity capability remains V4.4. Exact source authorization comes only from `ACTIVE_SPRINT.md`.
 - **Applies to:** Version 3.6E/F planar 2R program; consumes Version 4.0 geometry kernel; Version 4.3, separately activated on 2026-11-15
 - **Related:** ADR-027; [STATIC_WRENCH_KINEMATIC_GEOMETRY_METHOD.md](../notes/STATIC_WRENCH_KINEMATIC_GEOMETRY_METHOD.md); [V4_POST_V4_1_SPAN_WRENCH_PROGRAM.md](../../planning/V4_POST_V4_1_SPAN_WRENCH_PROGRAM.md)
 - **Supersedes:** nothing; frozen V3.6/V4.0/V4.1 evidence is unchanged
@@ -23,3 +23,11 @@ Planning, velocity, wrench, and flow columns all need \(J_g\), \(J_f\), and \(J_
 - Config and solver schemas reject `gravity_vector`, `payload_mass`, and `gravity_compensation`.
 - V3.6E writes only `results/v3_review/v3_6e_static_wrench_core/`.
 - Normalized \(\bar\tau_u=[1,1]\) isolates transmission geometry from actuator scaling.
+
+## Normalization clarification — 2026-11-18
+
+For the intrinsic comparison, `[1,1]` specifies a common independent **unit actuator-effort budget**. It is not a motor specification or a hardware holding-load claim. The theoretical set is \(\{F:\|J_{xu}^{\mathsf T}F\|_\infty\le1\}\). Without an effort normalization, an invertible ideal map admits arbitrarily large forces with correspondingly large actuator effort, so a finite force-capacity comparison has no scale.
+
+Uniformly scaling this budget scales every force set by the same factor and preserves shape and same-budget mechanism ratios. The box itself remains a declared assumption: independent per-actuator bounds differ from an aggregate Euclidean effort budget, which yields an ellipse for a full-rank planar map and an unbounded inverse image at singular maps. Alternative norms are separate sensitivity questions and are not introduced by V4.3A. Numerical direction classification retains the accepted `direction_eps` convention.
+
+The algebraic vertex diagnostic called actuator-corner saturation checks whether each mapped force vertex reaches a corner of the normalized effort box. In user-facing explanations call it the **unit-box corner residual**. It neither models a motor controller saturating nor establishes a practical actuator rating. V4.3A corrects this residual and its fixture while preserving the accepted kernel, field names, source ranks, and ideal normalized model.

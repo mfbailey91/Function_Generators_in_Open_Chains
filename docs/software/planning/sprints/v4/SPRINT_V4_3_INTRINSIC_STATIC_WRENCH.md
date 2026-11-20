@@ -1,6 +1,6 @@
 # Sprint V4.3 — Intrinsic Gravity-Free Static-Wrench Capability and Atlas
 
-- **Status:** completed; authorization reset in ACTIVE_SPRINT.md
+- **Status:** completed historical implementation; subsequent review found defects addressed by active V4.3A
 - **Activated:** 2026-11-15 by the project owner's request to activate V4.3 and begin its sprint plan
 - **Activation baseline:** `main` at `027d5af34e72ac33767a9538b17fb96588a2bc60`
 - **Work packages closed:** V4-300–V4-309
@@ -12,6 +12,8 @@
 - **Next columns held:** V4.4 velocity / differential IK and V4.5 continuous flow remain separately held
 - **Execution guide:** [V4_3_CURSOR_IMPLEMENTATION_ROADMAP.md](V4_3_CURSOR_IMPLEMENTATION_ROADMAP.md)
 - **Authority:** accepted ADRs and method contracts, this sprint, then the current bounded Cursor implementation plan; only [ACTIVE_SPRINT.md](../../ACTIVE_SPRINT.md) grants repository authorization
+
+**Review disposition, 2026-11-18:** preserve the original evidence and generation identities. The owner authorized [V4.3A corrective work](SPRINT_V4_3A_INTRINSIC_STATIC_WRENCH_CORRECTIVE.md), V4-310–V4-319, to address evidence protection, verification, record retention, diagnostics, plots, cell inspection, and final-state tests. The historical execution instructions below do not authorize regeneration of the occupied original root.
 
 ## 1. Purpose and scientific question
 

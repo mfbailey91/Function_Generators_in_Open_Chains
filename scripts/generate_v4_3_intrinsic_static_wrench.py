@@ -29,7 +29,10 @@ def main() -> None:
         "--output",
         type=Path,
         default=None,
-        help="V4.3 output directory (tmp paths allowed; historical packages refused)",
+        help=(
+            "Empty corrective package root only; frozen evidence and arbitrary "
+            "temporary paths are refused"
+        ),
     )
     args = parser.parse_args()
     package = generate_intrinsic_static_wrench_package(

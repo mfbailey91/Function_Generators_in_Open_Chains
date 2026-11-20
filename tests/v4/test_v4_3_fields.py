@@ -2,19 +2,31 @@
 
 from __future__ import annotations
 
+import gzip
 import json
 import math
+from copy import deepcopy
 from dataclasses import replace
+from pathlib import Path
 
 import numpy as np
 import pytest
 
-from inequality_mechanisms.audits.v4_3_artifact import strict_json_dumps
-from inequality_mechanisms.experiments.v4.geometry_atlas import AtlasRow
+from inequality_mechanisms.audits.v4_3_artifact import (
+    V4_3ArtifactError,
+    strict_json_dumps,
+    to_strict_jsonable,
+)
+from inequality_mechanisms.audits.v4_artifact_guard import canonical_v4_2b_retained_root
+from inequality_mechanisms.experiments.v4.geometry_atlas import (
+    AtlasRow,
+    parse_retained_atlas_row,
+)
 from inequality_mechanisms.experiments.v4.intrinsic_static_wrench import (
     ConsumedSourceRow,
     PairedPhysicalSample,
     SourceIdentity,
+    evaluate_restored_row,
     resolve_smoke_selection,
 )
 from inequality_mechanisms.experiments.v4.intrinsic_static_wrench_fields import (
@@ -30,6 +42,7 @@ from inequality_mechanisms.experiments.v4.intrinsic_static_wrench_fields import 
     primary_eligible,
     rank_attribution_summary,
     regular_unit_arm_fixture,
+    retained_force_record,
     status_mask,
     stretched_unit_arm_fixture,
     support_along,
@@ -40,6 +53,11 @@ from inequality_mechanisms.metrics.static_wrench import (
     directional_capacity,
 )
 from inequality_mechanisms.metrics.wrench_directions import named_task_directions
+from inequality_mechanisms.transmission_geometry import (
+    METRIC_STATUS_AVAILABLE,
+    KinematicGeometrySnapshot,
+    rank_report,
+)
 
 
 def _vertex_set(vertices: np.ndarray) -> set[tuple[float, float]]:
@@ -92,6 +110,8 @@ def test_regular_unit_arm_fixture_matches_sprint_table() -> None:
     expected = analytic_fixture_expectations()["regular_unit_arm"]
     wrench = regular_unit_arm_fixture()
     assert wrench.status == WrenchStateStatus.REGULAR
+    np.testing.assert_allclose(wrench.q, [0.0, math.pi / 2.0])
+    np.testing.assert_allclose(wrench.x, [1.0, 1.0])
     assert wrench.vertices is not None
     assert _vertex_set(wrench.vertices) == _vertex_set(
         np.asarray(expected["vertices_ccw"], dtype=np.float64)
@@ -107,10 +127,73 @@ def test_regular_unit_arm_fixture_matches_sprint_table() -> None:
     assert support_y == pytest.approx(expected["positive_y_support_diagnostic"])
     assert support_y == pytest.approx(2.0)
     assert wrench.directional_capacity["positive_y"] == pytest.approx(1.0)
+    assert wrench.directional_capacity["radial"] == pytest.approx(math.sqrt(2.0))
+    assert wrench.directional_capacity["tangential"] == pytest.approx(
+        1.0 / math.sqrt(2.0)
+    )
+    assert expected["radial_ray"] == pytest.approx(math.sqrt(2.0))
+    assert expected["tangential_ray"] == pytest.approx(1.0 / math.sqrt(2.0))
     feas = vertex_feasibility(wrench)
     assert feas.ok
     assert feas.n_vertices == 4
     assert primary_eligible(wrench)
+
+
+@pytest.mark.parametrize(
+    "vertices",
+    [
+        np.zeros((4, 2)),
+        np.zeros((0, 2)),
+        np.zeros((3, 2)),
+        np.zeros((4, 3)),
+        np.full((4, 2), np.nan),
+        np.full((4, 2), np.inf),
+        None,
+    ],
+)
+def test_full_rank_polygon_requires_four_finite_corner_vertices(vertices) -> None:
+    wrench = replace(regular_unit_arm_fixture(), vertices=vertices)
+    feasibility = vertex_feasibility(wrench)
+    assert not feasibility.ok
+    assert feasibility.failure_code is not None
+    assert json.loads(strict_json_dumps(feasibility.details)) is not None
+
+
+def test_interior_polygon_is_feasible_but_does_not_reach_effort_box_corners() -> None:
+    wrench = regular_unit_arm_fixture()
+    assert wrench.vertices is not None
+    interior = replace(wrench, vertices=wrench.vertices / 2.0)
+    feasibility = vertex_feasibility(interior)
+    assert feasibility.max_hrep_residual is not None
+    assert feasibility.max_hrep_residual < 0.0
+    assert feasibility.max_corner_saturation_residual == pytest.approx(0.5)
+    assert not feasibility.ok
+
+
+def test_four_repetitions_of_one_valid_corner_do_not_form_complete_polygon() -> None:
+    wrench = regular_unit_arm_fixture()
+    assert wrench.vertices is not None
+    duplicate = replace(wrench, vertices=np.repeat(wrench.vertices[:1], 4, axis=0))
+    feasibility = vertex_feasibility(duplicate)
+    assert feasibility.max_corner_saturation_residual == pytest.approx(0.0)
+    assert feasibility.details["n_distinct_actuator_corners"] == 1
+    assert not feasibility.ok
+
+
+def test_near_singular_residual_failure_remains_diagnostic() -> None:
+    wrench = regular_unit_arm_fixture()
+    assert wrench.vertices is not None
+    diagnostic = replace(
+        wrench,
+        status=WrenchStateStatus.NEAR_SINGULAR,
+        vertices=wrench.vertices * (1.0 - 2e-6),
+    )
+    record = retained_force_record(_synthetic_item(diagnostic))
+    assert record["vertex_feasibility"]["ok"] is False
+    assert record["status"] == "near_singular"
+    assert record["source_failure_code"] is None
+    assert record["isotropic_radius_field"]["value"] is not None
+    assert record["primary_eligible"] is False
 
 
 def test_stretched_unit_arm_fixture_matches_sprint_table() -> None:
@@ -148,6 +231,136 @@ def test_force_record_retains_hrep_and_rank_attribution() -> None:
     text = strict_json_dumps(record)
     assert "NaN" not in text
     assert "Infinity" not in text
+
+
+def test_retained_row_copies_complete_scientific_record_without_rank_recompute(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from inequality_mechanisms.experiments.v4 import intrinsic_static_wrench_fields
+
+    wrench = regular_unit_arm_fixture()
+    reports = {
+        "u_to_q": rank_report(wrench.j_g, tolerance=1e-7),
+        "q_to_x": rank_report(wrench.j_f, tolerance=2e-7),
+        "u_to_x": rank_report(wrench.j_xu, tolerance=3e-7),
+    }
+    policy = {"mode": "absolute", "value": 1e-7, "origin": "source_fixture"}
+    tolerances = {name: report.tolerance for name, report in reports.items()}
+    snapshot = KinematicGeometrySnapshot(
+        q=tuple(wrench.q),
+        u=tuple(wrench.u),
+        x=tuple(wrench.x),
+        j_u_to_q=tuple(tuple(row) for row in wrench.j_g),
+        j_q_to_x=tuple(tuple(row) for row in wrench.j_f),
+        j_u_to_x=tuple(tuple(row) for row in wrench.j_xu),
+        rank_u_to_q=reports["u_to_q"],
+        rank_q_to_x=reports["q_to_x"],
+        rank_u_to_x=reports["u_to_x"],
+        actuator_weight=((1.0, 0.0), (0.0, 1.0)),
+        actuator_metric_on_q=((1.0, 0.0), (0.0, 1.0)),
+        mobility_on_q=((1.0, 0.0), (0.0, 1.0)),
+        mobility_on_x=((2.0, -1.0), (-1.0, 1.0)),
+        metric_status=METRIC_STATUS_AVAILABLE,
+        provenance={"rank_tolerance_policy": policy, "rank_tolerances": tolerances},
+    )
+    item = _synthetic_item(wrench)
+    item = replace(item, row=replace(item.row, snapshot=snapshot))
+
+    def forbidden_rank_recompute(*args, **kwargs):
+        pytest.fail("retaining a source rank report must not recompute rank")
+
+    monkeypatch.setattr(
+        intrinsic_static_wrench_fields, "rank_report", forbidden_rank_recompute
+    )
+    record = retained_force_record(item)
+    original = wrench.to_dict()
+    assert record["wrench_schema_version"] == original["schema_version"]
+    for key, value in original.items():
+        if key != "schema_version":
+            assert record[key] == value
+    assert record["rank_reports"] == {
+        name: report.to_dict() for name, report in reports.items()
+    }
+    assert record["rank_tolerance_policy"] == policy
+    assert record["rank_tolerances"] == tolerances
+    np.testing.assert_allclose(
+        record["direction_vectors"]["radial"], [1 / math.sqrt(2)] * 2
+    )
+    # Returned metadata cannot mutate the inherited source provenance.
+    record["rank_tolerance_policy"]["value"] = 99
+    assert snapshot.provenance["rank_tolerance_policy"]["value"] == 1e-7
+    decoded = json.loads(strict_json_dumps(record))
+    assert decoded["hrep_a"] == original["hrep_a"]
+
+
+@pytest.fixture(scope="module")
+def real_regular_scientific_record():
+    """One frozen source row, independently restored through the accepted API."""
+    case_id = "span_j1_095_j2_095"
+    source_rel = f"geometry_atlas/cases/{case_id}/geometry_samples.jsonl.gz"
+    path = canonical_v4_2b_retained_root() / Path(source_rel)
+    with gzip.open(path, "rt", encoding="utf-8") as handle:
+        source = json.loads(next(handle))
+    row = parse_retained_atlas_row(source)
+    identity = SourceIdentity(
+        case_id=case_id,
+        q_sample_id=row.q_sample_id,
+        mechanism_id=row.mechanism_id,
+        mechanism_pair_id=row.mechanism_pair_id,
+        grid_index=row.grid_index,
+        config_digest=row.config_digest,
+        source_revision=row.git_revision,
+        source_relpath=source_rel,
+    )
+    record = to_strict_jsonable(
+        retained_force_record(evaluate_restored_row(identity, row))
+    )
+    assert record["status"] == "regular"
+    return record, source
+
+
+def test_strict_scientific_validator_accepts_actual_regular_source_row(
+    real_regular_scientific_record,
+) -> None:
+    from inequality_mechanisms.audits.v4_3_artifact import (
+        _validate_row,
+        _verify_source_record,
+    )
+
+    record, source = real_regular_scientific_record
+    _validate_row(record)
+    _verify_source_record(record, source, legacy=False)
+
+
+@pytest.mark.parametrize(
+    "corruption", ["isotropic_scale", "named_direction", "status", "duplicate_corner"]
+)
+def test_strict_scientific_validator_rejects_internally_consistent_corruption(
+    real_regular_scientific_record, corruption: str
+) -> None:
+    from inequality_mechanisms.audits.v4_3_artifact import (
+        _validate_row,
+        _verify_source_record,
+    )
+
+    original, source = real_regular_scientific_record
+    record = deepcopy(original)
+    if corruption == "isotropic_scale":
+        record["isotropic_radius"] *= 10.0
+        record["isotropic_radius_field"]["value"] = record["isotropic_radius"]
+    elif corruption == "named_direction":
+        record["direction_vectors"]["positive_x"] = [0.0, 1.0]
+    elif corruption == "status":
+        record["status"] = "near_singular"
+        record["primary_eligible"] = False
+        record["isotropic_radius_field"].update(
+            status="masked_nonregular", reason="near_singular"
+        )
+    else:
+        record["vertices"] = [record["vertices"][0]] * 4
+    with pytest.raises(V4_3ArtifactError):
+        _validate_row(record)
+        _verify_source_record(record, source, legacy=False)
 
 
 def test_origin_undefined_directions_do_not_suppress_cartesian() -> None:
@@ -253,9 +466,20 @@ def test_smoke_pairs_produce_status_mask_and_comparisons() -> None:
     selection, consumed, pairs = resolve_smoke_selection()
     assert selection.n_records == 60
     assert all(item.wrench is not None for item in consumed)
-    records = [build_force_record(item) for item in consumed]
+    records = [retained_force_record(item) for item in consumed]
     assert len(records) == 60
     assert all(rec["vertex_feasibility"] is not None for rec in records)
+    for item, record in zip(consumed, records, strict=True):
+        assert item.row.snapshot is not None
+        snapshot = item.row.snapshot.to_dict()
+        assert record["rank_reports"] == snapshot["rank_reports"]
+        assert (
+            record["rank_tolerance_policy"]
+            == (snapshot["provenance"]["rank_tolerance_policy"])
+        )
+        assert record["rank_tolerances"] == (snapshot["provenance"]["rank_tolerances"])
+        assert record["hrep_a"] is not None
+        assert set(record["direction_vectors"]) == set(NAMED_DIRECTIONS)
     mask = status_mask(pairs)
     assert mask["n_cells"] == 20
     assert sum(mask["status_counts"].values()) == 60

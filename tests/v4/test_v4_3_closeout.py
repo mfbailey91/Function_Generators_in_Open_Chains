@@ -35,17 +35,29 @@ def test_closeout_records_verified_package_identities() -> None:
     assert "ADR-028" in text
 
 
-def test_active_sprint_has_no_code_authorization() -> None:
+def test_historical_closeout_does_not_reauthorize_original_work() -> None:
     active = ACTIVE_SPRINT.read_text(encoding="utf-8")
     auth = next(
         line
         for line in active.splitlines()
         if line.startswith("**Code authorization:**")
     )
-    assert auth.startswith("**Code authorization:** none")
-    assert "V4-300" not in auth
-    assert "Sprint V4.3 is **completed**" in active
+    corrective = (
+        ACTIVE_SPRINT.parent
+        / "sprints"
+        / "v4"
+        / "SPRINT_V4_3A_INTRINSIC_STATIC_WRENCH_CORRECTIVE.md"
+    ).read_text(encoding="utf-8")
+    if "- **Status:** active;" in corrective:
+        assert auth == "**Code authorization:** V4-310–V4-319 only."
+        assert "V4.3A" in active
+    else:
+        assert "- **Status:** completed" in corrective
+        assert auth.startswith("**Code authorization:** none")
+    for package_id in (f"V4-30{i}" for i in range(10)):
+        assert package_id not in auth
     assert "v4_3_intrinsic_static_wrench" in active
+    assert "V4.4" in active and "held" in active
 
 
 def test_retained_package_still_verifies() -> None:

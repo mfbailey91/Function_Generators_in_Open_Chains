@@ -1,5 +1,7 @@
 # V4.3 intrinsic static-wrench closeout
 
+**Subsequent review — 2026-11-18:** this note records the original closeout and immutable v1 package. Review found defects in overwrite protection, verification, scientific-record retention, diagnostics, visual scales, selected-cell/comparison views, and post-retention tests. The owner authorized [Sprint V4.3A](../../planning/sprints/v4/SPRINT_V4_3A_INTRINSIC_STATIC_WRENCH_CORRECTIVE.md), V4-310–V4-319, to correct them. The historical verification result below is not acceptance of the revised v2 contract; original evidence must remain unchanged.
+
 **Disposition:** completed after implementation, retained generation, and independent verification; V4.4/V4.5 remain held for separate activation
 **Implementation revision:** `d275b4f2`
 **Evidence revision:** `f4807260`

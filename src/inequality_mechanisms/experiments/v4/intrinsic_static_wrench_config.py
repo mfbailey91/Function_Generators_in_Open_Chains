@@ -4,11 +4,11 @@ Schema identifiers chosen for this sprint:
 
 * ``v4.3.intrinsic_static_wrench.config.v1``
 * ``v4.3.intrinsic_static_wrench.source_lock.v1``
-* ``v4.3.intrinsic_static_wrench.row.v1``
+* ``v4.3.intrinsic_static_wrench.row.v2``
 * ``v4.3.intrinsic_static_wrench.field_status.v1``
 * ``v4.3.intrinsic_static_wrench.case_summary.v1``
-* ``v4.3.intrinsic_static_wrench.manifest.v1``
-* ``v4.3.intrinsic_static_wrench.package.v1``
+* ``v4.3.intrinsic_static_wrench.manifest.v2``
+* ``v4.3.intrinsic_static_wrench.package.v2``
 """
 
 from __future__ import annotations
@@ -17,7 +17,7 @@ import hashlib
 import json
 from collections.abc import Mapping
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any, Final, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
@@ -25,15 +25,19 @@ from inequality_mechanisms.audits.v4_artifact_guard import (
     V4_2B_ALLOWED_PACKAGE,
     V4_3_ALLOWED_OUTPUT_REL,
     V4_3_ALLOWED_PACKAGE,
+    V4_3_CORRECTIVE_OUTPUT_REL,
 )
 
-CONFIG_SCHEMA_VERSION = "v4.3.intrinsic_static_wrench.config.v1"
-SOURCE_LOCK_SCHEMA_VERSION = "v4.3.intrinsic_static_wrench.source_lock.v1"
-ROW_SCHEMA_VERSION = "v4.3.intrinsic_static_wrench.row.v1"
+CONFIG_SCHEMA_VERSION: Final = "v4.3.intrinsic_static_wrench.config.v1"
+SOURCE_LOCK_SCHEMA_VERSION: Final = "v4.3.intrinsic_static_wrench.source_lock.v1"
+LEGACY_ROW_SCHEMA_VERSION: Final = "v4.3.intrinsic_static_wrench.row.v1"
+ROW_SCHEMA_VERSION: Final = "v4.3.intrinsic_static_wrench.row.v2"
 FIELD_STATUS_SCHEMA_VERSION = "v4.3.intrinsic_static_wrench.field_status.v1"
 CASE_SUMMARY_SCHEMA_VERSION = "v4.3.intrinsic_static_wrench.case_summary.v1"
-MANIFEST_SCHEMA_VERSION = "v4.3.intrinsic_static_wrench.manifest.v1"
-PACKAGE_SCHEMA_VERSION = "v4.3.intrinsic_static_wrench.package.v1"
+LEGACY_MANIFEST_SCHEMA_VERSION: Final = "v4.3.intrinsic_static_wrench.manifest.v1"
+MANIFEST_SCHEMA_VERSION: Final = "v4.3.intrinsic_static_wrench.manifest.v2"
+LEGACY_PACKAGE_SCHEMA_VERSION: Final = "v4.3.intrinsic_static_wrench.package.v1"
+PACKAGE_SCHEMA_VERSION: Final = "v4.3.intrinsic_static_wrench.package.v2"
 
 FROZEN_V4_2B_SOURCE_REVISION = "6680d648a0dc93d33f1cf34bb81cea69d6a44e80"
 FROZEN_V4_2B_FILES_DIGEST = (
@@ -63,8 +67,8 @@ REQUIRED_MECHANISM_TYPES: dict[str, str] = {
 }
 
 DEFAULT_TORQUE_LIMITS: tuple[float, float] = (1.0, 1.0)
-TORQUE_UNITS = "normalized_actuator_torque"
-FORCE_UNITS = "normalized_torque_per_length"
+TORQUE_UNITS: Final = "normalized_actuator_torque"
+FORCE_UNITS: Final = "normalized_torque_per_length"
 
 SMOKE_SPAN_PAIRS: tuple[tuple[int, int], ...] = (
     (95, 145),
@@ -149,7 +153,7 @@ def walk_unknown_keys(
 
 
 class TorqueContract(BaseModel):
-    """Explicit normalized torque box and unit labels."""
+    """Unit actuator-effort budget for comparison, not rated motor torque."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -254,9 +258,15 @@ class IntrinsicStaticWrenchConfig(BaseModel):
     @classmethod
     def _output_under_package(cls, value: str) -> str:
         rel = Path(value).as_posix().rstrip("/")
-        allowed = V4_3_ALLOWED_OUTPUT_REL.as_posix()
-        if rel != allowed:
-            raise ValueError(f"output_dir must be {allowed!r}, got {rel!r}")
+        # Historical config remains readable; writers refuse the frozen root.
+        allowed = {
+            V4_3_ALLOWED_OUTPUT_REL.as_posix(),
+            V4_3_CORRECTIVE_OUTPUT_REL.as_posix(),
+        }
+        if rel not in allowed:
+            raise ValueError(
+                f"output_dir must be one of {sorted(allowed)!r}, got {rel!r}"
+            )
         return rel
 
     @model_validator(mode="after")
@@ -323,6 +333,9 @@ __all__ = [
     "FROZEN_V4_2B_N_ROWS_PER_ARM",
     "FROZEN_V4_2B_SOURCE_REVISION",
     "IntrinsicStaticWrenchConfig",
+    "LEGACY_MANIFEST_SCHEMA_VERSION",
+    "LEGACY_PACKAGE_SCHEMA_VERSION",
+    "LEGACY_ROW_SCHEMA_VERSION",
     "MANIFEST_SCHEMA_VERSION",
     "NO_INFERENCE_STATEMENT",
     "PACKAGE_SCHEMA_VERSION",

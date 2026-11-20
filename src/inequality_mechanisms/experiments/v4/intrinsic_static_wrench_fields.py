@@ -10,6 +10,7 @@ from __future__ import annotations
 import math
 from collections import Counter
 from collections.abc import Mapping, Sequence
+from copy import deepcopy
 from dataclasses import dataclass
 from typing import Any
 
@@ -54,6 +55,12 @@ INHERITED_TOLERANCE_POLICY: dict[str, Any] = {
     "near_singular_condition": NEAR_SINGULAR_CONDITION,
     "vertex_feasibility_atol": VERTEX_FEASIBILITY_ATOL,
     "primary_display_statuses": sorted(PRIMARY_DISPLAY_STATUSES),
+    "rank_tolerance_policy": {
+        "source": "stored V4.0 snapshot provenance and rank reports",
+        "default_mode": "default_scale_aware",
+        "default_formula": "factor * float64_eps * max(m, n) * sigma_max",
+        "per_record": "rank_tolerance_policy, rank_tolerances, rank_reports",
+    },
     "note": (
         "Rank, direction, and near-singular thresholds are inherited from "
         "the V3.6E API; V4.3 does not retune them for display."
@@ -96,8 +103,29 @@ def vertex_feasibility(
     *,
     atol: float = VERTEX_FEASIBILITY_ATOL,
 ) -> VertexFeasibility:
-    """Check retained vertices against H-rep and actuator-corner saturation."""
+    """Check the mapped effort-box corners and force-set inequalities.
+
+    ``torque_limits`` defines the normalized effort budget for this theoretical
+    comparison. Corner saturation is a geometric equality check, not a motor
+    rating or an additional physical limit. Near-singular residual failures
+    remain diagnostics and do not change the inherited wrench status.
+    """
+    if not math.isfinite(atol) or atol < 0.0:
+        raise ValueError("vertex feasibility tolerance must be finite and nonnegative")
+
+    def invalid_polygon(reason: str, n_vertices: int = 0) -> VertexFeasibility:
+        return VertexFeasibility(
+            ok=False,
+            max_hrep_residual=None,
+            max_corner_saturation_residual=None,
+            n_vertices=n_vertices,
+            failure_code="invalid_vertex_polygon",
+            details={"atol": float(atol), "reason": reason},
+        )
+
     if wrench.vertices is None:
+        if wrench.rank == 2:
+            return invalid_polygon("full_rank_polygon_missing")
         return VertexFeasibility(
             ok=True,
             max_hrep_residual=None,
@@ -107,21 +135,40 @@ def vertex_feasibility(
             details={"vertices": None, "reason": "no_closed_polygon"},
         )
     verts = np.asarray(wrench.vertices, dtype=np.float64)
+    n_vertices = int(verts.shape[0]) if verts.ndim >= 1 else 0
+    if wrench.rank != 2:
+        return invalid_polygon("rank_deficient_closed_polygon", n_vertices)
+    if verts.shape != (4, 2):
+        return invalid_polygon("expected_four_planar_vertices", n_vertices)
+    if not np.all(np.isfinite(verts)):
+        return invalid_polygon("nonfinite_vertices", n_vertices)
     hrep_a = np.asarray(wrench.hrep_a, dtype=np.float64)
     hrep_b = np.asarray(wrench.hrep_b, dtype=np.float64)
     a_map = np.asarray(wrench.j_xu, dtype=np.float64).T
     tau = np.asarray(wrench.torque_limits, dtype=np.float64)
+    if (
+        hrep_a.shape != (4, 2)
+        or hrep_b.shape != (4,)
+        or a_map.shape != (2, 2)
+        or tau.shape != (2,)
+        or not all(np.all(np.isfinite(v)) for v in (hrep_a, hrep_b, a_map, tau))
+        or np.any(tau <= 0.0)
+    ):
+        return invalid_polygon("invalid_effort_box_or_hrep", n_vertices)
 
-    hrep_residuals = hrep_a @ verts.T - hrep_b.reshape(-1, 1)
-    max_hrep = float(np.max(hrep_residuals)) if hrep_residuals.size else 0.0
+    with np.errstate(over="ignore", invalid="ignore"):
+        hrep_residuals = hrep_a @ verts.T - hrep_b.reshape(-1, 1)
+        mapped_corners = np.asarray([a_map @ vertex for vertex in verts])
+        corner_residuals = np.abs(np.abs(mapped_corners) - tau)
+    if not np.all(np.isfinite(hrep_residuals)) or not np.all(
+        np.isfinite(corner_residuals)
+    ):
+        return invalid_polygon("nonfinite_vertex_residuals", n_vertices)
+    max_hrep = float(np.max(hrep_residuals))
+    max_corner = float(np.max(corner_residuals))
+    corner_signs = {tuple(int(v) for v in np.sign(row)) for row in mapped_corners}
 
-    corner_residuals: list[float] = []
-    for vertex in verts:
-        tau_u = a_map @ vertex
-        corner_residuals.append(float(np.max(np.abs(tau_u) - tau)))
-    max_corner = float(max(corner_residuals)) if corner_residuals else 0.0
-
-    ok = max_hrep <= atol and max_corner <= atol
+    ok = max_hrep <= atol and max_corner <= atol and len(corner_signs) == 4
     failure = None if ok else "vertex_feasibility_failed"
     return VertexFeasibility(
         ok=ok,
@@ -133,6 +180,8 @@ def vertex_feasibility(
             "atol": float(atol),
             "hrep_residual_max": max_hrep,
             "corner_saturation_residual_max": max_corner,
+            "n_distinct_actuator_corners": len(corner_signs),
+            "corner_check": "absolute_distance_from_effort_box_corners",
         },
     )
 
@@ -256,7 +305,24 @@ def build_force_record(item: ConsumedSourceRow) -> dict[str, Any]:
         "status": None,
         "rank_attribution": None,
         "primary_eligible": False,
+        "rank_reports": None,
+        "rank_tolerance_policy": None,
+        "rank_tolerances": None,
+        "direction_vectors": {name: None for name in NAMED_DIRECTIONS},
+        "inherited_tolerances": deepcopy(INHERITED_TOLERANCE_POLICY),
+        "low_gain_warning": False,
     }
+    snapshot = item.row.snapshot
+    if snapshot is not None:
+        record["rank_reports"] = {
+            "u_to_q": snapshot.rank_u_to_q.to_dict(),
+            "q_to_x": snapshot.rank_q_to_x.to_dict(),
+            "u_to_x": snapshot.rank_u_to_x.to_dict(),
+        }
+        record["rank_tolerance_policy"] = deepcopy(
+            snapshot.provenance.get("rank_tolerance_policy")
+        )
+        record["rank_tolerances"] = deepcopy(snapshot.provenance.get("rank_tolerances"))
     if item.wrench is None:
         return record
 
@@ -279,6 +345,44 @@ def build_force_record(item: ConsumedSourceRow) -> dict[str, Any]:
     record["low_gain_warning"] = (
         wrench.rank_attribution.get("primary_cause") == "four_bar_low_gain"
     )
+    return record
+
+
+def retained_force_record(item: ConsumedSourceRow) -> dict[str, Any]:
+    """Complete flat scientific row; plotting must not discard its fields.
+
+    Preserve every field supplied by the accepted wrench API and the stored
+    source rank reports. Nonfinite API values are transported by the packet's
+    strict JSON encoder alongside their explicit field/status diagnostics.
+    Synthetic fixtures without a source snapshot keep rank metadata null;
+    valid canonical rows must carry the inherited reports and policy.
+    """
+    force = build_force_record(item)
+    wrench = force.pop("wrench")
+    raw = dict(wrench) if wrench is not None else {}
+    wrench_schema_version = raw.pop("schema_version", None)
+    for name in (
+        "q",
+        "u",
+        "x",
+        "j_g",
+        "j_f",
+        "j_xu",
+        "torque_limits",
+        "hrep_a",
+        "hrep_b",
+        "vertices",
+        "isotropic_radius",
+        "directional_capacity",
+        "rank",
+        "singular_values",
+        "joint_torque_amplification",
+    ):
+        raw.setdefault(name, None)
+    raw.setdefault("undefined_directions", [])
+    record = {**raw, **force, "wrench_schema_version": wrench_schema_version}
+    if item.wrench is None:
+        record["status"] = "source_failure"
     return record
 
 
@@ -466,6 +570,7 @@ def rank_attribution_summary(item: ConsumedSourceRow) -> dict[str, Any]:
             "rank": None,
             "low_gain_warning": False,
         }
+    force = build_force_record(item)
     return {
         "source_failure_code": None,
         "rank_attribution": dict(item.wrench.rank_attribution),
@@ -475,6 +580,9 @@ def rank_attribution_summary(item: ConsumedSourceRow) -> dict[str, Any]:
             item.wrench.rank_attribution.get("primary_cause") == "four_bar_low_gain"
         ),
         "status": item.wrench.status.value,
+        "rank_reports": force["rank_reports"],
+        "rank_tolerance_policy": force["rank_tolerance_policy"],
+        "rank_tolerances": force["rank_tolerances"],
     }
 
 
@@ -497,7 +605,7 @@ def regular_unit_arm_fixture() -> StaticWrenchCapability2D:
     j_f = j_xu.copy()
     q = np.array([0.0, math.pi / 2.0], dtype=np.float64)
     u = q.copy()
-    x = np.array([0.0, 1.0], dtype=np.float64)
+    x = np.array([1.0, 1.0], dtype=np.float64)
     return static_wrench_from_maps(
         q=q,
         u=u,
@@ -540,10 +648,14 @@ def analytic_fixture_expectations() -> dict[str, Any]:
     """Machine-readable sprint §5 expectations for packet fixtures."""
     return {
         "regular_unit_arm": {
+            "q": [0.0, math.pi / 2.0],
+            "x": [1.0, 1.0],
             "vertices_ccw": [[-1.0, -2.0], [1.0, 0.0], [1.0, 2.0], [-1.0, 0.0]],
             "isotropic_radius": 1.0 / math.sqrt(2.0),
             "positive_x_ray": 1.0,
             "positive_y_ray": 1.0,
+            "radial_ray": math.sqrt(2.0),
+            "tangential_ray": 1.0 / math.sqrt(2.0),
             "positive_y_support_diagnostic": 2.0,
         },
         "stretched_unit_arm": {
@@ -596,6 +708,7 @@ __all__ = [
     "primary_eligible",
     "rank_attribution_summary",
     "regular_unit_arm_fixture",
+    "retained_force_record",
     "shared_color_limits",
     "status_mask",
     "stretched_unit_arm_fixture",

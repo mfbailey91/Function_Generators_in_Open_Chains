@@ -12,6 +12,7 @@ from inequality_mechanisms.audits.v4_artifact_guard import (
     V4_2D_ALLOWED_PACKAGE,
     V4_3_ALLOWED_OUTPUT_REL,
     V4_3_ALLOWED_PACKAGE,
+    V4_3_CORRECTIVE_OUTPUT_REL,
     ArtifactPathForbiddenError,
     canonical_v4_0_retained_root,
     canonical_v4_1_retained_root,
@@ -21,9 +22,10 @@ from inequality_mechanisms.audits.v4_artifact_guard import (
     canonical_v4_2c_r_retained_root,
     canonical_v4_2c_retained_root,
     canonical_v4_2d_retained_root,
+    canonical_v4_3_retained_root,
 )
 
-V4_3_OUTPUT_REL = Path("results") / "v4_review" / V4_3_ALLOWED_PACKAGE
+V4_3_OUTPUT_REL = Path("results/v4_review/v4_3_intrinsic_static_wrench_corrective")
 
 
 def test_v4_3_allowed_root_and_nested_paths() -> None:
@@ -31,8 +33,8 @@ def test_v4_3_allowed_root_and_nested_paths() -> None:
         assert_v4_3_output_allowed,
     )
 
-    root = (REPO_ROOT / V4_3_ALLOWED_OUTPUT_REL).resolve()
-    assert V4_3_ALLOWED_OUTPUT_REL == V4_3_OUTPUT_REL
+    root = (REPO_ROOT / V4_3_CORRECTIVE_OUTPUT_REL).resolve()
+    assert V4_3_CORRECTIVE_OUTPUT_REL == V4_3_OUTPUT_REL
     assert assert_v4_3_output_allowed(root) == root
     child = root / "cases" / "span_j1_145_j2_145" / "summary.json"
     assert assert_v4_3_output_allowed(child) == child.resolve()
@@ -49,6 +51,7 @@ def test_v4_3_allowed_root_and_nested_paths() -> None:
         (canonical_v4_2c_retained_root, "frozen V4.2C"),
         (canonical_v4_2c_r_retained_root, "frozen V4.2C-R"),
         (canonical_v4_2d_retained_root, "frozen V4.2D"),
+        (canonical_v4_3_retained_root, "frozen V4.3"),
     ],
 )
 def test_v4_3_refuses_historical_v4_packages(path_fn, match: str) -> None:
@@ -119,7 +122,7 @@ def test_v4_3_refuses_symlink_escape(
     from inequality_mechanisms.audits import v4_artifact_guard as guard
 
     monkeypatch.setattr(guard, "REPO_ROOT", tmp_path)
-    allowed = tmp_path / "results" / "v4_review" / V4_3_ALLOWED_PACKAGE
+    allowed = tmp_path / V4_3_CORRECTIVE_OUTPUT_REL
     frozen = tmp_path / "results" / "v4_review" / guard.V4_2B_ALLOWED_PACKAGE
     allowed.mkdir(parents=True)
     frozen.mkdir(parents=True)
@@ -136,7 +139,7 @@ def test_v4_3_refuses_occupied_output_root(
     from inequality_mechanisms.audits import v4_artifact_guard as guard
 
     monkeypatch.setattr(guard, "REPO_ROOT", tmp_path)
-    output = tmp_path / "results" / "v4_review" / V4_3_ALLOWED_PACKAGE
+    output = tmp_path / V4_3_CORRECTIVE_OUTPUT_REL
     output.mkdir(parents=True)
     (output / "manifest.json").write_text("{}\n", encoding="utf-8")
     with pytest.raises(ArtifactPathForbiddenError, match="non-empty V4.3"):
@@ -149,7 +152,7 @@ def test_tmp_v4_3_prepare_leaves_predecessors_untouched(
     from inequality_mechanisms.audits import v4_artifact_guard as guard
 
     monkeypatch.setattr(guard, "REPO_ROOT", tmp_path)
-    output = tmp_path / "results" / "v4_review" / V4_3_ALLOWED_PACKAGE
+    output = tmp_path / V4_3_CORRECTIVE_OUTPUT_REL
     frozen_b = tmp_path / "results" / "v4_review" / guard.V4_2B_ALLOWED_PACKAGE
     frozen_d = tmp_path / "results" / "v4_review" / V4_2D_ALLOWED_PACKAGE
     frozen_b.mkdir(parents=True)
@@ -161,3 +164,56 @@ def test_tmp_v4_3_prepare_leaves_predecessors_untouched(
     assert prepared.is_dir()
     assert (frozen_b / "manifest.json").read_text(encoding="utf-8") == "keep-b\n"
     assert (frozen_d / "manifest.json").read_text(encoding="utf-8") == "keep-d\n"
+
+
+def test_v4_3_refuses_symlinked_allowed_root(tmp_path, monkeypatch):
+    from inequality_mechanisms.audits import v4_artifact_guard as guard
+
+    monkeypatch.setattr(guard, "REPO_ROOT", tmp_path)
+    frozen = tmp_path / guard.V4_2B_ALLOWED_OUTPUT_REL
+    frozen.mkdir(parents=True)
+    sentinel = frozen / "retained.txt"
+    sentinel.write_text("keep")
+    allowed = tmp_path / V4_3_CORRECTIVE_OUTPUT_REL
+    allowed.symlink_to(frozen, target_is_directory=True)
+    with pytest.raises(ArtifactPathForbiddenError, match="symlinked"):
+        guard.assert_v4_3_output_allowed(allowed / "retained.txt")
+    assert sentinel.read_text() == "keep"
+
+
+def test_begin_rejects_descendant_and_occupied_tree(tmp_path, monkeypatch):
+    from inequality_mechanisms.audits import v4_artifact_guard as guard
+
+    monkeypatch.setattr(guard, "REPO_ROOT", tmp_path)
+    monkeypatch.setattr(guard, "CANONICAL_REPO_ROOT", tmp_path)
+    monkeypatch.setattr(guard, "assert_v4_3_source_clean", lambda: "a" * 40)
+    root = tmp_path / V4_3_CORRECTIVE_OUTPUT_REL
+    assets = root / "assets"
+    assets.mkdir(parents=True)
+    sentinel = assets / "keep.txt"
+    sentinel.write_text("unchanged")
+    with pytest.raises(ArtifactPathForbiddenError, match="descendant"):
+        guard.begin_v4_3_write(assets)
+    with pytest.raises(ArtifactPathForbiddenError, match="non-empty"):
+        guard.begin_v4_3_write(root)
+    assert sentinel.read_text() == "unchanged"
+
+
+def test_both_entrypoints_refuse_frozen_tree(tmp_path, monkeypatch):
+    from inequality_mechanisms.audits import v4_artifact_guard as guard
+    from inequality_mechanisms.visualization.v4 import intrinsic_static_wrench as viz
+
+    monkeypatch.setattr(guard, "REPO_ROOT", tmp_path)
+    frozen = tmp_path / V4_3_ALLOWED_OUTPUT_REL
+    assets = frozen / "assets"
+    assets.mkdir(parents=True)
+    sentinel = assets / "keep.txt"
+    sentinel.write_text("unchanged")
+    for writer in (
+        viz.generate_intrinsic_static_wrench_package,
+        viz.write_intrinsic_static_wrench_smoke_atlas,
+    ):
+        for target in (frozen, assets):
+            with pytest.raises(ArtifactPathForbiddenError, match="frozen V4.3"):
+                writer(output=target)
+    assert sentinel.read_text() == "unchanged"
