@@ -26,6 +26,7 @@ from inequality_mechanisms.audits.v4_artifact_guard import (
     V4_3_ALLOWED_OUTPUT_REL,
     V4_3_ALLOWED_PACKAGE,
     V4_3_CORRECTIVE_OUTPUT_REL,
+    V4_3_FOLLOWUP_OUTPUT_REL,
 )
 
 CONFIG_SCHEMA_VERSION: Final = "v4.3.intrinsic_static_wrench.config.v1"
@@ -258,10 +259,11 @@ class IntrinsicStaticWrenchConfig(BaseModel):
     @classmethod
     def _output_under_package(cls, value: str) -> str:
         rel = Path(value).as_posix().rstrip("/")
-        # Historical config remains readable; writers refuse the frozen root.
+        # Historical configs remain readable; writers refuse frozen roots.
         allowed = {
             V4_3_ALLOWED_OUTPUT_REL.as_posix(),
             V4_3_CORRECTIVE_OUTPUT_REL.as_posix(),
+            V4_3_FOLLOWUP_OUTPUT_REL.as_posix(),
         }
         if rel not in allowed:
             raise ValueError(

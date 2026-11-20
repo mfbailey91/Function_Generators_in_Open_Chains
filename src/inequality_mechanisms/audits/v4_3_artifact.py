@@ -34,6 +34,7 @@ from inequality_mechanisms.audits.v4_artifact_guard import (
     V4_3_ALLOWED_OUTPUT_REL,
     V4_3_ALLOWED_PACKAGE,
     V4_3_CORRECTIVE_OUTPUT_REL,
+    V4_3_FOLLOWUP_OUTPUT_REL,
     canonical_v4_2b_retained_root,
     git_tracked_rel_digest,
 )
@@ -53,6 +54,7 @@ from inequality_mechanisms.experiments.v4.intrinsic_static_wrench_config import 
     ROW_SCHEMA_VERSION,
     schema_catalog,
 )
+from inequality_mechanisms.metrics.wrench_directions import DIRECTION_EPS
 
 LEGACY_MANIFEST_SHA256 = (
     "703263e1851ff12a1637474f7bcb0032feccf894515552670feb26d243c04ce7"
@@ -69,6 +71,14 @@ CORRECTIVE_REQUIRED_FIGURES = (
     "ratio",
     "status",
 )
+DIAGNOSTIC_DIRECTION_FIGURES = tuple(f"{name}_diagnostic" for name in DIRECTIONS)
+FOLLOWUP_REQUIRED_FIGURES = (
+    *CORRECTIVE_REQUIRED_FIGURES,
+    *DIAGNOSTIC_DIRECTION_FIGURES,
+)
+# Absolute |A d| floor below which a near-singular ray may keep numerical
+# accommodation. Directions with larger projections are verified like regular.
+RAY_CAPACITY_SENSITIVITY_ABS = 1e-8
 MANIFEST_INVENTORY_RULE = "exclude_self"
 MANIFEST_NAME = "manifest.json"
 SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
@@ -110,6 +120,7 @@ __all__ = [
     "MANIFEST_INVENTORY_RULE",
     "MANIFEST_NAME",
     "V4_3ArtifactError",
+    "aggregate_vertex_diagnostics",
     "case_wrench_rel",
     "encode_numeric_field",
     "files_digest",
@@ -400,11 +411,31 @@ def inventory_file(
     }
 
 
+def _required_figures(
+    *, legacy: bool = False, followup: bool = False
+) -> tuple[str, ...]:
+    if legacy:
+        return LEGACY_REQUIRED_FIGURES
+    if followup:
+        return FOLLOWUP_REQUIRED_FIGURES
+    return CORRECTIVE_REQUIRED_FIGURES
+
+
+def _is_followup_root(root: Path) -> bool:
+    return root.resolve().name == V4_3_FOLLOWUP_OUTPUT_REL.name
+
+
 def inventory_package_files(
-    root: Path, case_ids: Sequence[str], *, legacy: bool = False
+    root: Path,
+    case_ids: Sequence[str],
+    *,
+    legacy: bool = False,
+    followup: bool | None = None,
 ) -> list[dict[str, Any]]:
     """Inventory every actual file, excluding only the root manifest."""
     root = Path(root)
+    if followup is None:
+        followup = (not legacy) and _is_followup_root(root)
     actual: set[str] = set()
     for path in root.rglob("*"):
         if path.is_symlink():
@@ -412,9 +443,7 @@ def inventory_package_files(
         if path.is_file() and path != root / MANIFEST_NAME:
             actual.add(path.relative_to(root).as_posix())
     required = set(REQUIRED_ROOT_FILES)
-    required_figures = (
-        LEGACY_REQUIRED_FIGURES if legacy else CORRECTIVE_REQUIRED_FIGURES
-    )
+    required_figures = _required_figures(legacy=legacy, followup=followup)
     for cid in case_ids:
         required.update(
             {
@@ -485,6 +514,59 @@ def _field(value: Any, label: str) -> dict[str, Any]:
     if status != "finite" and not isinstance(field.get("reason"), str):
         raise V4_3ArtifactError(f"{label}: unavailable field needs a reason")
     return field
+
+
+def _assert_distinct_polygon_vertices(verts: np.ndarray[Any, Any]) -> None:
+    exact = {tuple(map(float, vertex)) for vertex in verts}
+    if len(exact) != 4:
+        raise V4_3ArtifactError("polygon vertices must be four distinct points")
+
+
+def _assert_consistent_polygon_cycle(verts: np.ndarray[Any, Any]) -> None:
+    """Reject collapsed edges and inconsistent/self-intersecting vertex order."""
+    crosses: list[float] = []
+    for index in range(4):
+        a = verts[index]
+        b = verts[(index + 1) % 4]
+        c = verts[(index + 2) % 4]
+        edge1 = b - a
+        edge2 = c - b
+        scale = float(np.linalg.norm(edge1) * np.linalg.norm(edge2))
+        if scale <= DIRECTION_EPS:
+            raise V4_3ArtifactError("polygon edges must be non-degenerate")
+        crosses.append(float(edge1[0] * edge2[1] - edge1[1] * edge2[0]))
+    max_abs = max(abs(value) for value in crosses)
+    if max_abs <= DIRECTION_EPS:
+        raise V4_3ArtifactError("polygon vertex order is degenerate")
+    # Compare turns relative to the largest retained cross-product so skinny
+    # near-singular parallelograms keep a consistent orientation while bow-ties
+    # (sign-changing turns) still fail closed.
+    signs = [float(np.sign(value)) for value in crosses if abs(value) > 1e-9 * max_abs]
+    if len(signs) < 3:
+        raise V4_3ArtifactError("polygon vertex order is degenerate")
+    if any(sign != signs[0] for sign in signs):
+        raise V4_3ArtifactError(
+            "polygon vertex order is inconsistent or self-intersecting"
+        )
+
+
+def _ray_is_ill_conditioned(
+    a_map: np.ndarray[Any, Any], direction: np.ndarray[Any, Any]
+) -> bool:
+    """True when every active |row·d| is below the sensitivity floor."""
+    unit = np.asarray(direction, dtype=float).reshape(-1)
+    norm = float(np.linalg.norm(unit))
+    if norm <= DIRECTION_EPS or not np.all(np.isfinite(unit)):
+        return True
+    unit = unit / norm
+    dens = [
+        abs(float(np.dot(row, unit)))
+        for row in a_map
+        if float(np.linalg.norm(row)) > DIRECTION_EPS
+    ]
+    if not dens:
+        return True
+    return min(dens) <= RAY_CAPACITY_SENSITIVITY_ABS
 
 
 def _validate_row(row: Mapping[str, Any], *, legacy: bool = False) -> None:
@@ -646,9 +728,13 @@ def _validate_row(row: Mapping[str, Any], *, legacy: bool = False) -> None:
     if type(feasibility.get("ok")) is not bool:
         raise V4_3ArtifactError("vertex feasibility must have Boolean ok")
     vertices = row["vertices"]
+    verts: np.ndarray[Any, Any] | None = None
     if vertices is not None:
         verts = _array(vertices, (4, 2), "vertices")
         _integer(feasibility.get("n_vertices"), 4, "n_vertices")
+        if not legacy and (regular or status == "near_singular"):
+            _assert_distinct_polygon_vertices(verts)
+            _assert_consistent_polygon_cycle(verts)
         if regular:
             mapped = _array(row["j_xu"], (2, 2), "j_xu").T @ verts.T
             if not feasibility["ok"] or np.max(np.abs(mapped) - tau[:, None]) > 1e-9:
@@ -687,7 +773,11 @@ def _validate_row(row: Mapping[str, Any], *, legacy: bool = False) -> None:
             raise V4_3ArtifactError("isotropic radius disagrees with the retained map")
     elif row["isotropic_radius"] is not None or iso["status"] != "unbounded":
         raise V4_3ArtifactError("unbounded isotropic radius transport mismatch")
-    if regular and len({tuple(v) for v in np.sign(a_map @ verts.T).T}) != 4:
+    if (
+        regular
+        and verts is not None
+        and len({tuple(v) for v in np.sign(a_map @ verts.T).T}) != 4
+    ):
         raise V4_3ArtifactError(
             "regular polygon must contain four distinct effort corners"
         )
@@ -703,16 +793,22 @@ def _validate_row(row: Mapping[str, Any], *, legacy: bool = False) -> None:
             stored_direction, expected_direction, rtol=1e-12, atol=1e-12
         ):
             raise V4_3ArtifactError("named direction vector disagrees with retained X")
-        # Near-singular ray magnitudes are cancellation-sensitive across BLAS/
-        # architectures. Keep their explicit diagnostics without pretending
-        # that numerical equality is a new rank/eligibility criterion.
-        if status != "near_singular":
+        # Near-singular accommodation is per-direction: only rays whose |A d|
+        # projections fall below RAY_CAPACITY_SENSITIVITY_ABS may skip equality.
+        accommodate = status == "near_singular" and _ray_is_ill_conditioned(
+            a_map, np.asarray(expected_direction, dtype=float)
+        )
+        if not accommodate:
             expected_capacity = directional_capacity(a_map, tau, expected_direction)
             if math.isfinite(expected_capacity):
                 if capacities[name] is None or not math.isclose(
                     capacities[name], expected_capacity, rel_tol=1e-12, abs_tol=1e-12
                 ):
                     raise V4_3ArtifactError("ray capacity disagrees with retained map")
+                if directions[name]["status"] != "finite":
+                    raise V4_3ArtifactError(
+                        "finite ray capacity must keep finite field status"
+                    )
             elif (
                 capacities[name] is not None
                 or directions[name]["status"] != "unbounded"
@@ -797,7 +893,12 @@ def _validate_row(row: Mapping[str, Any], *, legacy: bool = False) -> None:
         raise V4_3ArtifactError("rank must be an integer")
     details = _object(feasibility["details"], "vertex feasibility details")
     if vertices is not None:
+        # max_hrep_residual is the largest signed halfspace violation. Small
+        # negatives are interior slack; absurd negatives (e.g. -100) cannot
+        # arise from retained vertices and must fail closed.
         hrep_residual = _number(feasibility["max_hrep_residual"], "H-rep residual")
+        if hrep_residual < -1.0:
+            raise V4_3ArtifactError("H-rep residual is impossibly negative")
         corner_residual = _number(
             feasibility["max_corner_saturation_residual"],
             "corner residual",
@@ -882,8 +983,14 @@ def _verify_provenance(root: Path, manifest: dict[str, Any], *, legacy: bool) ->
         config = IntrinsicStaticWrenchConfig.model_validate(resolved.get("config"))
     except ValueError as exc:
         raise V4_3ArtifactError(f"invalid resolved config: {exc}") from exc
-    expected_output = V4_3_ALLOWED_OUTPUT_REL if legacy else V4_3_CORRECTIVE_OUTPUT_REL
-    if config.output_dir != expected_output.as_posix():
+    if legacy:
+        expected_outputs = {V4_3_ALLOWED_OUTPUT_REL.as_posix()}
+    else:
+        expected_outputs = {
+            V4_3_CORRECTIVE_OUTPUT_REL.as_posix(),
+            V4_3_FOLLOWUP_OUTPUT_REL.as_posix(),
+        }
+    if config.output_dir not in expected_outputs:
         raise V4_3ArtifactError(
             "resolved config output_dir disagrees with package profile"
         )
@@ -973,7 +1080,12 @@ def _verify_source_record(
 
 
 def _verify_case_summary(
-    root: Path, case_id: str, rows: list[dict[str, Any]], *, legacy: bool
+    root: Path,
+    case_id: str,
+    rows: list[dict[str, Any]],
+    *,
+    legacy: bool,
+    followup: bool = False,
 ) -> None:
     summary = _object(
         _read_json(root / f"cases/{case_id}/summary.json"), "case summary"
@@ -985,10 +1097,13 @@ def _verify_case_summary(
         raise V4_3ArtifactError("case stress-only classification mismatch")
     if legacy:
         return
+    required_figures = _required_figures(followup=followup)
     assets = _object(summary.get("assets"), "case assets")
-    if set(assets) != set(CORRECTIVE_REQUIRED_FIGURES):
-        raise V4_3ArtifactError("case assets must expose all eleven corrective views")
-    for name in CORRECTIVE_REQUIRED_FIGURES:
+    if set(assets) != set(required_figures):
+        raise V4_3ArtifactError(
+            "case assets must expose every required retained figure view"
+        )
+    for name in required_figures:
         asset = _object(assets[name], f"{name} asset")
         rel = _safe_relative(asset.get("src"))
         if rel != f"figures/{name}.png":
@@ -1139,7 +1254,10 @@ def verify_v4_3_artifact(root: Path | str) -> dict[str, Any]:
         ("n_silent_drops", 0),
     ):
         _integer(manifest.get(key), count, key)
-    live = inventory_package_files(package_root, case_ids, legacy=legacy)
+    followup = (not legacy) and _is_followup_root(package_root)
+    live = inventory_package_files(
+        package_root, case_ids, legacy=legacy, followup=followup
+    )
     live_by_path = {item["path"]: item for item in live}
     if set(live_by_path) != set(declared):
         raise V4_3ArtifactError(
@@ -1156,6 +1274,7 @@ def verify_v4_3_artifact(root: Path | str) -> dict[str, Any]:
         raise V4_3ArtifactError("historical packet digest differs from immutable pin")
     per_arm: Counter[str] = Counter()
     statuses: Counter[str] = Counter()
+    retained_rows: list[dict[str, Any]] = []
     n_pairs = 0
     for case_id in case_ids:
         source_rel = f"geometry_atlas/cases/{case_id}/geometry_samples.jsonl.gz"
@@ -1188,6 +1307,7 @@ def verify_v4_3_artifact(root: Path | str) -> dict[str, Any]:
             grid_arms.setdefault(grid, {})[row["mechanism_id"]] = row
             per_arm[row["mechanism_id"]] += 1
             statuses[row["status"]] += 1
+            retained_rows.append(row)
         if sources:
             raise V4_3ArtifactError(
                 "silent drop: frozen source identities missing from output"
@@ -1203,7 +1323,13 @@ def verify_v4_3_artifact(root: Path | str) -> dict[str, Any]:
                     if not np.allclose(row[key], reference[key], rtol=0, atol=1e-9):
                         raise V4_3ArtifactError("paired arms do not share physical Q/X")
         n_pairs += len(grid_arms)
-        _verify_case_summary(package_root, case_id, output_rows, legacy=legacy)
+        _verify_case_summary(
+            package_root,
+            case_id,
+            output_rows,
+            legacy=legacy,
+            followup=followup,
+        )
     n_rows = sum(per_arm.values())
     expected_per_arm = {
         mech: FROZEN_V4_2B_N_ROWS_PER_ARM for mech in FROZEN_MECHANISM_IDS
@@ -1238,6 +1364,15 @@ def verify_v4_3_artifact(root: Path | str) -> dict[str, Any]:
         raise V4_3ArtifactError("validation counts/full-corpus flag mismatch")
     for key in ("n_typed_failures", "n_silent_drops"):
         _integer(validation.get(key), 0, key)
+    if followup:
+        expected_diagnostics = aggregate_vertex_diagnostics(retained_rows)
+        for key, expected in expected_diagnostics.items():
+            if key == "status_counts":
+                continue
+            if validation.get(key) != expected:
+                raise V4_3ArtifactError(
+                    f"validation {key} disagrees with retained vertex diagnostics"
+                )
     cases = _read_json(package_root / "cases.json")
     if not isinstance(cases, list) or [case.get("case_id") for case in cases] != list(
         case_ids
@@ -1267,5 +1402,54 @@ def verify_v4_3_artifact(root: Path | str) -> dict[str, Any]:
         "n_typed_failures": 0,
         "n_silent_drops": 0,
         "source_git_revision": manifest["source_git_revision"],
-        "verification_profile": "frozen_historical_v1" if legacy else "corrective_v2",
+        "verification_profile": (
+            "frozen_historical_v1"
+            if legacy
+            else "followup_v3"
+            if followup
+            else "corrective_v2"
+        ),
+    }
+
+
+def aggregate_vertex_diagnostics(
+    rows: Sequence[Mapping[str, Any]],
+) -> dict[str, Any]:
+    """Summarize vertex-feasibility diagnostics separately from typed failures."""
+    status_counts: Counter[str] = Counter()
+    failures_by_status: Counter[str] = Counter()
+    failures_by_case: Counter[str] = Counter()
+    max_corner: dict[str, float] = {}
+    max_hrep: dict[str, float] = {}
+    for row in rows:
+        status = row.get("status")
+        if not isinstance(status, str):
+            continue
+        status_counts[status] += 1
+        feasibility = row.get("vertex_feasibility")
+        if not isinstance(feasibility, Mapping):
+            continue
+        corner = feasibility.get("max_corner_saturation_residual")
+        hrep = feasibility.get("max_hrep_residual")
+        if isinstance(corner, (int, float)) and math.isfinite(corner):
+            prior = max_corner.get(status)
+            if prior is None or float(corner) > prior:
+                max_corner[status] = float(corner)
+        if isinstance(hrep, (int, float)) and math.isfinite(hrep):
+            prior = max_hrep.get(status)
+            if prior is None or float(hrep) > prior:
+                max_hrep[status] = float(hrep)
+        if feasibility.get("ok") is False:
+            failures_by_status[status] += 1
+            case_id = row.get("case_id")
+            if isinstance(case_id, str):
+                failures_by_case[case_id] += 1
+    return {
+        "status_counts": dict(sorted(status_counts.items())),
+        "vertex_diagnostic_failures_by_status": dict(
+            sorted(failures_by_status.items())
+        ),
+        "vertex_diagnostic_failures_by_case": dict(sorted(failures_by_case.items())),
+        "max_corner_residual": dict(sorted(max_corner.items())),
+        "max_hrep_residual": dict(sorted(max_hrep.items())),
     }

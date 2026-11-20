@@ -43,6 +43,23 @@ Inspected full-data pages: `(95,95)`, `(150,145)`, shared `(145,145)`, biologica
 
 Near-singular and unbounded ideal-direction outcomes remain typed API statuses, not implementation failures. Ill-conditioned radial capacities may show cross-platform numerical sensitivity; this package does not invent a new rank or clipping policy. The public field name `torque_limits` continues to mean the normalized independent actuator-effort budget `(1,1)`.
 
+## Vertex-diagnostic aggregates (separate from typed failures)
+
+These counts are numerical vertex-feasibility diagnostics on retained rows. They are **not** `n_typed_failures` / `n_silent_drops` (both remain 0).
+
+| Metric | Value |
+| --- | --- |
+| `vertex_diagnostic_failures_by_status.regular` | 0 |
+| `vertex_diagnostic_failures_by_status.near_singular` | 539 |
+| `max_corner_residual.regular` | ≈ 1.42e-14 |
+| `max_corner_residual.near_singular` | ≈ 1.22e-4 |
+| `max_hrep_residual.regular` | ≈ 2.02e-14 |
+| `max_hrep_residual.near_singular` | ≈ 1.62e-4 |
+
+## Post-review follow-up
+
+A post-V4.3A implementation review found verifier, directional-display-scale, diagnostic-aggregation, and stale-doc issues. Those are addressed under Sprint V4.3B into the sibling root `results/v4_review/v4_3_intrinsic_static_wrench_followup/` without mutating this corrective package. See [SPRINT_V4_3B_INTRINSIC_STATIC_WRENCH_FOLLOWUP.md](../../planning/sprints/v4/SPRINT_V4_3B_INTRINSIC_STATIC_WRENCH_FOLLOWUP.md).
+
 ## Authorization
 
-`ACTIVE_SPRINT.md` returns to **Code authorization: none.** Sprint V4.4 velocity / differential IK and V4.5 continuous flow remain held for their own activation.
+At V4.3A closeout, `ACTIVE_SPRINT.md` returned to **Code authorization: none.** Sprint V4.4 velocity / differential IK and V4.5 continuous flow remain held for their own activation. V4.3B may temporarily reactivate a bounded authorization range without reopening V4.3A.

@@ -86,12 +86,14 @@ The package was installed with `python -m pip install -e '.[dev]'`; `pytest-xdis
 
 ## Remaining acceptance limits
 
-1. **Full corrected retention is pending.** The source patch and 60-row preview do not complete V4-318/319. Commit source first, generate all 55,539 records from that clean revision, independently verify the complete package, review representative full-data pages, retain evidence separately, and rerun final-state regression before closeout.
-2. **Real-browser end-to-end inspection is pending.** Node execution and generated-image inspection passed. The headless Chromium installation attempt returned HTTP 403 in this environment, so no full browser rendering result is claimed. Review local-file operation, keyboard controls, selected-cell identity, scales, masking, and layout before final acceptance.
-3. **Near-singular directional magnitudes remain cancellation-sensitive.** The verifier checks their retained source, statuses, transport, and diagnostic structure without imposing strict cross-platform replay on ill-conditioned ray magnitudes. This preserves the accepted kernel and inherited classification policy.
+Historical patch-era wording below is retained for provenance. Items 1 is closed by V4-318/319 retention; item 2 remains open/unclaimed.
+
+1. **Full corrected retention (historical / closed).** V4-318/319 completed: clean-revision generation, independent verification, retention of `v4_3_intrinsic_static_wrench_corrective/`, and final-state regression. See [post-retention acceptance](#post-retention-acceptance) and the [corrective closeout](V4_3A_INTRINSIC_STATIC_WRENCH_CORRECTIVE_CLOSEOUT.md).
+2. **Real-browser end-to-end inspection remains open/unclaimed.** Node execution and generated-image inspection passed. The headless Chromium installation attempt returned HTTP 403 in this environment, so no full browser rendering result is claimed. Local-file keyboard/layout E2E is not asserted.
+3. **Near-singular directional magnitudes remain cancellation-sensitive.** The verifier checks their retained source, statuses, transport, and diagnostic structure without imposing strict cross-platform replay on ill-conditioned ray magnitudes. This preserves the accepted kernel and inherited classification policy. Post-review V4.3B tightens well-conditioned near-singular rays separately; see the [V4.3B sprint](../../planning/sprints/v4/SPRINT_V4_3B_INTRINSIC_STATIC_WRENCH_FOLLOWUP.md).
 4. **The force sets express an ideal unit effort model.** The fixed `(1,1)` independent actuator-effort box is a normalization, not a physical motor, thermal, friction, or structural limit. The corrected corner residual checks the inverse image of unit-box corners. It does not establish a safe hardware holding load. The box-versus-Euclidean effort norm is a scientific modeling choice; this patch preserves the accepted box model.
 
-See the [Cursor roadmap](../../planning/sprints/v4/V4_3A_CURSOR_IMPLEMENTATION_ROADMAP.md) for the exact remaining generation and acceptance sequence. The external `PATCH_MANIFEST.json` identifies the final patch digest and changed-file hashes without creating a self-referential hash inside the patch.
+The external `PATCH_MANIFEST.json` identifies the final patch digest and changed-file hashes without creating a self-referential hash inside the patch.
 
 
 ## Post-retention acceptance

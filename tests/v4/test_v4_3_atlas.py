@@ -8,7 +8,7 @@ from pathlib import Path
 import pytest
 
 from inequality_mechanisms.audits import v4_artifact_guard as guard
-from inequality_mechanisms.audits.v4_artifact_guard import V4_3_CORRECTIVE_OUTPUT_REL
+from inequality_mechanisms.audits.v4_artifact_guard import V4_3_FOLLOWUP_OUTPUT_REL
 
 
 def test_smoke_atlas_writes_under_monkeypatched_root(
@@ -22,7 +22,7 @@ def test_smoke_atlas_writes_under_monkeypatched_root(
     before = guard.digest_directory_tree(canonical)
     monkeypatch.setattr(guard, "REPO_ROOT", tmp_path)
     root = write_intrinsic_static_wrench_smoke_atlas()
-    expected = tmp_path / V4_3_CORRECTIVE_OUTPUT_REL
+    expected = tmp_path / V4_3_FOLLOWUP_OUTPUT_REL
     assert root == expected.resolve()
     assert (root / "index.html").is_file()
     assert (root / "assets" / "atlas.css").is_file()

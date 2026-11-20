@@ -21,7 +21,7 @@ from inequality_mechanisms.audits.v4_3_artifact import (
 )
 from inequality_mechanisms.audits.v4_artifact_guard import (
     V4_3_ALLOWED_PACKAGE,
-    V4_3_CORRECTIVE_OUTPUT_REL,
+    V4_3_FOLLOWUP_OUTPUT_REL,
     ArtifactPathForbiddenError,
     DirtySourceError,
     assert_v4_3_output_root_empty,
@@ -191,7 +191,7 @@ def test_nonempty_canonical_root_refused(
     from inequality_mechanisms.audits import v4_artifact_guard
 
     monkeypatch.setattr(v4_artifact_guard, "REPO_ROOT", tmp_path)
-    output = tmp_path / V4_3_CORRECTIVE_OUTPUT_REL
+    output = tmp_path / V4_3_FOLLOWUP_OUTPUT_REL
     output.mkdir(parents=True)
     sentinel = output / "sentinel.txt"
     sentinel.write_text("keep", encoding="utf-8")
@@ -216,7 +216,7 @@ def test_subset_generator_writes_wrench_samples(
     )
 
     monkeypatch.setattr(guard, "REPO_ROOT", tmp_path)
-    root = tmp_path / V4_3_CORRECTIVE_OUTPUT_REL
+    root = tmp_path / V4_3_FOLLOWUP_OUTPUT_REL
     package = generate_intrinsic_static_wrench_package(
         output=root,
         case_ids=["span_j1_145_j2_145"],
@@ -248,7 +248,7 @@ def test_canonical_dirty_source_refuses_without_mkdir(
     # Simulate the production root without assuming retained evidence is absent.
     monkeypatch.setattr(guard, "REPO_ROOT", tmp_path)
     monkeypatch.setattr(guard, "CANONICAL_REPO_ROOT", tmp_path)
-    output = tmp_path / V4_3_CORRECTIVE_OUTPUT_REL
+    output = tmp_path / V4_3_FOLLOWUP_OUTPUT_REL
 
     def _raise_dirty() -> str:
         raise DirtySourceError("Refusing dirty-source V4.3 generation")

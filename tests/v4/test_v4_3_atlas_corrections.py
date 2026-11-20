@@ -127,6 +127,59 @@ def test_identity_scale_covers_its_values_independently(
     assert "separate" in result["assets"]["identity_scalar"]["caption"].lower() or (
         "own full finite range" in result["assets"]["identity_scalar"]["caption"]
     )
+    assert "positive_x_diagnostic" in result["assets"]
+
+
+def test_primary_directional_scales_exclude_near_singular_outlier(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Regular-finite primary limits must ignore huge near-singular outliers."""
+    paired_calls: list[dict[str, Any]] = []
+
+    def capture_paired(*args: Any, **kwargs: Any) -> None:
+        paired_calls.append(kwargs)
+
+    monkeypatch.setattr(viz, "write_paired_heatmap", capture_paired)
+    monkeypatch.setattr(viz, "write_polygon_glyphs", lambda *args, **kwargs: None)
+    monkeypatch.setattr(viz, "write_true_scale_detail", lambda *args, **kwargs: None)
+    monkeypatch.setattr(viz, "write_identity_heatmap", lambda *args, **kwargs: None)
+
+    rows = [
+        _row(mech, scale=scale, grid=(i, 0))
+        for i, (mech, scale) in enumerate(
+            zip(FROZEN_MECHANISM_IDS, (1.0, 2.0, 0.5), strict=True)
+        )
+    ]
+    rows.append(_row("fourbar", scale=3.0, grid=(2, 0)))
+    rows.append(_row("span_matched_gearbox", scale=4.0, grid=(2, 0)))
+    outlier = _row("fourbar", scale=1e12, grid=(3, 0))
+    outlier.update(status="near_singular", primary_eligible=False)
+    outlier["isotropic_radius_field"] = {"status": "finite", "value": 1e12}
+    for name in viz.NAMED_DIRECTIONS:
+        outlier["directional_capacity"][name] = 1e12
+        outlier["directional_fields"][name] = {"status": "finite", "value": 1e12}
+    rows.append(outlier)
+
+    result = viz.write_case_figures(tmp_path, rows)
+    assert result["color_limits"]["positive_x"] == [1.0, 4.0]
+    assert result["color_limits"]["radial"] == [1.0, 4.0]
+    primary = next(
+        call for call in paired_calls if call["title"] == "Ray capacity: positive_x"
+    )
+    diagnostic = next(
+        call
+        for call in paired_calls
+        if call["title"].startswith("Diagnostic") and "positive_x" in call["title"]
+    )
+    assert primary["vmax"] == 4.0
+    assert diagnostic["vmax"] >= 1e12
+    primary_finite = np.concatenate(
+        [
+            primary["grids"][mech][np.isfinite(primary["grids"][mech])]
+            for mech in ("fourbar", "span_matched_gearbox")
+        ]
+    )
+    assert len(np.unique(np.round(primary_finite, 12))) > 1
 
 
 def _comparison(grid: list[int], *, eligible: bool) -> dict[str, Any]:

@@ -22,6 +22,7 @@ from inequality_mechanisms.audits import v4_artifact_guard as _v4_guard
 from inequality_mechanisms.audits.v4_3_artifact import (
     MANIFEST_INVENTORY_RULE,
     MANIFEST_NAME,
+    aggregate_vertex_diagnostics,
     case_wrench_rel,
     files_digest,
     inventory_package_files,
@@ -760,7 +761,43 @@ def write_case_figures(
     }
 
     for direction in NAMED_DIRECTIONS:
-        grids = {
+        primary_grids = {
+            mech: _field_grid(
+                records,
+                mechanism_id=mech,
+                key=direction,
+                shape=shape,
+                primary_only=True,
+            )
+            for mech in PRIMARY_MECHANISM_PAIR
+        }
+        primary_vals = np.concatenate(
+            [
+                primary_grids[m][np.isfinite(primary_grids[m])]
+                for m in PRIMARY_MECHANISM_PAIR
+            ]
+        )
+        d_vmin, d_vmax = finite_color_limits(primary_vals)
+        color_limits[direction] = [d_vmin, d_vmax]
+        write_paired_heatmap(
+            fig_dir / f"{direction}.png",
+            qq1=qq1,
+            qq2=qq2,
+            grids=primary_grids,
+            title=f"Ray capacity: {direction}",
+            vmin=d_vmin,
+            vmax=d_vmax,
+        )
+        assets[direction] = {
+            "src": f"figures/{direction}.png",
+            "alt": direction,
+            "caption": (
+                f"Primary directional ray capacity ({direction}) on regular-finite "
+                "cells only, with shared colour limits from those values. "
+                "Undefined/unbounded and near-singular cells are masked here."
+            ),
+        }
+        diagnostic_grids = {
             mech: _field_grid(
                 records,
                 mechanism_id=mech,
@@ -770,27 +807,30 @@ def write_case_figures(
             )
             for mech in PRIMARY_MECHANISM_PAIR
         }
-        vals = np.concatenate(
-            [grids[m][np.isfinite(grids[m])] for m in PRIMARY_MECHANISM_PAIR]
+        diagnostic_vals = np.concatenate(
+            [
+                diagnostic_grids[m][np.isfinite(diagnostic_grids[m])]
+                for m in PRIMARY_MECHANISM_PAIR
+            ]
         )
-        d_vmin, d_vmax = finite_color_limits(vals)
-        color_limits[direction] = [d_vmin, d_vmax]
+        diag_vmin, diag_vmax = finite_color_limits(diagnostic_vals)
+        diagnostic_name = f"{direction}_diagnostic"
         write_paired_heatmap(
-            fig_dir / f"{direction}.png",
+            fig_dir / f"{diagnostic_name}.png",
             qq1=qq1,
             qq2=qq2,
-            grids=grids,
-            title=f"Ray capacity: {direction}",
-            vmin=d_vmin,
-            vmax=d_vmax,
+            grids=diagnostic_grids,
+            title=f"Diagnostic full-finite ray capacity: {direction}",
+            vmin=diag_vmin,
+            vmax=diag_vmax,
         )
-        assets[direction] = {
-            "src": f"figures/{direction}.png",
-            "alt": direction,
+        assets[diagnostic_name] = {
+            "src": f"figures/{diagnostic_name}.png",
+            "alt": f"{direction} diagnostic",
             "caption": (
-                f"Directional ray capacity ({direction}). "
-                "Undefined/unbounded cells are masked; Cartesian and "
-                "radial/tangential statuses are independent."
+                f"Diagnostic view for {direction}: all finite ray capacities "
+                "including near-singular cells. Scale may be dominated by "
+                "ill-conditioned outliers; use the primary figure for comparison."
             ),
         }
 
@@ -1607,6 +1647,8 @@ def generate_intrinsic_static_wrench_package(
     )
     _write_json(root / "predecessor_integrity.json", predecessor)
     status_counts = _status_histogram(consumed)
+    retained = [retained_force_record(item) for item in consumed]
+    diagnostics = aggregate_vertex_diagnostics(retained)
     _write_json(
         root / "coverage.json",
         {
@@ -1631,6 +1673,14 @@ def generate_intrinsic_static_wrench_package(
             "n_silent_drops": coverage.n_silent_drops,
             "status_counts": status_counts,
             "require_full_corpus": require_full_corpus,
+            "vertex_diagnostic_failures_by_status": diagnostics[
+                "vertex_diagnostic_failures_by_status"
+            ],
+            "vertex_diagnostic_failures_by_case": diagnostics[
+                "vertex_diagnostic_failures_by_case"
+            ],
+            "max_corner_residual": diagnostics["max_corner_residual"],
+            "max_hrep_residual": diagnostics["max_hrep_residual"],
         },
     )
     environment = capture_environment()

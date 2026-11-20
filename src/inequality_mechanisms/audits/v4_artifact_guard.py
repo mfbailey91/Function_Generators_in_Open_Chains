@@ -17,8 +17,9 @@ V4.2C-R writers may write only under
 ``results/v4_review/v4_2c_r_frozen_data_report/``.
 V4.2D writers may write only under
 ``results/v4_review/v4_2d_optimality_reference_report/``.
-V4.3 corrective writers may write only under
-``results/v4_review/v4_3_intrinsic_static_wrench_corrective/``.
+V4.3 follow-up writers may write only under
+``results/v4_review/v4_3_intrinsic_static_wrench_followup/``.
+The original and V4.3A corrective packages remain frozen.
 The original V4.3 package and every descendant remain frozen.
 
 Every package under ``results/v3_review/`` remains frozen. Other
@@ -59,9 +60,10 @@ V4_2D_ALLOWED_PACKAGE = "v4_2d_optimality_reference_report"
 V4_2D_ALLOWED_OUTPUT_REL = Path("results") / "v4_review" / V4_2D_ALLOWED_PACKAGE
 V4_3_ALLOWED_PACKAGE = "v4_3_intrinsic_static_wrench"
 V4_3_ALLOWED_OUTPUT_REL = Path("results") / "v4_review" / V4_3_ALLOWED_PACKAGE
-V4_3_CORRECTIVE_OUTPUT_REL = (
-    Path("results") / "v4_review" / "v4_3_intrinsic_static_wrench_corrective"
-)
+V4_3_CORRECTIVE_PACKAGE = "v4_3_intrinsic_static_wrench_corrective"
+V4_3_CORRECTIVE_OUTPUT_REL = Path("results") / "v4_review" / V4_3_CORRECTIVE_PACKAGE
+V4_3_FOLLOWUP_PACKAGE = "v4_3_intrinsic_static_wrench_followup"
+V4_3_FOLLOWUP_OUTPUT_REL = Path("results") / "v4_review" / V4_3_FOLLOWUP_PACKAGE
 
 # Accepted V3 closeout packages that V3.6C could write, but V4 must not.
 FROZEN_V3_CLOSEOUT_PACKAGES: frozenset[str] = frozenset(
@@ -129,8 +131,8 @@ def allowed_v4_2d_output_root() -> Path:
 
 
 def allowed_v4_3_output_root() -> Path:
-    """Lexically anchored corrective destination (tests may inject REPO_ROOT)."""
-    return REPO_ROOT.resolve() / V4_3_CORRECTIVE_OUTPUT_REL
+    """Lexically anchored follow-up destination (tests may inject REPO_ROOT)."""
+    return REPO_ROOT.resolve() / V4_3_FOLLOWUP_OUTPUT_REL
 
 
 def canonical_v4_0_retained_root() -> Path:
@@ -179,8 +181,13 @@ def canonical_v4_3_retained_root() -> Path:
 
 
 def canonical_v4_3_corrective_root() -> Path:
-    """The corrective package destination, separate from immutable V4.3."""
+    """Frozen V4.3A corrective package path (never monkeypatched)."""
     return CANONICAL_REPO_ROOT.resolve() / V4_3_CORRECTIVE_OUTPUT_REL
+
+
+def canonical_v4_3_followup_root() -> Path:
+    """V4.3B follow-up package destination (never monkeypatched)."""
+    return CANONICAL_REPO_ROOT.resolve() / V4_3_FOLLOWUP_OUTPUT_REL
 
 
 def _is_under(path: Path, parent: Path) -> bool:
@@ -565,7 +572,7 @@ def assert_v4_2d_output_allowed(path: Path) -> Path:
 
 
 def assert_v4_3_output_allowed(path: Path) -> Path:
-    """Allow only the corrective tree, rejecting symlink and frozen-tree escapes."""
+    """Allow only the follow-up tree, rejecting symlink and frozen-tree escapes."""
     resolved = Path(path).expanduser().resolve()
     allowed = allowed_v4_3_output_root()
     # Never normalize an escaping symlink into the allowlist itself. This also
@@ -585,19 +592,20 @@ def assert_v4_3_output_allowed(path: Path) -> Path:
         V4_2C_R_ALLOWED_PACKAGE: "frozen V4.2C-R",
         V4_2D_ALLOWED_PACKAGE: "frozen V4.2D",
         V4_3_ALLOWED_PACKAGE: "frozen V4.3",
+        V4_3_CORRECTIVE_PACKAGE: "frozen V4.3A corrective",
     }
     v4_package = _v4_review_package_name(resolved)
     if v4_package in frozen:
         raise ArtifactPathForbiddenError(
             f"Refusing to write into {frozen[v4_package]} retained evidence "
-            f"at {resolved}. V4.3 may write only under {allowed}."
+            f"at {resolved}. V4.3B may write only under {allowed}."
         )
     if resolved == allowed or allowed in resolved.parents:
         return resolved
     if v4_package is not None:
         raise ArtifactPathForbiddenError(
             f"Refusing to write into unauthorized V4 package {v4_package!r} "
-            f"at {resolved}. V4.3 may write only under {allowed}."
+            f"at {resolved}. V4.3B may write only under {allowed}."
         )
     raise ArtifactPathForbiddenError(
         f"V4.3 output path {resolved} is not under the allowed root {allowed}."
@@ -978,6 +986,9 @@ __all__ = [
     "V4_3_ALLOWED_OUTPUT_REL",
     "V4_3_ALLOWED_PACKAGE",
     "V4_3_CORRECTIVE_OUTPUT_REL",
+    "V4_3_CORRECTIVE_PACKAGE",
+    "V4_3_FOLLOWUP_OUTPUT_REL",
+    "V4_3_FOLLOWUP_PACKAGE",
     "ArtifactPathForbiddenError",
     "DirtySourceError",
     "allowed_v4_0_output_root",
@@ -1016,6 +1027,7 @@ __all__ = [
     "canonical_v4_2d_retained_root",
     "canonical_v4_3_retained_root",
     "canonical_v4_3_corrective_root",
+    "canonical_v4_3_followup_root",
     "digest_directory_tree",
     "digest_git_tracked_paths",
     "git_ls_files",

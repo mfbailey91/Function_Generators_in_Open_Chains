@@ -146,4 +146,8 @@ Record implementation and evidence revisions, full inventory digest, schema prof
 
 Proceed in four phases: (A) protection and record contract; (B) verifier, diagnostics, and views; (C) integration and full quality gate; (D) clean-revision generation, review, and closeout. Within a phase, nonoverlapping modules may be implemented in parallel. No calendar deadline or staffing capacity is assumed.
 
-The source patch implements the corrections and includes this plan. The accompanying validation note records exactly what was executed while preparing it. V4-318/319 remain open until a clean committed implementation produces and passes review of the full corrective packet. This separation preserves reviewability and prevents a generated local preview from being mistaken for retained scientific evidence.
+The source patch implements the corrections and includes this plan. The accompanying validation note records exactly what was executed while preparing it.
+
+### Historical appendix — pre-retention status
+
+The following sentence is retained only as historical patch-era wording and is superseded by the [V4.3A corrective closeout](../../../architecture/notes/V4_3A_INTRINSIC_STATIC_WRENCH_CORRECTIVE_CLOSEOUT.md): *V4-318/319 remain open until a clean committed implementation produces and passes review of the full corrective packet.* V4-318/319 are closed. Post-review residual findings are handled under Sprint V4.3B without overwriting this corrective package.

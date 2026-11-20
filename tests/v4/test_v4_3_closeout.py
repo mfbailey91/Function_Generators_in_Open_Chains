@@ -48,14 +48,21 @@ def test_historical_closeout_does_not_reauthorize_original_work() -> None:
         / "v4"
         / "SPRINT_V4_3A_INTRINSIC_STATIC_WRENCH_CORRECTIVE.md"
     ).read_text(encoding="utf-8")
-    if "- **Status:** active;" in corrective:
-        assert auth == "**Code authorization:** V4-310–V4-319 only."
-        assert "V4.3A" in active
-    else:
-        assert "- **Status:** completed" in corrective
-        assert auth.startswith("**Code authorization:** none")
+    followup = (
+        ACTIVE_SPRINT.parent
+        / "sprints"
+        / "v4"
+        / "SPRINT_V4_3B_INTRINSIC_STATIC_WRENCH_FOLLOWUP.md"
+    ).read_text(encoding="utf-8")
+    assert "- **Status:** completed" in corrective
     for package_id in (f"V4-30{i}" for i in range(10)):
         assert package_id not in auth
+    if "- **Status:** active;" in followup:
+        assert auth == "**Code authorization:** V4-320–V4-323 only."
+        assert "V4.3B" in active
+    else:
+        assert "- **Status:** completed" in followup
+        assert auth.startswith("**Code authorization:** none")
     assert "v4_3_intrinsic_static_wrench" in active
     assert "V4.4" in active and "held" in active
 
