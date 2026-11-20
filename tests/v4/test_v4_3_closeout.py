@@ -62,9 +62,12 @@ def test_historical_closeout_does_not_reauthorize_original_work() -> None:
         assert "V4.3B" in active
     else:
         assert "- **Status:** completed" in followup
-        assert auth.startswith("**Code authorization:** none")
+        # A historical closeout must stay closed when a later sprint is
+        # separately authorized; it does not require all future work to stop.
+        for package_id in (f"V4-32{i}" for i in range(4)):
+            assert package_id not in auth
     assert "v4_3_intrinsic_static_wrench" in active
-    assert "V4.4" in active and "held" in active
+    assert "V4.5" in active and "held" in active
 
 
 def test_retained_package_still_verifies() -> None:

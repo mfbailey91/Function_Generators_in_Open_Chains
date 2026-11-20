@@ -159,9 +159,18 @@ _ATLAS_JS = r"""
     return value === null || value === undefined
       ? "unavailable" : Number(value).toPrecision(6);
   }
-  function displayedField(row) {
+  function selectedFieldKey() {
+    const diagnosticFields = {
+      positive_x_diagnostic: "positive_x",
+      positive_y_diagnostic: "positive_y",
+      radial_diagnostic: "radial",
+      tangential_diagnostic: "tangential"
+    };
+    return diagnosticFields[viewSelect.value] || viewSelect.value;
+  }
+  function displayedField(row, fieldKey) {
     const direction = row.directional_fields &&
-      row.directional_fields[viewSelect.value];
+      row.directional_fields[fieldKey];
     return direction || row.isotropic_radius_field;
   }
   function drawStoredPolygon(parent, row, bounds) {
@@ -202,6 +211,7 @@ _ATLAS_JS = r"""
   function renderCell() {
     const cell = data.cells[cellSelect.value];
     if (!cell) return;
+    const selectedField = selectedFieldKey();
     identity.textContent = "Grid (" + cell.grid_index.join(", ") + ") · " +
       cell.q_sample_id;
     if (viewSelect.value === "true_scale_detail" && caption) {
@@ -214,10 +224,10 @@ _ATLAS_JS = r"""
       panels.appendChild(panel);
       appendText(panel, "h3", row.mechanism_id);
       appendText(panel, "p", "Whole-set status: " + row.status, "status-label");
-      const field = displayedField(row);
+      const field = displayedField(row, selectedField);
       const fieldName = row.directional_fields &&
-        row.directional_fields[viewSelect.value]
-        ? viewSelect.value + " ray" : "isotropic radius";
+        row.directional_fields[selectedField]
+        ? selectedField + " ray" : "isotropic radius";
       appendText(panel, "p",
         fieldName + ": " + numberText(field.value) + " · " + field.status);
       appendText(panel, "p",
@@ -238,8 +248,8 @@ _ATLAS_JS = r"""
       }
       drawStoredPolygon(panel, row, cell.force_bounds);
     });
-    const fieldKey = cell.comparisons[viewSelect.value]
-      ? viewSelect.value : "isotropic_radius";
+    const fieldKey = cell.comparisons[selectedField]
+      ? selectedField : "isotropic_radius";
     comparison.textContent = "Stored paired comparison (" + fieldKey + "):\n" +
       JSON.stringify(cell.comparisons[fieldKey] || null, null, 2);
     readout.textContent = JSON.stringify(
@@ -1090,6 +1100,10 @@ def _case_html(
         ("positive_y", "+y ray"),
         ("radial", "radial ray"),
         ("tangential", "tangential ray"),
+        ("positive_x_diagnostic", "+x ray — full finite diagnostics"),
+        ("positive_y_diagnostic", "+y ray — full finite diagnostics"),
+        ("radial_diagnostic", "radial ray — full finite diagnostics"),
+        ("tangential_diagnostic", "tangential ray — full finite diagnostics"),
         ("polygons", "shape-normalized polygons"),
         ("true_scale_detail", "selected-cell true-scale detail"),
         ("identity_scalar", "identity reference"),

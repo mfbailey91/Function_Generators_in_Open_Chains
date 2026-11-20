@@ -1,6 +1,6 @@
 # Version 4 — Kinematic Transmission Geometry
 
-**Status:** Sprint V4.1 is **completed**. Sprint V4.2 and V4.2A are **completed historical diagnostics**. Sprint V4.2B is **completed**. Sprint V4.2C is **completed**. Sprint V4.2D is **completed**. Original V4.3 evidence is frozen. Sprint V4.3A is **completed** (historical). Sprint V4.3B is **completed** (historical). No V4 sprint is currently authorized in `ACTIVE_SPRINT.md`.
+**Status:** Sprint V4.1 is **completed**. Sprint V4.2 and V4.2A are **completed historical diagnostics**. Sprint V4.2B is **completed**. Sprint V4.2C is **completed**. Sprint V4.2D is **completed**. Original V4.3 evidence is frozen. Sprint V4.3A and Sprint V4.3B are **completed** (historical). [V4.3B acceptance completion](../../../architecture/notes/V4_3B_ACCEPTANCE_ADDENDUM.md) precedes **active Sprint V4.4**, authorized by the owner on 2026-11-20. V4.5 remains held.
 
 Version 4 keeps the planar 2R robot as a controlled exploratory system and broadens the mechanism study from graph planning into four sibling effect columns:
 
@@ -35,7 +35,7 @@ The governing architecture is [ADR-027](../../../architecture/adr/ADR-027-v4-kin
 | [V4.3](SPRINT_V4_3_INTRINSIC_STATIC_WRENCH.md) | completed / historical; reviewed defects | Original intrinsic wrench atlas (V4-300–V4-309), frozen under `results/v4_review/v4_3_intrinsic_static_wrench/`. [Historical closeout](../../../architecture/notes/V4_3_INTRINSIC_STATIC_WRENCH_CLOSEOUT.md). |
 | [V4.3A](SPRINT_V4_3A_INTRINSIC_STATIC_WRENCH_CORRECTIVE.md) | completed / historical; residual findings | Evidence protection, complete scientific records, strict verifier, diagnostics, corrected scales, and interactive comparison views (V4-310–V4-319). Canonical package: `results/v4_review/v4_3_intrinsic_static_wrench_corrective/`. [Closeout](../../../architecture/notes/V4_3A_INTRINSIC_STATIC_WRENCH_CORRECTIVE_CLOSEOUT.md). |
 | [V4.3B](SPRINT_V4_3B_INTRINSIC_STATIC_WRENCH_FOLLOWUP.md) | completed / historical | Post-review verifier, directional scales, diagnostic aggregation, and doc reconciliation (V4-320–V4-323). Canonical package: `results/v4_review/v4_3_intrinsic_static_wrench_followup/`. [Closeout](../../../architecture/notes/V4_3B_INTRINSIC_STATIC_WRENCH_FOLLOWUP_CLOSEOUT.md). [Cursor roadmap](V4_3B_CURSOR_IMPLEMENTATION_ROADMAP.md). |
-| V4.4 | not yet drafted | Differential IK, actuator-rate limits, velocity sets, and tracking. |
+| [V4.4](SPRINT_V4_4_VELOCITY_DIFFERENTIAL_IK.md) | active | Bounded velocity sets, explicit inverse policies, and normalized rate utilization; first instantaneous slice followed by full atlas and task-defined tracking. [ADR-033](../../../architecture/adr/ADR-033-normalized-velocity-and-explicit-inverse-policies.md). [Cursor roadmap](V4_4_CURSOR_IMPLEMENTATION_ROADMAP.md). |
 | V4.5 | not yet drafted | Potential functions, coordinate controls, ODE integration, and flow atlases. |
 | V4.6 | not yet drafted | Frozen neutral/application task banks and integrated four-column report. |
 | V4.7 | not yet drafted | Paired mechanism population, calibration, pilot, production, and confirmation. |

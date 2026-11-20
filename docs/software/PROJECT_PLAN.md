@@ -1,6 +1,6 @@
 # Inequality Mechanisms — Software Project Plan
 
-**Current execution:** no active sprint authorization ([ACTIVE_SPRINT.md](planning/ACTIVE_SPRINT.md)). Sprint V4.3A is completed; see [V4.3A closeout](architecture/notes/V4_3A_INTRINSIC_STATIC_WRENCH_CORRECTIVE_CLOSEOUT.md). Original V4.3 evidence remains frozen. The Version 1–3 planning narrative below is historical context; use [V4_PROJECT_PLAN.md](V4_PROJECT_PLAN.md) and [VERSION_MATRIX.md](VERSION_MATRIX.md) for the current program.
+**Current execution:** Sprint V4.4 velocity capability and differential IK is active ([ACTIVE_SPRINT.md](planning/ACTIVE_SPRINT.md), [sprint](planning/sprints/v4/SPRINT_V4_4_VELOCITY_DIFFERENTIAL_IK.md)). V4.3, V4.3A, and V4.3B evidence remains frozen; the [V4.3B acceptance addendum](architecture/notes/V4_3B_ACCEPTANCE_ADDENDUM.md) records the final source corrections. V4.5 remains held. The Version 1–3 planning narrative below is historical context; use [V4_PROJECT_PLAN.md](V4_PROJECT_PLAN.md) and [VERSION_MATRIX.md](VERSION_MATRIX.md) for the current program.
 
 **Repository:** <https://github.com/mfbailey91/Function_Generators_in_Open_Chains>  
 **Planning status:** Version 3 planner-agnostic pivot in progress ([V3_PROJECT_PLAN.md](V3_PROJECT_PLAN.md); [Sprint V3.0](planning/sprints/v3/SPRINT_V3_0_ARCHITECTURE_CONTRACT.md)). Version 2 Experiment A (V2.10 Dijkstra + V2.11 A*) and bounded Experiment B / V2.12 smoke–calibration evidence are frozen historical lineage; V2 Cartesian production inference remains held  

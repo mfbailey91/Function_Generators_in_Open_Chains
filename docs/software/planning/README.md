@@ -1,6 +1,6 @@
 # Software planning
 
-- [ACTIVE_SPRINT.md](ACTIVE_SPRINT.md) currently has **Code authorization: none**. Sprint V4.3B is completed ([closeout](../architecture/notes/V4_3B_INTRINSIC_STATIC_WRENCH_FOLLOWUP_CLOSEOUT.md)); V4.3A ([closeout](../architecture/notes/V4_3A_INTRINSIC_STATIC_WRENCH_CORRECTIVE_CLOSEOUT.md)) and original V4.3 remain historical. V4.4+ remains held.
+- [ACTIVE_SPRINT.md](ACTIVE_SPRINT.md) authorizes **Sprint V4.4** velocity capability and differential IK ([sprint](sprints/v4/SPRINT_V4_4_VELOCITY_DIFFERENTIAL_IK.md), [roadmap](sprints/v4/V4_4_CURSOR_IMPLEMENTATION_ROADMAP.md)). V4.3B is completed with an [acceptance addendum](../architecture/notes/V4_3B_ACCEPTANCE_ADDENDUM.md); V4.3A and original V4.3 remain historical. V4.5+ remains held.
 - [BACKLOG.md](BACKLOG.md) contains accepted work that is not assigned to an active sprint.
 - [sprints/v4/](sprints/v4/) contains the planned planar-2R kinematic-transmission-geometry expansion. It is not active unless `ACTIVE_SPRINT.md` explicitly authorizes a V4 sprint.
 - [sprints/v3/](sprints/v3/) contains the Version 3 planner-agnostic architecture sequence (planner-independent foundation).

@@ -60,6 +60,12 @@ LEGACY_MANIFEST_SHA256 = (
     "703263e1851ff12a1637474f7bcb0032feccf894515552670feb26d243c04ce7"
 )
 LEGACY_FILES_DIGEST = "a7abec714721afa2e4f6551990e3532e5ad9a6234f72f93b2480344fcc5d4218"
+CORRECTIVE_MANIFEST_SHA256 = (
+    "eb51190a83f4535e98fce23892566a5f7f75891196950d150fffb16d42f713ef"
+)
+CORRECTIVE_FILES_DIGEST = (
+    "711608264d0fe8391f789ffcf605428cef48c262a440cd180fffa4e5fec242f4"
+)
 DIRECTIONS = ("positive_x", "positive_y", "radial", "tangential")
 RANK_MAPS = ("u_to_q", "q_to_x", "u_to_x")
 LEGACY_REQUIRED_FIGURES = ("scalar", "polygons", "identity_scalar")
@@ -76,9 +82,13 @@ FOLLOWUP_REQUIRED_FIGURES = (
     *CORRECTIVE_REQUIRED_FIGURES,
     *DIAGNOSTIC_DIRECTION_FIGURES,
 )
-# Absolute |A d| floor below which a near-singular ray may keep numerical
-# accommodation. Directions with larger projections are verified like regular.
+# Absolute |A d| floor below which a near-singular ray uses a roundoff interval.
+# Directions with larger projections are verified like regular.
 RAY_CAPACITY_SENSITIVITY_ABS = 1e-8
+# A named vector is fixed by retained X. Permit only normalization roundoff,
+# not a rotated scientific target; all 222,156 directions in each retained
+# v2/v3 packet differ from this reconstruction by at most one machine epsilon.
+NAMED_DIRECTION_ROUNDOFF = float(16.0 * np.finfo(float).eps)
 MANIFEST_INVENTORY_RULE = "exclude_self"
 MANIFEST_NAME = "manifest.json"
 SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
@@ -421,8 +431,19 @@ def _required_figures(
     return CORRECTIVE_REQUIRED_FIGURES
 
 
-def _is_followup_root(root: Path) -> bool:
-    return root.resolve().name == V4_3_FOLLOWUP_OUTPUT_REL.name
+def _is_followup_package(root: Path) -> bool:
+    """Read the profile from retained metadata, independently of its location."""
+    resolved = _object(_read_json(root / "config_resolved.json"), "resolved config")
+    config = _object(resolved.get("config"), "resolved config payload")
+    output = config.get("output_dir")
+    if not isinstance(output, str) or output not in {
+        V4_3_CORRECTIVE_OUTPUT_REL.as_posix(),
+        V4_3_FOLLOWUP_OUTPUT_REL.as_posix(),
+    }:
+        raise V4_3ArtifactError(
+            "resolved config output_dir disagrees with package profile"
+        )
+    return output == V4_3_FOLLOWUP_OUTPUT_REL.as_posix()
 
 
 def inventory_package_files(
@@ -435,7 +456,7 @@ def inventory_package_files(
     """Inventory every actual file, excluding only the root manifest."""
     root = Path(root)
     if followup is None:
-        followup = (not legacy) and _is_followup_root(root)
+        followup = (not legacy) and _is_followup_package(root)
     actual: set[str] = set()
     for path in root.rglob("*"):
         if path.is_symlink():
@@ -566,7 +587,140 @@ def _ray_is_ill_conditioned(
     ]
     if not dens:
         return True
-    return min(dens) <= RAY_CAPACITY_SENSITIVITY_ABS
+    return max(dens) <= RAY_CAPACITY_SENSITIVITY_ABS
+
+
+def _validate_ray_capacity_interval(
+    a_map: np.ndarray[Any, Any],
+    tau: np.ndarray[Any, Any],
+    direction: np.ndarray[Any, Any],
+    capacity: Any,
+    field_status: str,
+) -> None:
+    """Bound a sensitive ray using its active effort projections.
+
+    The accepted kernel normalizes the supplied direction and ignores a
+    projection only when it is <= DIRECTION_EPS. Sixteen machine epsilons
+    times the absolute dot-product sum cover two-term dot evaluation,
+    direction normalization, and differences between floating-point
+    implementations. This audit bound does not change that kernel cutoff.
+
+    For a finite ray, 1/capacity is the largest active |A_i d| / tau_i.
+    A cutoff-straddling interval can permit either finite or unbounded
+    transport, but any finite claim must still have an active denominator
+    above the original cutoff. In particular, the lower reciprocal bound
+    cannot become zero merely because no projection is certainly active.
+    """
+    unit = np.asarray(direction, dtype=float)
+    unit = unit / float(np.linalg.norm(unit))
+    projections = np.abs(np.asarray([np.dot(row, unit) for row in a_map]))
+    scales = np.abs(a_map) @ np.abs(unit)
+    errors = 16.0 * np.finfo(float).eps * scales
+    lower = np.maximum(0.0, projections - errors)
+    upper = projections + errors
+    if not all(np.all(np.isfinite(v)) for v in (projections, lower, upper)):
+        raise V4_3ArtifactError("nonfinite ray projection interval")
+    certainly_active = lower > DIRECTION_EPS
+    possibly_active = upper > DIRECTION_EPS
+    if capacity is None:
+        if field_status != "unbounded" or np.any(certainly_active):
+            raise V4_3ArtifactError(
+                "finite ray capacity required beyond projection roundoff"
+            )
+        return
+    claimed = _number(capacity, "ray capacity", nonnegative=True)
+    if field_status != "finite" or claimed <= 0.0:
+        raise V4_3ArtifactError("finite ray capacity must be strictly positive")
+    if not np.any(possibly_active):
+        raise V4_3ArtifactError(
+            "unbounded ray capacity required below the projection cutoff"
+        )
+    reciprocal = 1.0 / claimed
+    minimum_active = float(np.min(DIRECTION_EPS / tau[possibly_active]))
+    lower_bound = max(
+        minimum_active,
+        float(np.max(lower[certainly_active] / tau[certainly_active]))
+        if np.any(certainly_active)
+        else 0.0,
+    )
+    upper_bound = float(np.max(upper[possibly_active] / tau[possibly_active]))
+    # One outward representable step also covers the final reciprocal/division
+    # rounding at an otherwise exact endpoint of the interval.
+    if (
+        not math.isfinite(reciprocal)
+        or reciprocal < np.nextafter(lower_bound, -np.inf)
+        or reciprocal > np.nextafter(upper_bound, np.inf)
+    ):
+        raise V4_3ArtifactError(
+            "ray capacity reciprocal falls outside the active projection interval"
+        )
+
+
+def _validate_polygon_diagnostics(
+    verts: np.ndarray[Any, Any],
+    a_map: np.ndarray[Any, Any],
+    tau: np.ndarray[Any, Any],
+    feasibility: dict[str, Any],
+) -> None:
+    """Check corners and reported residuals with a floating-point error bound.
+
+    Near-singular vertices can contain large cancelling terms. Eight machine
+    epsilons times |A| |v| covers the two-term products, subtraction and
+    cross-platform evaluation differences. This is an audit allowance, not a
+    change to the retained 1e-9 diagnostic tolerance or inherited rank policy.
+    """
+    with np.errstate(over="ignore", invalid="ignore"):
+        mapped = np.asarray([a_map @ vertex for vertex in verts])
+        scales = np.abs(a_map) @ np.abs(verts).T
+        roundoff = 8.0 * np.finfo(float).eps * (scales.T + tau)
+        corner_residuals = np.abs(np.abs(mapped) - tau)
+        hrep_residuals = (
+            np.vstack([a_map, -a_map]) @ verts.T - np.concatenate([tau, tau])[:, None]
+        )
+    if not all(
+        np.all(np.isfinite(value))
+        for value in (mapped, roundoff, corner_residuals, hrep_residuals)
+    ):
+        raise V4_3ArtifactError("nonfinite polygon residuals or roundoff bound")
+    if np.any(corner_residuals > 1e-9 + roundoff):
+        raise V4_3ArtifactError(
+            "polygon vertices fail effort-box corner equality beyond roundoff"
+        )
+    n_corners = len({tuple(value) for value in np.sign(mapped)})
+    if n_corners != 4:
+        raise V4_3ArtifactError("polygon must contain four distinct effort corners")
+
+    hrep_residual = _number(feasibility["max_hrep_residual"], "H-rep residual")
+    if hrep_residual < -1.0:
+        raise V4_3ArtifactError("H-rep residual is impossibly negative")
+    corner_residual = _number(
+        feasibility["max_corner_saturation_residual"],
+        "corner residual",
+        nonnegative=True,
+    )
+    residual_roundoff = float(np.max(roundoff))
+    for label, reported, computed in (
+        ("H-rep", hrep_residual, float(np.max(hrep_residuals))),
+        ("corner", corner_residual, float(np.max(corner_residuals))),
+    ):
+        if abs(reported - computed) > residual_roundoff:
+            raise V4_3ArtifactError(
+                f"{label} diagnostic residual disagrees with retained vertices"
+            )
+    details = _object(feasibility["details"], "vertex feasibility details")
+    if (
+        details.get("hrep_residual_max") != hrep_residual
+        or details.get("corner_saturation_residual_max") != corner_residual
+    ):
+        raise V4_3ArtifactError("vertex diagnostic detail residual mismatch")
+    _integer(details.get("n_distinct_actuator_corners"), n_corners, "corner count")
+    if details.get("corner_check") != "absolute_distance_from_effort_box_corners":
+        raise V4_3ArtifactError("vertex diagnostic corner check mismatch")
+    if details.get("atol") != 1e-9:
+        raise V4_3ArtifactError("vertex diagnostic tolerance mismatch")
+    expected_ok = hrep_residual <= 1e-9 and corner_residual <= 1e-9
+    if feasibility["ok"] is not expected_ok:
+        raise V4_3ArtifactError("vertex diagnostic outcome disagrees with residuals")
 
 
 def _validate_row(row: Mapping[str, Any], *, legacy: bool = False) -> None:
@@ -790,16 +944,29 @@ def _validate_row(row: Mapping[str, Any], *, legacy: bool = False) -> None:
                 raise V4_3ArtifactError("undefined named direction transport mismatch")
             continue
         if stored_direction is None or not np.allclose(
-            stored_direction, expected_direction, rtol=1e-12, atol=1e-12
+            stored_direction,
+            expected_direction,
+            rtol=NAMED_DIRECTION_ROUNDOFF,
+            atol=NAMED_DIRECTION_ROUNDOFF,
         ):
             raise V4_3ArtifactError("named direction vector disagrees with retained X")
-        # Near-singular accommodation is per-direction: only rays whose |A d|
-        # projections fall below RAY_CAPACITY_SENSITIVITY_ABS may skip equality.
+        retained_direction = _array(stored_direction, (2,), name)
+        # Sensitive rays still have bounded checks. Only differences justified
+        # by dot-product/normalization roundoff may affect their reciprocal
+        # capacity or straddle the existing active-projection cutoff.
         accommodate = status == "near_singular" and _ray_is_ill_conditioned(
-            a_map, np.asarray(expected_direction, dtype=float)
+            a_map, retained_direction
         )
-        if not accommodate:
-            expected_capacity = directional_capacity(a_map, tau, expected_direction)
+        if accommodate:
+            _validate_ray_capacity_interval(
+                a_map,
+                tau,
+                retained_direction,
+                capacities[name],
+                directions[name]["status"],
+            )
+        else:
+            expected_capacity = directional_capacity(a_map, tau, retained_direction)
             if math.isfinite(expected_capacity):
                 if capacities[name] is None or not math.isclose(
                     capacities[name], expected_capacity, rel_tol=1e-12, abs_tol=1e-12
@@ -892,29 +1059,23 @@ def _validate_row(row: Mapping[str, Any], *, legacy: bool = False) -> None:
     if type(row["rank"]) is not int:
         raise V4_3ArtifactError("rank must be an integer")
     details = _object(feasibility["details"], "vertex feasibility details")
-    if vertices is not None:
-        # max_hrep_residual is the largest signed halfspace violation. Small
-        # negatives are interior slack; absurd negatives (e.g. -100) cannot
-        # arise from retained vertices and must fail closed.
-        hrep_residual = _number(feasibility["max_hrep_residual"], "H-rep residual")
-        if hrep_residual < -1.0:
-            raise V4_3ArtifactError("H-rep residual is impossibly negative")
-        corner_residual = _number(
-            feasibility["max_corner_saturation_residual"],
-            "corner residual",
-            nonnegative=True,
-        )
-        if details.get("atol") != 1e-9:
-            raise V4_3ArtifactError("vertex diagnostic tolerance mismatch")
-        expected_ok = (
-            hrep_residual <= 1e-9
-            and corner_residual <= 1e-9
-            and details.get("n_distinct_actuator_corners") == 4
-        )
-        if feasibility["ok"] is not expected_ok:
+    if verts is not None:
+        if row["rank"] != 2:
             raise V4_3ArtifactError(
-                "vertex diagnostic outcome disagrees with residuals"
+                "rank-deficient force set cannot have a closed polygon"
             )
+        _validate_polygon_diagnostics(verts, a_map, tau, feasibility)
+    elif (
+        row["rank"] == 2
+        or feasibility["max_hrep_residual"] is not None
+        or feasibility["max_corner_saturation_residual"] is not None
+        or not feasibility["ok"]
+        or details.get("vertices") is not None
+        or details.get("reason") != "no_closed_polygon"
+    ):
+        raise V4_3ArtifactError(
+            "absent polygon diagnostic disagrees with retained rank"
+        )
     if feasibility["ok"] and feasibility["failure_code"] is not None:
         raise V4_3ArtifactError("passing vertex diagnostic has a failure code")
     if not feasibility["ok"] and not isinstance(feasibility["failure_code"], str):
@@ -963,7 +1124,9 @@ def _validate_row(row: Mapping[str, Any], *, legacy: bool = False) -> None:
             _number(value, "joint torque amplification", nonnegative=True)
 
 
-def _verify_provenance(root: Path, manifest: dict[str, Any], *, legacy: bool) -> Any:
+def _verify_provenance(
+    root: Path, manifest: dict[str, Any], *, legacy: bool, followup: bool = False
+) -> Any:
     from inequality_mechanisms.experiments.v4.intrinsic_static_wrench import (
         assert_v4_2b_source_lock,
     )
@@ -983,14 +1146,14 @@ def _verify_provenance(root: Path, manifest: dict[str, Any], *, legacy: bool) ->
         config = IntrinsicStaticWrenchConfig.model_validate(resolved.get("config"))
     except ValueError as exc:
         raise V4_3ArtifactError(f"invalid resolved config: {exc}") from exc
-    if legacy:
-        expected_outputs = {V4_3_ALLOWED_OUTPUT_REL.as_posix()}
-    else:
-        expected_outputs = {
-            V4_3_CORRECTIVE_OUTPUT_REL.as_posix(),
-            V4_3_FOLLOWUP_OUTPUT_REL.as_posix(),
-        }
-    if config.output_dir not in expected_outputs:
+    expected_output = (
+        V4_3_ALLOWED_OUTPUT_REL
+        if legacy
+        else V4_3_FOLLOWUP_OUTPUT_REL
+        if followup
+        else V4_3_CORRECTIVE_OUTPUT_REL
+    )
+    if config.output_dir != expected_output.as_posix():
         raise V4_3ArtifactError(
             "resolved config output_dir disagrees with package profile"
         )
@@ -1200,8 +1363,9 @@ def _verify_case_summary(
 def verify_v4_3_artifact(root: Path | str) -> dict[str, Any]:
     """Verify scientific records, complete inventory, and frozen-source joins.
 
-    Legacy v1 is accepted only as the exact immutable historical packet. It
-    never qualifies a newly generated or downgraded corrective package.
+    Historical v1 and corrective v2 are accepted only as their exact immutable
+    packets. New packages must retain the follow-up views and diagnostics;
+    changing a download directory cannot change that verification profile.
     """
     package_root = Path(root).expanduser().resolve()
     manifest_path = package_root / MANIFEST_NAME
@@ -1254,7 +1418,15 @@ def verify_v4_3_artifact(root: Path | str) -> dict[str, Any]:
         ("n_silent_drops", 0),
     ):
         _integer(manifest.get(key), count, key)
-    followup = (not legacy) and _is_followup_root(package_root)
+    followup = (not legacy) and _is_followup_package(package_root)
+    if (
+        not legacy
+        and not followup
+        and _sha256_bytes(manifest_path.read_bytes()) != CORRECTIVE_MANIFEST_SHA256
+    ):
+        raise V4_3ArtifactError(
+            "corrective_v2 profile is restricted to the pinned historical manifest"
+        )
     live = inventory_package_files(
         package_root, case_ids, legacy=legacy, followup=followup
     )
@@ -1272,6 +1444,8 @@ def verify_v4_3_artifact(root: Path | str) -> dict[str, Any]:
         raise V4_3ArtifactError("files_digest mismatch")
     if legacy and digest != LEGACY_FILES_DIGEST:
         raise V4_3ArtifactError("historical packet digest differs from immutable pin")
+    if not legacy and not followup and digest != CORRECTIVE_FILES_DIGEST:
+        raise V4_3ArtifactError("corrective packet digest differs from immutable pin")
     per_arm: Counter[str] = Counter()
     statuses: Counter[str] = Counter()
     retained_rows: list[dict[str, Any]] = []
@@ -1378,7 +1552,7 @@ def verify_v4_3_artifact(root: Path | str) -> dict[str, Any]:
         case_ids
     ):
         raise V4_3ArtifactError("case metadata inventory mismatch")
-    _verify_provenance(package_root, manifest, legacy=legacy)
+    _verify_provenance(package_root, manifest, legacy=legacy, followup=followup)
     predecessor = _object(
         _read_json(package_root / "predecessor_integrity.json"), "predecessor_integrity"
     )

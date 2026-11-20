@@ -130,7 +130,7 @@ def test_verify_rejects_manifest_self_inclusion(tmp_path: Path) -> None:
     case_ids = expected_case_ids()
     for cid in case_ids:
         _write_minimal_case(root, cid, n_rows=3)
-    records = inventory_package_files(root, case_ids)
+    records = inventory_package_files(root, case_ids, followup=False)
     records.append(
         {
             "path": MANIFEST_NAME,

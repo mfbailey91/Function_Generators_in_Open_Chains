@@ -97,7 +97,7 @@ def test_nonstandard_or_ambiguous_json_is_rejected(text: str) -> None:
 
 @pytest.fixture(scope="module")
 def corrected_packet(tmp_path_factory: pytest.TempPathFactory) -> Path:
-    """Build all v2 scientific rows while reusing immutable images as test assets.
+    """Build current scientific rows while reusing images as test assets.
 
     This is a test packet, not newly retained evidence. Rendering has separate
     atlas tests; here the full unmodified verifier must accept actual 55,539-row
@@ -109,6 +109,7 @@ def corrected_packet(tmp_path_factory: pytest.TempPathFactory) -> Path:
     config = load_intrinsic_static_wrench_config()
     cases = json.loads((root / "cases.json").read_text())
     statuses: Counter[str] = Counter()
+    diagnostic_rows: list[dict[str, Any]] = []
     for case in cases:
         cid = case["case_id"]
         consumed, pairs, _ = consume_v4_2b_corpus(case_ids=[cid])
@@ -116,12 +117,16 @@ def corrected_packet(tmp_path_factory: pytest.TempPathFactory) -> Path:
             artifact.to_strict_jsonable(retained_force_record(row)) for row in consumed
         ]
         statuses.update(row["status"] for row in rows)
+        diagnostic_rows.extend(
+            {key: row[key] for key in ("status", "case_id", "vertex_feasibility")}
+            for row in rows
+        )
         _write_rows(root / artifact.case_wrench_rel(cid), rows)
         summary_path = root / f"cases/{cid}/summary.json"
         summary = json.loads(summary_path.read_text())
         # Placeholders are intentionally test-only. This fixture verifies data
         # and link coverage; actual rendering is covered by atlas tests.
-        for name in artifact.CORRECTIVE_REQUIRED_FIGURES:
+        for name in artifact.FOLLOWUP_REQUIRED_FIGURES:
             figure = root / f"cases/{cid}/figures/{name}.png"
             if not figure.exists():
                 shutil.copyfile(figure.with_name("scalar.png"), figure)
@@ -161,6 +166,8 @@ def corrected_packet(tmp_path_factory: pytest.TempPathFactory) -> Path:
             else "inherited_tolerances"
         )
         payload[key] = INHERITED_TOLERANCE_POLICY
+        if name == "validation.json":
+            payload.update(artifact.aggregate_vertex_diagnostics(diagnostic_rows))
         _write_json(root / name, payload)
     manifest["schema_version"] = MANIFEST_SCHEMA_VERSION
     manifest["config_digest"] = config.digest()
@@ -173,7 +180,7 @@ def corrected_packet(tmp_path_factory: pytest.TempPathFactory) -> Path:
 
 def test_positive_full_corrective_packet(corrected_packet: Path) -> None:
     summary = artifact.verify_v4_3_artifact(corrected_packet)
-    assert summary["verification_profile"] == "corrective_v2"
+    assert summary["verification_profile"] == "followup_v3"
     assert summary["n_rows"] == 55539
     assert summary["n_cases"] == 17
     assert summary["n_typed_failures"] == summary["n_silent_drops"] == 0

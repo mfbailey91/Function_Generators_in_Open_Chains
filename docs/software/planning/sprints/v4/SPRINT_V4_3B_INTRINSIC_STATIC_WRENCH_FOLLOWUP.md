@@ -3,6 +3,7 @@
 - **Status:** completed
 - **Activated:** after the V4.3A implementation review residual findings
 - **Closeout:** [V4_3B_INTRINSIC_STATIC_WRENCH_FOLLOWUP_CLOSEOUT.md](../../../architecture/notes/V4_3B_INTRINSIC_STATIC_WRENCH_FOLLOWUP_CLOSEOUT.md)
+- **Subsequent acceptance:** [V4.3B acceptance addendum](../../../architecture/notes/V4_3B_ACCEPTANCE_ADDENDUM.md), V4-324–V4-325; the frozen package and historical closeout remain unchanged
 - **Code authorization:** none (V4-320–V4-323 closed)
 - **Purpose:** close four residual findings without changing the accepted force-set model or frozen V4.2B geometry source
 - **Predecessors:** [V4.3A sprint](SPRINT_V4_3A_INTRINSIC_STATIC_WRENCH_CORRECTIVE.md), [V4.3A closeout](../../../architecture/notes/V4_3A_INTRINSIC_STATIC_WRENCH_CORRECTIVE_CLOSEOUT.md), [ADR-028](../../../architecture/adr/ADR-028-gravity-free-static-wrench.md)

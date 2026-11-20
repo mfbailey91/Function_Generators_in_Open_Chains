@@ -1,8 +1,8 @@
 # Version 4 Project Plan — Kinematic Transmission Geometry in Planar 2R
 
-- **Status:** V4.0–V4.2D closed; original V4.3 intrinsic wrench evidence frozen; V4.3A corrective pass completed; V4.4+ held
+- **Status:** V4.0–V4.2D closed; V4.3/V4.3A/V4.3B evidence frozen; V4.4 velocity/differential IK active; V4.5+ held
 - **Predecessor:** Version 3 planner-independent physical-state and motion-planning contracts
-- **Immediate dependency:** V4.3A closeout is complete; V4.4 requires a separate activation in `ACTIVE_SPRINT.md`
+- **Immediate dependency:** [V4.3B acceptance completion](architecture/notes/V4_3B_ACCEPTANCE_ADDENDUM.md), followed by the owner-authorized [V4.4 sprint](planning/sprints/v4/SPRINT_V4_4_VELOCITY_DIFFERENTIAL_IK.md) and [ADR-033](architecture/adr/ADR-033-normalized-velocity-and-explicit-inverse-policies.md)
 - **Initial robot:** planar 2R open chain
 - **Initial mechanisms:** certified monotonic four-bar pair and span-matched affine gearbox pair
 - **Fresh artifact root:** `results/v4_review/`
@@ -470,8 +470,8 @@ Cross-column reports join records by stable identifiers:
 | **V4.2C** | OMPL planner-geometry portfolio | How do optimizing, fixed-sample, and projection-guided planners respond to the same corrected \(U\rightarrow Q\rightarrow X\) contract? |
 | **V4.2C-R** | Frozen-data report clarification (completed) | How should the retained OMPL portfolio plots be read without rerunning planners? |
 | **V4.2D** | Optimality-reference and gearbox-control report (completed) | How do mechanism-specific achievable cost and planner discoverability differ on the frozen goal representation? |
-| **V4.3 / V4.3A (corrective active)** | Original intrinsic wrench atlas retained; [corrective sprint](planning/sprints/v4/SPRINT_V4_3A_INTRINSIC_STATIC_WRENCH_CORRECTIVE.md), [Cursor roadmap](planning/sprints/v4/V4_3A_CURSOR_IMPLEMENTATION_ROADMAP.md) | How does that family redistribute the same normalized actuator-effort box into planar endpoint force capacity on frozen V4.2B snapshots? |
-| **V4.4** | Inverse instantaneous kinematics and velocity capability | How does the transmission change actuator-rate demand, conditioning, saturation, and trackable Cartesian velocity? |
+| **V4.3 / V4.3A / V4.3B (closed)** | Intrinsic wrench evidence retained; [acceptance addendum](architecture/notes/V4_3B_ACCEPTANCE_ADDENDUM.md) | How does that family redistribute the same normalized actuator-effort box into planar endpoint force capacity on frozen V4.2B snapshots? |
+| **V4.4 (active)** | [Velocity capability and explicit differential IK](planning/sprints/v4/SPRINT_V4_4_VELOCITY_DIFFERENTIAL_IK.md); normalized rate budgets, then separately specified tracking | How does the transmission change actuator-rate demand, conditioning, rate utilization, and trackable Cartesian velocity? |
 | **V4.5** | Potential fields and continuous flow | How does the transmission precondition descent, convergence, basins, and actuator travel under coordinate controls? |
 | **V4.6** | Application task corpus and integrated 2R report | Do the four columns tell a coherent application-conditioned story on one frozen task bank? |
 | **V4.7** | Paired mechanism population and Monte Carlo | Which transmission descriptors predict column-specific effects across a controlled mechanism population? |
@@ -575,7 +575,14 @@ packages V4-310–V4-319 through `ACTIVE_SPRINT.md`; that sprint is now closed.
 See the
 [corrective closeout](architecture/notes/V4_3A_INTRINSIC_STATIC_WRENCH_CORRECTIVE_CLOSEOUT.md)
 and retained package `results/v4_review/v4_3_intrinsic_static_wrench_corrective/`.
-V4.2C and V4.2D remain closed; V4.4 stays held.
+V4.3B subsequently retained follow-up evidence under
+`results/v4_review/v4_3_intrinsic_static_wrench_followup/`.
+The [acceptance addendum](architecture/notes/V4_3B_ACCEPTANCE_ADDENDUM.md)
+records the bounded remaining verifier and diagnostic-view corrections.
+The owner authorized V4.4 on 2026-11-20. V4-400–V4-409 now covers
+velocity capability and explicit differential IK; the first slice provides
+instantaneous APIs and a retained-source smoke. Full-atlas and tracking gates
+remain part of that active sprint. V4.5 continuous flow remains held.
 
 V4.2B, V4.2C, V4.2C-R, and V4.2D evidence, and all V3 and V4.0–V4.2A packages,
 remain immutable provenance.

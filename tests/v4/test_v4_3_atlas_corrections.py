@@ -218,6 +218,11 @@ def test_offline_inspector_executes_cell_and_view_selection(tmp_path: Path) -> N
         _row(mech, scale=scale)
         for mech, scale in zip(FROZEN_MECHANISM_IDS, (1.0, 10.0, 0.5), strict=True)
     ]
+    for row in rows:
+        for multiplier, name in enumerate(viz.NAMED_DIRECTIONS, start=2):
+            value = multiplier * row["isotropic_radius"]
+            row["directional_capacity"][name] = value
+            row["directional_fields"][name]["value"] = value
     for mechanism in FROZEN_MECHANISM_IDS:
         row = _row(mechanism, grid=(16, 16))
         row.update(
@@ -237,11 +242,14 @@ def test_offline_inspector_executes_cell_and_view_selection(tmp_path: Path) -> N
         }
         for key in ("isotropic_radius", *viz.NAMED_DIRECTIONS)
     }
+    for offset, packet in enumerate(comparisons.values()):
+        packet["comparisons"][0]["delta"]["value"] -= offset
     assets = {
         name: {"src": f"{name}.png", "alt": name, "caption": name}
         for name in (
             "scalar",
-            "radial",
+            *viz.NAMED_DIRECTIONS,
+            *(f"{name}_diagnostic" for name in viz.NAMED_DIRECTIONS),
             "delta",
             "ratio",
             "status",
@@ -253,6 +261,15 @@ def test_offline_inspector_executes_cell_and_view_selection(tmp_path: Path) -> N
         payload["cells"]["0,0"]["arms"]["fourbar"]["rank_reports"]
         == (rows[0]["rank_reports"])
     )
+    page = viz._case_html(
+        case={"case_id": "fixture"},
+        assets=assets,
+        summary={},
+        inspector=payload,
+        stress_only=False,
+    )
+    for name in viz.NAMED_DIRECTIONS:
+        assert f'<option value="{name}_diagnostic">' in page
     harness = r"""
 const assert = require("node:assert/strict");
 class Element {
@@ -290,6 +307,29 @@ assert.equal(polygons.length,3);
 const y0=Number(polygons[0].attrs.points.split(" ")[0].split(",")[1]);
 const y1=Number(polygons[1].attrs.points.split(" ")[0].split(",")[1]);
 assert.ok(Math.abs((y1-140)/(y0-140)-10)<1e-12);
+for (const [direction,value] of Object.entries({
+  positive_x:2, positive_y:3, radial:4, tangential:5
+})) {
+  const view=direction+"_diagnostic";
+  ids["view-select"].value=view;
+  ids["view-select"].events.change();
+  packet=JSON.parse(ids["cell-readout"].textContent);
+  assert.equal(packet.selected_view,view);
+  assert.equal(ids["main-image"].src,view+".png");
+  assert.equal(ids["main-image"].alt,view);
+  assert.equal(ids["main-caption"].textContent,view);
+  assert.equal(ids["main-image"].hidden,false);
+  assert.ok(nodes(ids["selected-polygons"].children[0],"p").some(
+    node=>node.textContent===direction+" ray: "+value.toPrecision(6)+" · finite"
+  ));
+  assert.ok(ids["cell-comparison"].textContent.startsWith(
+    "Stored paired comparison ("+direction+"):"
+  ));
+  const displayedComparison=JSON.parse(
+    ids["cell-comparison"].textContent.split("\n").slice(1).join("\n")
+  );
+  assert.deepEqual(displayedComparison,packet.comparisons[direction]);
+}
 ids["cell-select"].value="16,16";
 ids["cell-select"].events.change();
 packet=JSON.parse(ids["cell-readout"].textContent);
@@ -305,6 +345,19 @@ assert.deepEqual(packet.grid_index,[16,16]);
 assert.equal(packet.arms.fourbar.directional_fields.radial.value,null);
 assert.equal(ids["main-image"].src,"radial.png");
 assert.ok(ids["cell-comparison"].textContent.includes("left_unbounded"));
+ids["view-select"].value="radial_diagnostic";
+ids["view-select"].events.change();
+packet=JSON.parse(ids["cell-readout"].textContent);
+assert.equal(packet.selected_view,"radial_diagnostic");
+assert.equal(packet.arms.fourbar.directional_fields.radial.value,null);
+assert.equal(ids["main-image"].src,"radial_diagnostic.png");
+assert.ok(nodes(ids["selected-polygons"].children[0],"p").some(
+  node=>node.textContent==="radial ray: unavailable · unbounded"
+));
+assert.ok(ids["cell-comparison"].textContent.startsWith(
+  "Stored paired comparison (radial):"
+));
+assert.ok(ids["cell-comparison"].textContent.includes("left_unbounded"));
 ids["view-select"].value="true_scale_detail";
 ids["view-select"].events.change();
 assert.equal(ids["main-image"].hidden,true);
@@ -312,7 +365,7 @@ assert.ok(ids["main-caption"].textContent.includes("fixture__q_0016_0016"));
 ids["view-select"].value="scalar";
 ids["view-select"].events.change();
 assert.equal(ids["main-image"].hidden,false);
-console.log("cell/view selection, status transport, raw fields and force scale passed");
+console.log("selection, diagnostics, status, stored fields and force scale passed");
 """
     script = tmp_path / "inspector-test.js"
     script.write_text(

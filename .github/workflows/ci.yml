@@ -33,5 +33,7 @@ jobs:
             | xargs mypy --follow-imports=silent
       - name: V4.3A quality gate
         run: python scripts/check_v4_3a_quality.py
+      - name: V4.4 quality gate
+        run: python scripts/check_v4_4_quality.py
       - name: pytest
         run: pytest
