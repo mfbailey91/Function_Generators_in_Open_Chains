@@ -6,7 +6,7 @@ Prepared 2026-11-18 for the accepted ten-finding corrective review.
 
 The patch is based on `ae50709937c9b3f315e2a3a91c7a2ec974275603` from `v4_3-intrinsic-static-wrench`. It implements the source, test, configuration, CI, and lifecycle corrections in [Sprint V4.3A](../../planning/sprints/v4/SPRINT_V4_3A_INTRINSIC_STATIC_WRENCH_CORRECTIVE.md). It does not contain a newly retained full corrective atlas or a V4.3A closeout claim.
 
-Original V4.3 evidence remains readable through its explicitly historical, identity-pinned v1 profile. Newly generated corrective evidence must use the strict v2 contract and the distinct `results/v4_review/v4_3_intrinsic_static_wrench_corrective/` destination. V4-318 and V4-319 remain open pending clean-revision generation, independent review, retention, final-state regression, and closeout. V4.4/V4.5 remain held.
+Original V4.3 evidence remains readable through its explicitly historical, identity-pinned v1 profile. Newly generated corrective evidence must use the strict v2 contract and the distinct `results/v4_review/v4_3_intrinsic_static_wrench_corrective/` destination. V4-318 and V4-319 are closed after clean-revision generation, independent review, retention, final-state regression, and closeout. V4.4/V4.5 remain held.
 
 ## Executed validation
 
@@ -92,3 +92,17 @@ The package was installed with `python -m pip install -e '.[dev]'`; `pytest-xdis
 4. **The force sets express an ideal unit effort model.** The fixed `(1,1)` independent actuator-effort box is a normalization, not a physical motor, thermal, friction, or structural limit. The corrected corner residual checks the inverse image of unit-box corners. It does not establish a safe hardware holding load. The box-versus-Euclidean effort norm is a scientific modeling choice; this patch preserves the accepted box model.
 
 See the [Cursor roadmap](../../planning/sprints/v4/V4_3A_CURSOR_IMPLEMENTATION_ROADMAP.md) for the exact remaining generation and acceptance sequence. The external `PATCH_MANIFEST.json` identifies the final patch digest and changed-file hashes without creating a self-referential hash inside the patch.
+
+
+## Post-retention acceptance
+
+| Item | Value |
+| --- | --- |
+| Implementation revision | `89563499` |
+| Evidence revision | `c30e9a8b` |
+| Corrective files_digest | `711608264d0fe8391f789ffcf605428cef48c262a440cd180fffa4e5fec242f4` |
+| Verification profile | `corrective_v2` |
+| Focused gate after apply | 136 passed, 1 skipped |
+| Full pytest before evidence | 1473 passed, 25 skipped |
+| Historical v1 verify | unchanged digest `a7abec71…` |
+| Closeout | [V4_3A_INTRINSIC_STATIC_WRENCH_CORRECTIVE_CLOSEOUT.md](V4_3A_INTRINSIC_STATIC_WRENCH_CORRECTIVE_CLOSEOUT.md) |

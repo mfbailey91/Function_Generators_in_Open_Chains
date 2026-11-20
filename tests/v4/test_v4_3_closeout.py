@@ -71,3 +71,29 @@ def test_retained_package_still_verifies() -> None:
     manifest = json.loads((Path(root) / "manifest.json").read_text(encoding="utf-8"))
     assert manifest["n_silent_drops"] == 0
     assert manifest["n_typed_failures"] == 0
+
+
+def test_corrective_package_and_closeout_identities() -> None:
+    from inequality_mechanisms.audits.v4_artifact_guard import (
+        canonical_v4_3_corrective_root,
+    )
+
+    closeout = (
+        CANONICAL_REPO_ROOT
+        / "docs"
+        / "software"
+        / "architecture"
+        / "notes"
+        / "V4_3A_INTRINSIC_STATIC_WRENCH_CORRECTIVE_CLOSEOUT.md"
+    )
+    text = closeout.read_text(encoding="utf-8")
+    assert "89563499" in text
+    assert "c30e9a8b" in text
+    assert "711608264d0fe8391f789ffcf605428cef48c262a440cd180fffa4e5fec242f4" in text
+    assert "**Code authorization: none.**" in text
+    summary = verify_v4_3_artifact(canonical_v4_3_corrective_root())
+    assert summary["verification_profile"] == "corrective_v2"
+    assert summary["n_rows"] == 55539
+    assert summary["files_digest"] == (
+        "711608264d0fe8391f789ffcf605428cef48c262a440cd180fffa4e5fec242f4"
+    )

@@ -27,15 +27,13 @@ algorithms.
   **Sprint V4.2C** is completed
   ([ADR-031](docs/software/architecture/adr/ADR-031-ompl-planner-geometry-contract.md)).
   **Sprint V4.2D** is completed. Original **V4.3** evidence is frozen with reviewed
-  defects. **Sprint V4.3A** is active for V4-310–V4-319:
-  [corrective sprint](docs/software/planning/sprints/v4/SPRINT_V4_3A_INTRINSIC_STATIC_WRENCH_CORRECTIVE.md)
-  and [Cursor implementation roadmap](docs/software/planning/sprints/v4/V4_3A_CURSOR_IMPLEMENTATION_ROADMAP.md).
+  defects. **Sprint V4.3A** is completed:
+  [corrective closeout](docs/software/architecture/notes/V4_3A_INTRINSIC_STATIC_WRENCH_CORRECTIVE_CLOSEOUT.md)
+  and retained package `results/v4_review/v4_3_intrinsic_static_wrench_corrective/`.
   It consumes frozen corrected V4.2B snapshots and the accepted V3.6E force-set API.
 
-Do not overwrite frozen V3 or V4.0–V4.3 packages, including V4.2C-R. Corrective V4.3
-generation targets only the empty `results/v4_review/v4_3_intrinsic_static_wrench_corrective/`
-root after the clean-source implementation gate. Corrected evidence acceptance is pending.
-Canonical V4.2B evidence is
+Do not overwrite frozen V3 or V4.0–V4.3 packages, including V4.2C-R and the V4.3A
+corrective package. Canonical V4.2B evidence is
 retained under
 `results/v4_review/v4_2b_span_controlled_corrective_closeout/`.
 Canonical V4.2C evidence is retained under

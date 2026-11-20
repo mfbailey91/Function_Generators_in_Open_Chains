@@ -1,8 +1,8 @@
 # Version 4 Project Plan — Kinematic Transmission Geometry in Planar 2R
 
-- **Status:** V4.0–V4.2D closed; original V4.3 intrinsic wrench evidence frozen with reviewed defects; V4.3A corrective pass active for V4-310–V4-319; corrected evidence acceptance pending; V4.4+ held
+- **Status:** V4.0–V4.2D closed; original V4.3 intrinsic wrench evidence frozen; V4.3A corrective pass completed; V4.4+ held
 - **Predecessor:** Version 3 planner-independent physical-state and motion-planning contracts
-- **Immediate dependency:** complete [V4.3A corrective acceptance](planning/sprints/v4/SPRINT_V4_3A_INTRINSIC_STATIC_WRENCH_CORRECTIVE.md); V4.4 requires a separate activation in `ACTIVE_SPRINT.md`
+- **Immediate dependency:** V4.3A closeout is complete; V4.4 requires a separate activation in `ACTIVE_SPRINT.md`
 - **Initial robot:** planar 2R open chain
 - **Initial mechanisms:** certified monotonic four-bar pair and span-matched affine gearbox pair
 - **Fresh artifact root:** `results/v4_review/`
@@ -570,14 +570,12 @@ Every generated package includes:
 
 Sprint V4.2D is closed. Canonical optimality-reference evidence is retained under
 `results/v4_review/v4_2d_optimality_reference_report/`. The original V4.3 package is also frozen after implementation review.
-The separate activation of 2026-11-18 authorizes only corrective V4.3A work
-packages V4-310–V4-319 through `ACTIVE_SPRINT.md`. The
-[corrective sprint](planning/sprints/v4/SPRINT_V4_3A_INTRINSIC_STATIC_WRENCH_CORRECTIVE.md)
-and [Cursor roadmap](planning/sprints/v4/V4_3A_CURSOR_IMPLEMENTATION_ROADMAP.md)
-cover evidence protection, complete records, strict verification, normalized-effort
-diagnostics, corrected displays, and final-state acceptance. Corrected evidence
-is generated only from a clean implementation revision into the new empty
-corrective root. V4.2C and V4.2D remain closed; V4.4 stays held.
+The separate activation of 2026-11-18 authorized corrective V4.3A work
+packages V4-310–V4-319 through `ACTIVE_SPRINT.md`; that sprint is now closed.
+See the
+[corrective closeout](architecture/notes/V4_3A_INTRINSIC_STATIC_WRENCH_CORRECTIVE_CLOSEOUT.md)
+and retained package `results/v4_review/v4_3_intrinsic_static_wrench_corrective/`.
+V4.2C and V4.2D remain closed; V4.4 stays held.
 
 V4.2B, V4.2C, V4.2C-R, and V4.2D evidence, and all V3 and V4.0–V4.2A packages,
 remain immutable provenance.

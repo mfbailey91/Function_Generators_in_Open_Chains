@@ -1,13 +1,16 @@
 # Sprint V4.3A — Intrinsic static-wrench corrective pass
 
-- **Status:** active; source correction and validation, followed by fresh evidence and review.
-- **Activated:** 2026-11-18 by the project owner after the V4.3 implementation review.
-- **Code authorization:** V4-310–V4-319 only, as recorded in `ACTIVE_SPRINT.md`.
-- **Patch base:** `ae50709937c9b3f315e2a3a91c7a2ec974275603` on `v4_3-intrinsic-static-wrench`.
-- **Purpose:** correct the ten review findings without changing the accepted force-set model or its frozen geometry source.
-- **Predecessors:** [V4.3 sprint](SPRINT_V4_3_INTRINSIC_STATIC_WRENCH.md), [historical V4.3 closeout](../../../architecture/notes/V4_3_INTRINSIC_STATIC_WRENCH_CLOSEOUT.md), [ADR-028](../../../architecture/adr/ADR-028-gravity-free-static-wrench.md), [ADR-029](../../../architecture/adr/ADR-029-mounted-output-coordinate.md).
-- **Execution guide:** [V4.3A Cursor roadmap](V4_3A_CURSOR_IMPLEMENTATION_ROADMAP.md).
-- **Executed checks:** [V4.3A implementation validation](../../../architecture/notes/V4_3A_IMPLEMENTATION_VALIDATION.md).
+- **Status:** completed; authorization reset in ACTIVE_SPRINT.md
+- **Activated:** 2026-11-18 by the project owner after the V4.3 implementation review
+- **Work packages closed:** V4-310–V4-319
+- **Patch base:** `ae50709937c9b3f315e2a3a91c7a2ec974275603` on `v4_3-intrinsic-static-wrench`
+- **Implementation revision:** `89563499`
+- **Evidence revision:** `c30e9a8b`
+- **Purpose:** correct the ten review findings without changing the accepted force-set model or its frozen geometry source
+- **Predecessors:** [V4.3 sprint](SPRINT_V4_3_INTRINSIC_STATIC_WRENCH.md), [historical V4.3 closeout](../../../architecture/notes/V4_3_INTRINSIC_STATIC_WRENCH_CLOSEOUT.md), [ADR-028](../../../architecture/adr/ADR-028-gravity-free-static-wrench.md), [ADR-029](../../../architecture/adr/ADR-029-mounted-output-coordinate.md)
+- **Closeout:** [V4_3A_INTRINSIC_STATIC_WRENCH_CORRECTIVE_CLOSEOUT.md](../../../architecture/notes/V4_3A_INTRINSIC_STATIC_WRENCH_CORRECTIVE_CLOSEOUT.md)
+- **Execution guide:** [V4.3A Cursor roadmap](V4_3A_CURSOR_IMPLEMENTATION_ROADMAP.md)
+- **Executed checks:** [V4.3A implementation validation](../../../architecture/notes/V4_3A_IMPLEMENTATION_VALIDATION.md)
 
 ## 1. Disposition and scope
 
