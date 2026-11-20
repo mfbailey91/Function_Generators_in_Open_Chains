@@ -1,12 +1,13 @@
 # Sprint V4.4 — Velocity capability and differential IK
 
-- **Status:** active; first instantaneous source slice in implementation
+- **Status:** active; V4-400–V4-403 complete, V4-404 next
 - **Activated:** owner instruction on 2026-11-20, following V4.3B acceptance completion
 - **Authorization:** V4-400–V4-409 in `ACTIVE_SPRINT.md`; stages below are execution gates
 - **Predecessor:** frozen V4.2B geometry and the V4.3B [acceptance addendum](../../../architecture/notes/V4_3B_ACCEPTANCE_ADDENDUM.md)
 - **Decision:** [ADR-033](../../../architecture/adr/ADR-033-normalized-velocity-and-explicit-inverse-policies.md)
 - **Execution guide:** [V4.4 Cursor roadmap](V4_4_CURSOR_IMPLEMENTATION_ROADMAP.md)
 - **First fresh result root:** `results/v4_review/v4_4_velocity_ik_smoke/`
+- **First-slice acceptance:** [readout](../../../architecture/notes/V4_4_VELOCITY_IK_FIRST_SLICE_READOUT.md); clean source `7b40fc290424ec0e0b0e072cd265fe4879d2af04`, retained files digest `891071c794689cea3a9d8654abffca176149a6ceae50b721bf7415b2c52d931c`
 - **Full atlas and tracking roots:** assign distinct names and guards in their work packages; never reuse the smoke or any predecessor tree
 
 ## Research question
@@ -36,7 +37,7 @@ Keep mounted Q/X, `J_g`, `J_f`, `J_xu`, rank tolerances, mechanism identities, a
 | V4-408 | Independent numerical, artifact, and visual review | Mutation tests, source/identity locks, complete counts, common scales, per-cell and paired comparison checks; browser claims require observed execution |
 | V4-409 | Retention, readout, and closeout | Separate clean source/evidence identities, frozen digest, tests on committed closeout, explicit limits, authorization reset |
 
-The first patch implements V4-400–V4-403. It is a usable instantaneous geometry/IK step, not completion of the full V4.4 sprint. Proceed to V4-404 after accepting this slice; tracking must wait for the V4-405 contract.
+V4-400–V4-403 are implemented and accepted with a verified retained smoke. This is a usable instantaneous geometry/IK step; the full V4.4 sprint remains active. The next work is V4-404; tracking must wait for the V4-405 contract.
 
 ## Scientific record
 

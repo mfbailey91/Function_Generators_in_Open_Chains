@@ -6,7 +6,9 @@
 - **Decision:** [ADR-033](../adr/ADR-033-normalized-velocity-and-explicit-inverse-policies.md)
 - **Next package:** V4-404 full intrinsic velocity atlas; V4-405 task/integration contract precedes tracking
 - **Result root:** `results/v4_review/v4_4_velocity_ik_smoke/`
-- **Source and digest:** recorded in the retained package manifest after clean-source generation; retention gate pending at this source revision
+- **Clean generation source:** `7b40fc290424ec0e0b0e072cd265fe4879d2af04`
+- **Retained files digest:** `891071c794689cea3a9d8654abffca176149a6ceae50b721bf7415b2c52d931c`
+- **Retention:** 7 inventoried files plus the manifest; independently verified; V4-400–V4-403 complete
 
 ## What is implemented
 
@@ -55,7 +57,7 @@ The production generator validates the fixed configuration and frozen source, th
 
 The independent reader does not call the capability or inverse solver. It joins every record to its exact retained snapshot and source identity; verifies corners, named directions, support, ray speed, inverse requests, actual achieved motion, residuals, utilization, scaling and saturation; validates typed unavailable results; checks complete pairing/accounting; and verifies every file hash. Absolute local source directories are excluded from scientific identity so the package can move between checkouts.
 
-The first-slice acceptance includes 47 analytic/control tests and 23 smoke/guard/reader tests, scoped Ruff and mypy, and direct visual inspection of the Matplotlib output. Completed regression batches cover all 1,599 collected tests exactly once: 1,575 passed and 24 optional-OMPL skips, with no failures or errors. An earlier interrupted parallel run is excluded from those counts. A final independently verified clean-source retained package is required before V4-403 is marked complete. Real-browser layout/keyboard acceptance is not claimed by these checks.
+The first-slice acceptance includes 47 analytic/control tests and 23 smoke/guard/reader tests, scoped Ruff and mypy, and direct visual inspection of the Matplotlib output. Completed regression batches cover all 1,599 collected tests exactly once: 1,575 passed and 24 optional-OMPL skips, with no failures or errors. An earlier interrupted parallel run is excluded from those counts. The canonical smoke was generated from the clean source commit above and independently verified using `python scripts/generate_v4_4_velocity_smoke.py --verify`; all 60 rows and 1,440 requests pass, with no source failures or silent drops. V4-403 is complete. Real-browser layout/keyboard acceptance is not claimed by these checks.
 
 ## Next execution
 
