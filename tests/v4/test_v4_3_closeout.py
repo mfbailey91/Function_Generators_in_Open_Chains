@@ -104,3 +104,29 @@ def test_corrective_package_and_closeout_identities() -> None:
     assert summary["files_digest"] == (
         "711608264d0fe8391f789ffcf605428cef48c262a440cd180fffa4e5fec242f4"
     )
+
+
+def test_followup_package_and_closeout_identities() -> None:
+    from inequality_mechanisms.audits.v4_artifact_guard import (
+        canonical_v4_3_followup_root,
+    )
+
+    closeout = (
+        CANONICAL_REPO_ROOT
+        / "docs"
+        / "software"
+        / "architecture"
+        / "notes"
+        / "V4_3B_INTRINSIC_STATIC_WRENCH_FOLLOWUP_CLOSEOUT.md"
+    )
+    text = closeout.read_text(encoding="utf-8")
+    assert "731ae301" in text
+    assert "ddfb26d5" in text
+    assert "124d6c7b5701129d2f91a25dae2b6beabd546ba2498d11577b9d424a2b6cb7d6" in text
+    assert "**Code authorization: none.**" in text
+    summary = verify_v4_3_artifact(canonical_v4_3_followup_root())
+    assert summary["verification_profile"] == "followup_v3"
+    assert summary["n_rows"] == 55539
+    assert summary["files_digest"] == (
+        "124d6c7b5701129d2f91a25dae2b6beabd546ba2498d11577b9d424a2b6cb7d6"
+    )

@@ -1,8 +1,9 @@
 # Sprint V4.3B — Intrinsic static-wrench post-review follow-up
 
-- **Status:** active; source corrections, then fresh follow-up evidence and closeout
+- **Status:** completed
 - **Activated:** after the V4.3A implementation review residual findings
-- **Code authorization:** V4-320–V4-323 only, as recorded in `ACTIVE_SPRINT.md`
+- **Closeout:** [V4_3B_INTRINSIC_STATIC_WRENCH_FOLLOWUP_CLOSEOUT.md](../../../architecture/notes/V4_3B_INTRINSIC_STATIC_WRENCH_FOLLOWUP_CLOSEOUT.md)
+- **Code authorization:** none (V4-320–V4-323 closed)
 - **Purpose:** close four residual findings without changing the accepted force-set model or frozen V4.2B geometry source
 - **Predecessors:** [V4.3A sprint](SPRINT_V4_3A_INTRINSIC_STATIC_WRENCH_CORRECTIVE.md), [V4.3A closeout](../../../architecture/notes/V4_3A_INTRINSIC_STATIC_WRENCH_CORRECTIVE_CLOSEOUT.md), [ADR-028](../../../architecture/adr/ADR-028-gravity-free-static-wrench.md)
 - **Artifact target:** `results/v4_review/v4_3_intrinsic_static_wrench_followup/`

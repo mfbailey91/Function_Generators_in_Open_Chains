@@ -22,22 +22,15 @@ from inequality_mechanisms.audits.v4_artifact_guard import (
     canonical_v4_2c_r_retained_root,
     canonical_v4_2c_retained_root,
     canonical_v4_2d_retained_root,
+    canonical_v4_3_followup_root,
     canonical_v4_3_retained_root,
 )
 
 V4_3_OUTPUT_REL = Path("results/v4_review/v4_3_intrinsic_static_wrench_followup")
 
 
-def test_v4_3_allowed_root_and_nested_paths() -> None:
-    from inequality_mechanisms.audits.v4_artifact_guard import (
-        assert_v4_3_output_allowed,
-    )
-
-    root = (REPO_ROOT / V4_3_FOLLOWUP_OUTPUT_REL).resolve()
+def test_v4_3_followup_rel_matches_allowlist_constant() -> None:
     assert V4_3_FOLLOWUP_OUTPUT_REL == V4_3_OUTPUT_REL
-    assert assert_v4_3_output_allowed(root) == root
-    child = root / "cases" / "span_j1_145_j2_145" / "summary.json"
-    assert assert_v4_3_output_allowed(child) == child.resolve()
 
 
 @pytest.mark.parametrize(
@@ -52,6 +45,7 @@ def test_v4_3_allowed_root_and_nested_paths() -> None:
         (canonical_v4_2c_r_retained_root, "frozen V4.2C-R"),
         (canonical_v4_2d_retained_root, "frozen V4.2D"),
         (canonical_v4_3_retained_root, "frozen V4.3"),
+        (canonical_v4_3_followup_root, "frozen V4.3B follow-up"),
     ],
 )
 def test_v4_3_refuses_historical_v4_packages(path_fn, match: str) -> None:

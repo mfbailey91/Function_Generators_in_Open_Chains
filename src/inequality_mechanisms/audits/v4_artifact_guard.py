@@ -17,10 +17,11 @@ V4.2C-R writers may write only under
 ``results/v4_review/v4_2c_r_frozen_data_report/``.
 V4.2D writers may write only under
 ``results/v4_review/v4_2d_optimality_reference_report/``.
-V4.3 follow-up writers may write only under
+V4.3 follow-up writers historically wrote under
 ``results/v4_review/v4_3_intrinsic_static_wrench_followup/``.
-The original and V4.3A corrective packages remain frozen.
-The original V4.3 package and every descendant remain frozen.
+That package is now retained evidence: the nonempty root and empty-root
+preflight refuse overwrite. The original, V4.3A corrective, and V4.3B
+follow-up packages remain frozen provenance.
 
 Every package under ``results/v3_review/`` remains frozen. Other
 ``results/v4_review/`` packages stay unauthorized. The closed V4.0–V4.2C
@@ -593,19 +594,30 @@ def assert_v4_3_output_allowed(path: Path) -> Path:
         V4_2D_ALLOWED_PACKAGE: "frozen V4.2D",
         V4_3_ALLOWED_PACKAGE: "frozen V4.3",
         V4_3_CORRECTIVE_PACKAGE: "frozen V4.3A corrective",
+        V4_3_FOLLOWUP_PACKAGE: "frozen V4.3B follow-up",
     }
     v4_package = _v4_review_package_name(resolved)
-    if v4_package in frozen:
+    # Freeze the real retained follow-up tree using the install path, not the
+    # monkeypatchable CANONICAL_REPO_ROOT used by isolated tests.
+    real_followup = (
+        Path(__file__).resolve().parents[3] / V4_3_FOLLOWUP_OUTPUT_REL
+    ).resolve()
+    if resolved == real_followup or real_followup in resolved.parents:
+        raise ArtifactPathForbiddenError(
+            f"Refusing to write into frozen V4.3B follow-up retained evidence "
+            f"at {resolved}."
+        )
+    if v4_package in frozen and v4_package != V4_3_FOLLOWUP_PACKAGE:
         raise ArtifactPathForbiddenError(
             f"Refusing to write into {frozen[v4_package]} retained evidence "
-            f"at {resolved}. V4.3B may write only under {allowed}."
+            f"at {resolved}. Isolated tests may use a monkeypatched follow-up root."
         )
     if resolved == allowed or allowed in resolved.parents:
         return resolved
     if v4_package is not None:
         raise ArtifactPathForbiddenError(
             f"Refusing to write into unauthorized V4 package {v4_package!r} "
-            f"at {resolved}. V4.3B may write only under {allowed}."
+            f"at {resolved}."
         )
     raise ArtifactPathForbiddenError(
         f"V4.3 output path {resolved} is not under the allowed root {allowed}."
