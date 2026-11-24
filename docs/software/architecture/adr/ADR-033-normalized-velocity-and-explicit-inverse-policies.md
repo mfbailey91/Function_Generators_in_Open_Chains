@@ -4,7 +4,7 @@
 - **Applies to:** V4 Column B, initially planar 2R instantaneous capability and differential IK
 - **Related:** ADR-027 shared geometry; ADR-028 static wrench; ADR-029 mounted coordinates
 - **Implementation:** `metrics/velocity.py`; retained-source smoke in `experiments/v4/intrinsic_velocity.py`
-- **Scope boundary:** this decision does not supply a trajectory, timestep, feedback law, domain-boundary rule, or hardware actuator model
+- **Scope boundary:** instantaneous capability and inverse policies only. Trajectory, timestep, feedback, domain-boundary, and tracking failure taxonomy live in [ADR-034](ADR-034-cartesian-tracking-task-and-integration-contract.md). This ADR still does not supply a hardware actuator model.
 
 ## Context
 
@@ -91,4 +91,4 @@ Every production entry point uses the same fresh-root, clean-source preflight. A
 
 Analytic controls cover identity, anisotropic and signed maps, rank one, rank zero, nonidentity SPD weight, invalid inputs, DLS normal equations, box support versus ray speed, rate scaling, and instantaneous power duality. Retained-source checks verify pairing, source locks, all row counts, stored-matrix corner images, achieved-velocity residuals, rate utilization, finite transport, and overwrite refusal.
 
-The first implementation opens the next project step without changing the force-set model or any frozen evidence. V4.4 remains active until its full intrinsic atlas, task/integration contract, tracking comparisons, review, and closeout gates are complete. V4.5 continuous flow requires separate activation.
+The first implementation opens the next project step without changing the force-set model or any frozen evidence. The V4-405 task/integration contract is accepted in ADR-034. V4.4 remains active until tracking comparisons, review, and closeout gates are complete. V4.5 continuous flow requires separate activation.

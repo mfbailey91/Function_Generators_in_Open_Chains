@@ -1,0 +1,176 @@
+{
+  "adr": "ADR-034",
+  "control": {
+    "feedback": "proportional_cartesian",
+    "feedforward": "path_derivative",
+    "kp": 5.0,
+    "request": "v_ff_plus_v_fb"
+  },
+  "declared_metrics": [
+    "rms_cartesian_error",
+    "peak_cartesian_error",
+    "peak_rate_utilization",
+    "residual_norm_before_scale",
+    "residual_norm_after_scale",
+    "command_continuity_max_delta_u_dot",
+    "failure_code"
+  ],
+  "domain_boundary": {
+    "certified_box": "mounted_q",
+    "policy": "typed_terminal_failure",
+    "silent_clipping": false
+  },
+  "failure_codes": [
+    "ok",
+    "start_unavailable",
+    "snapshot_invalid",
+    "path_undefined",
+    "integration_nonfinite",
+    "domain_boundary_exit",
+    "exact_unavailable",
+    "transmission_rank_deficient",
+    "rate_infeasible_report_only",
+    "task_ineligible",
+    "refinement_diverged"
+  ],
+  "inverse": {
+    "actuator_weight": [
+      [
+        1.0,
+        0.0
+      ],
+      [
+        0.0,
+        1.0
+      ]
+    ],
+    "damping_sweep": [
+      0.01,
+      0.05,
+      0.2
+    ],
+    "ik_policies": [
+      "exact",
+      "minimum_norm",
+      "damped_least_squares"
+    ],
+    "rate_limits": [
+      1.0,
+      1.0
+    ],
+    "rate_policies": [
+      "report_only",
+      "uniform_scale"
+    ],
+    "rate_units": "normalized_actuator_coordinate_rate",
+    "velocity_units": "length_per_normalized_time"
+  },
+  "mechanisms": [
+    "fourbar",
+    "span_matched_gearbox",
+    "identity_on_shared_q"
+  ],
+  "no_inference_statement": "V4-405 freezes the Cartesian tracking task/integration contract only. No runner, tracking evidence, motor rating, or temporal claim is made from instantaneous smoke or atlas cells.",
+  "output_dir": "results/v4_review/v4_4_velocity_tracking_smoke",
+  "package": "v4_4_velocity_tracking_smoke",
+  "paths": {
+    "coordinate_frame": "mounted_x",
+    "definitions": {
+      "axis_x": {
+        "direction": [
+          1.0,
+          0.0
+        ],
+        "kind": "segment"
+      },
+      "axis_y": {
+        "direction": [
+          0.0,
+          1.0
+        ],
+        "kind": "segment"
+      },
+      "circle_ccw": {
+        "kind": "circle",
+        "orientation": "ccw"
+      },
+      "diagonal": {
+        "direction": [
+          0.7071067811865476,
+          0.7071067811865476
+        ],
+        "kind": "segment"
+      }
+    },
+    "duration": 1.0,
+    "ids": [
+      "axis_x",
+      "axis_y",
+      "diagonal",
+      "circle_ccw"
+    ],
+    "scale_rule": "isotropic_speed_times_duration"
+  },
+  "schema_version": "v4.4.velocity.tracking.contract.v1",
+  "source": {
+    "config_digest": "ca632445469aa024c171fbc9d266ae58aeedf659e3ca3cbca5f16d70db1b6a9d",
+    "files_digest": "ce7bbea03c9ac9ea77bad761e371d5abcd96965e7aa55daf76269ee51469be9a",
+    "grid": [
+      33,
+      33
+    ],
+    "mechanisms": [
+      "fourbar",
+      "span_matched_gearbox",
+      "identity_on_shared_q"
+    ],
+    "n_cases": 17,
+    "n_files": 23,
+    "n_geometry_rows": 55539,
+    "n_rows_per_arm": 18513,
+    "schema_version": "v4.3.intrinsic_static_wrench.source_lock.v1",
+    "source_revision": "6680d648a0dc93d33f1cf34bb81cea69d6a44e80",
+    "v3_6d_registry_digest": "456efd9f9472f8cee6271347e4e13bc750473bc186f752a254c526cc853296f0",
+    "v4_2b_package": "v4_2b_span_controlled_corrective_closeout"
+  },
+  "start": {
+    "initial_actuator_rate": [
+      0.0,
+      0.0
+    ],
+    "match": "exact_retained_identity",
+    "require_shared_physical_qx": true
+  },
+  "sweep": {
+    "damping_applies_to": [
+      "damped_least_squares"
+    ],
+    "damping_sweep": [
+      0.01,
+      0.05,
+      0.2
+    ],
+    "first_smoke_may_subset_with_selection_record": true,
+    "ik_policies": [
+      "exact",
+      "minimum_norm",
+      "damped_least_squares"
+    ],
+    "mode": "documented_factorial",
+    "rate_policies": [
+      "report_only",
+      "uniform_scale"
+    ]
+  },
+  "timing": {
+    "achieved_velocity_map": "raw_stored_j_xu",
+    "dt": 0.01,
+    "duration": 1.0,
+    "integrator": "explicit_euler_actuator_rate",
+    "refinement_dt": [
+      0.005,
+      0.0025
+    ]
+  },
+  "v4_405_forbids_writing_output_dir": true
+}

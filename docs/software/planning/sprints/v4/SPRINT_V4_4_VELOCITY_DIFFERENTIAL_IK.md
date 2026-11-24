@@ -1,10 +1,10 @@
 # Sprint V4.4 — Velocity capability and differential IK
 
-- **Status:** active; V4-400–V4-404 complete (frozen smoke + atlas); V4-405 next
+- **Status:** active; V4-400–V4-405 complete (frozen smoke + atlas + tracking contract); V4-406 next
 - **Activated:** owner instruction on 2026-11-20, following V4.3B acceptance completion
 - **Authorization:** V4-400–V4-409 in `ACTIVE_SPRINT.md`; stages below are execution gates
 - **Predecessor:** frozen V4.2B geometry and the V4.3B [acceptance addendum](../../../architecture/notes/V4_3B_ACCEPTANCE_ADDENDUM.md)
-- **Decision:** [ADR-033](../../../architecture/adr/ADR-033-normalized-velocity-and-explicit-inverse-policies.md)
+- **Decision:** [ADR-033](../../../architecture/adr/ADR-033-normalized-velocity-and-explicit-inverse-policies.md); tracking contract [ADR-034](../../../architecture/adr/ADR-034-cartesian-tracking-task-and-integration-contract.md)
 - **Execution guide:** [V4.4 Cursor roadmap](V4_4_CURSOR_IMPLEMENTATION_ROADMAP.md)
 - **First fresh result root:** `results/v4_review/v4_4_velocity_ik_smoke/`
 - **First-slice acceptance:** [readout](../../../architecture/notes/V4_4_VELOCITY_IK_FIRST_SLICE_READOUT.md); clean source `7b40fc290424ec0e0b0e072cd265fe4879d2af04`, retained files digest `891071c794689cea3a9d8654abffca176149a6ceae50b721bf7415b2c52d931c`
@@ -37,7 +37,7 @@ Keep mounted Q/X, `J_g`, `J_f`, `J_xu`, rank tolerances, mechanism identities, a
 | V4-408 | Independent numerical, artifact, and visual review | Mutation tests, source/identity locks, complete counts, common scales, per-cell and paired comparison checks; browser claims require observed execution |
 | V4-409 | Retention, readout, and closeout | Separate clean source/evidence identities, frozen digest, tests on committed closeout, explicit limits, authorization reset |
 
-V4-400–V4-404 are implemented and accepted with verified retained smoke and full-corpus atlas packages. This is a usable instantaneous geometry/IK atlas step; the full V4.4 sprint remains active. Tracking must wait for the V4-405 contract.
+V4-400–V4-405 are implemented and accepted: verified retained smoke and atlas packages, plus the ADR-034 Cartesian task/integration contract. The full V4.4 sprint remains active. V4-406 must implement the runner against that frozen contract without mutating instantaneous evidence.
 
 ## Scientific record
 

@@ -12,6 +12,7 @@ SOURCES = (
     "src/inequality_mechanisms/metrics/velocity.py",
     "src/inequality_mechanisms/experiments/v4/intrinsic_velocity.py",
     "src/inequality_mechanisms/experiments/v4/intrinsic_velocity_atlas.py",
+    "src/inequality_mechanisms/experiments/v4/velocity_tracking_contract.py",
     "src/inequality_mechanisms/audits/v4_4_artifact.py",
     "src/inequality_mechanisms/audits/v4_4_atlas_artifact.py",
     "src/inequality_mechanisms/visualization/v4/intrinsic_velocity_atlas.py",

@@ -31,4 +31,5 @@ ADR-001 remains accepted for Version 1 noninjective/full-cycle planning. Version
 | [030](ADR-030-paired-final-topology-and-nonfinite-edge-semantics.md) | Paired final topology and nonfinite edge semantics | V4.2B+ paired planning (accepted) |
 | [031](ADR-031-ompl-planner-geometry-contract.md) | OMPL planner geometry must be explicit | V4.2C Column A planning diagnostic (accepted; implemented by completed V4.2C) |
 | [032](ADR-032-planner-optimality-represented-goal-reference.md) | Planner optimality must be measured against the exact represented-goal reference | V4.2D Column A optimality report (accepted; \(J^*_{C,m}\) is the V4.2C center-IK direct optimum) |
-| [033](ADR-033-normalized-velocity-and-explicit-inverse-policies.md) | Normalized velocity capability and explicit inverse policies | V4.4 Column B (accepted; instantaneous source slice first, tracking contract follows) |
+| [033](ADR-033-normalized-velocity-and-explicit-inverse-policies.md) | Normalized velocity capability and explicit inverse policies | V4.4 Column B (accepted; instantaneous smoke/atlas frozen) |
+| [034](ADR-034-cartesian-tracking-task-and-integration-contract.md) | Cartesian tracking task and integration contract | V4.4 Column B (accepted for V4-405; runner deferred to V4-406) |

@@ -25,7 +25,7 @@ Accept analytic controls and complete counts first. Generate only from a clean s
 
 ## 3. Specify tracking before building it — V4-405
 
-Write a small deterministic task contract with declared Cartesian paths, shared start/end criteria, initial physical-state matching, task timing, integration step, refinement test, feedback law, domain-boundary handling, and typed failure outcomes. Specify a common target-speed and damping/rate-policy sweep. Treat any mechanism-specific loss of task eligibility as an outcome rather than filtering it away.
+Accepted in [ADR-034](../../../architecture/adr/ADR-034-cartesian-tracking-task-and-integration-contract.md) and frozen as `configs/v4/velocity_tracking_contract_v1.json` with loader `experiments/v4/velocity_tracking_contract.py`. Declared Cartesian paths, start matching, timing/refinement, feedforward/feedback, domain-boundary handling, failure taxonomy, and the damping/rate-policy factorial are locked. No tracking result root was written.
 
 The instantaneous smoke is not a tracking benchmark. Do not infer RMS error, temporal stability, or command continuity from it.
 
