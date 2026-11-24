@@ -19,7 +19,7 @@ Use the retained smoke's `index.html`, records, and manifest for review. Do not 
 
 Consume all 17 cases through the existing frozen-row adapter. Add a distinct guarded atlas root and schema before generation. Preserve every source row and the physical pairing key. Show true-scale common-axis polygons, direction-specific support and ray-speed fields, actuator demand, physical rank/conditioning, and explicit diagnostic views. Provide cell inspection and paired differences from canonical data, not recomputed browser geometry. Regular scales must not be flattened by near-singular extremes.
 
-Production entry points: `scripts/generate_v4_4_velocity_atlas.py` writes only `results/v4_review/v4_4_intrinsic_velocity_atlas/` from a clean source into an empty root. The smoke package remains frozen and is refused by atlas preflight.
+Production entry points: `scripts/generate_v4_4_velocity_atlas.py` writes only `results/v4_review/v4_4_intrinsic_velocity_atlas/` from a clean source into an empty root. The smoke package remains frozen and is refused by atlas preflight. V4-404 is retained; see [atlas readout](../../../architecture/notes/V4_4_INTRINSIC_VELOCITY_ATLAS_READOUT.md).
 
 Accept analytic controls and complete counts first. Generate only from a clean source commit, then verify independently and retain evidence separately.
 
