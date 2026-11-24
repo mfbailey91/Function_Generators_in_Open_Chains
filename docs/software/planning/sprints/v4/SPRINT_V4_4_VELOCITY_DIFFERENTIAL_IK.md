@@ -1,6 +1,6 @@
 # Sprint V4.4 — Velocity capability and differential IK
 
-- **Status:** active; V4-400–V4-403 complete with frozen smoke; V4-404 atlas implementation authorized
+- **Status:** active; V4-400–V4-404 complete (frozen smoke + atlas); V4-405 next
 - **Activated:** owner instruction on 2026-11-20, following V4.3B acceptance completion
 - **Authorization:** V4-400–V4-409 in `ACTIVE_SPRINT.md`; stages below are execution gates
 - **Predecessor:** frozen V4.2B geometry and the V4.3B [acceptance addendum](../../../architecture/notes/V4_3B_ACCEPTANCE_ADDENDUM.md)
@@ -37,7 +37,7 @@ Keep mounted Q/X, `J_g`, `J_f`, `J_xu`, rank tolerances, mechanism identities, a
 | V4-408 | Independent numerical, artifact, and visual review | Mutation tests, source/identity locks, complete counts, common scales, per-cell and paired comparison checks; browser claims require observed execution |
 | V4-409 | Retention, readout, and closeout | Separate clean source/evidence identities, frozen digest, tests on committed closeout, explicit limits, authorization reset |
 
-V4-400–V4-403 are implemented and accepted with a verified retained smoke. This is a usable instantaneous geometry/IK step; the full V4.4 sprint remains active. The next work is V4-404; tracking must wait for the V4-405 contract.
+V4-400–V4-404 are implemented and accepted with verified retained smoke and full-corpus atlas packages. This is a usable instantaneous geometry/IK atlas step; the full V4.4 sprint remains active. Tracking must wait for the V4-405 contract.
 
 ## Scientific record
 
