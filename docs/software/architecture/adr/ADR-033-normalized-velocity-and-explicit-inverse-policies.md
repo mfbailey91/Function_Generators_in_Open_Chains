@@ -85,7 +85,7 @@ Serialize the requested and commanded rates, target and achieved Cartesian veloc
 
 Use frozen V4.2B physical samples, source locks, and all three existing arms: four-bar, span-matched gearbox, and identity on shared Q. The first smoke has four cases, five grid locations per case, and 60 records. It tests instantaneous behavior, including singular samples. It does not estimate tracking error, certify a full atlas, or rank mechanisms globally.
 
-Every production entry point uses the same fresh-root, clean-source preflight. The only production output is `results/v4_review/v4_4_velocity_ik_smoke/`. Never delete and recreate an occupied output tree. Test destinations must be explicitly isolated and cannot resolve into canonical retained evidence. Strict finite JSON, exact source identity, a complete file inventory, and independent algebra checks are required before retention.
+Every production entry point uses the same fresh-root, clean-source preflight. Authorized production roots are `results/v4_review/v4_4_velocity_ik_smoke/` (frozen first slice) and `results/v4_review/v4_4_intrinsic_velocity_atlas/` (V4-404 full corpus). Never delete and recreate an occupied output tree, and never write the atlas into the smoke root. Test destinations must be explicitly isolated and cannot resolve into canonical retained evidence. Strict finite JSON, exact source identity, a complete file inventory, and independent algebra checks are required before retention.
 
 ## Acceptance and consequences
 

@@ -11,7 +11,10 @@ ROOT = Path(__file__).resolve().parents[1]
 SOURCES = (
     "src/inequality_mechanisms/metrics/velocity.py",
     "src/inequality_mechanisms/experiments/v4/intrinsic_velocity.py",
+    "src/inequality_mechanisms/experiments/v4/intrinsic_velocity_atlas.py",
     "src/inequality_mechanisms/audits/v4_4_artifact.py",
+    "src/inequality_mechanisms/audits/v4_4_atlas_artifact.py",
+    "src/inequality_mechanisms/visualization/v4/intrinsic_velocity_atlas.py",
 )
 
 
@@ -25,6 +28,7 @@ def main() -> int:
         *tests,
         "scripts/check_v4_4_quality.py",
         "scripts/generate_v4_4_velocity_smoke.py",
+        "scripts/generate_v4_4_velocity_atlas.py",
     ]
     for args in (
         ["ruff", "check", *paths],

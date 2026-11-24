@@ -1,6 +1,6 @@
 # Sprint V4.4 — Velocity capability and differential IK
 
-- **Status:** active; V4-400–V4-403 complete, V4-404 next
+- **Status:** active; V4-400–V4-403 complete with frozen smoke; V4-404 atlas implementation authorized
 - **Activated:** owner instruction on 2026-11-20, following V4.3B acceptance completion
 - **Authorization:** V4-400–V4-409 in `ACTIVE_SPRINT.md`; stages below are execution gates
 - **Predecessor:** frozen V4.2B geometry and the V4.3B [acceptance addendum](../../../architecture/notes/V4_3B_ACCEPTANCE_ADDENDUM.md)

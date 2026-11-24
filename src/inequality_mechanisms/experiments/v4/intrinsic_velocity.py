@@ -76,7 +76,10 @@ def consume_velocity_smoke() -> list[ConsumedSourceRow]:
 
 
 def velocity_smoke_record(
-    item: ConsumedSourceRow, config: Mapping[str, Any]
+    item: ConsumedSourceRow,
+    config: Mapping[str, Any],
+    *,
+    verify: bool = True,
 ) -> dict[str, Any]:
     """Retain raw snapshots, velocity geometry, and all 24 inverse-policy requests."""
     snapshot = item.row.snapshot
@@ -144,7 +147,8 @@ def velocity_smoke_record(
         "capability": capability,
         "ik_requests": requests,
     }
-    verify_velocity_record(record)
+    if verify:
+        verify_velocity_record(record)
     return record
 
 
