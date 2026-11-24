@@ -45,6 +45,10 @@ POLICIES = ("exact", "minimum_norm", "damped_least_squares")
 RATE_POLICIES = ("report_only", "uniform_scale")
 RATE_TOLERANCE = 32.0 * np.finfo(float).eps
 RANGE_TOLERANCE = 64.0 * np.finfo(float).eps
+# Near-singular full-rank maps amplify inverse/product roundoff across BLAS
+# builds. Keep regular checks tight; enlarge only when inherited status is
+# near_singular and the discrepancy scales with eps * condition / rate size.
+NEAR_SINGULAR_EPS = float(np.finfo(float).eps)
 PACKAGE_FILES = frozenset(
     {
         "config.json",
@@ -314,6 +318,22 @@ def _close(
         raise V4_4ArtifactError(f"{label} disagrees with independent algebra")
 
 
+def _close_near_singular(
+    actual: Any,
+    expected: Any,
+    label: str,
+    *,
+    condition: float | None,
+    rate_scale: float = 1.0,
+) -> None:
+    """Compare quantities that grow with near-singular inverse amplification."""
+    cond = 1.0 if condition is None else max(float(condition), 1.0)
+    scale = max(float(rate_scale), 1.0)
+    rtol = max(2e-9, 64.0 * NEAR_SINGULAR_EPS * cond)
+    atol = max(2e-12, 64.0 * NEAR_SINGULAR_EPS * cond * scale)
+    _close(actual, expected, label, rtol=rtol, atol=atol)
+
+
 def _physical_status(report: Mapping[str, Any]) -> str:
     rank = report["rank"]
     if rank == 0:
@@ -457,7 +477,15 @@ def _verify_velocity_record(row: Mapping[str, Any]) -> None:
             )
         else:
             speed, status = 0.0, "zero_inherited_range"
-        _close(cap["directional_ray_speed"][name], speed, name + " ray speed")
+        if physical_status == "near_singular":
+            _close_near_singular(
+                cap["directional_ray_speed"][name],
+                speed,
+                name + " ray speed",
+                condition=report.get("condition_number"),
+            )
+        else:
+            _close(cap["directional_ray_speed"][name], speed, name + " ray speed")
         _equal(cap["direction_status"][name], status, name + " status")
     expected_keys = {
         (d, p, r) for d in DIRECTIONS for p in POLICIES for r in RATE_POLICIES
@@ -469,7 +497,11 @@ def _verify_velocity_record(row: Mapping[str, Any]) -> None:
         )
     for request in row["ik_requests"]:
         _verify_ik_request(
-            request, snapshot, directions[request["direction"]], ray_model
+            request,
+            snapshot,
+            directions[request["direction"]],
+            ray_model,
+            physical_status=physical_status,
         )
 
 
@@ -478,9 +510,27 @@ def _verify_ik_request(
     snapshot: Mapping[str, Any],
     direction: Any,
     rank_model: Any,
+    *,
+    physical_status: str,
 ) -> None:
     rank = snapshot["rank_reports"]["u_to_x"]["rank"]
+    condition = snapshot["rank_reports"]["u_to_x"].get("condition_number")
     policy, rate_policy = request["policy"], request["rate_policy"]
+
+    def compare(
+        actual: Any, expected: Any, label: str, rate_scale: float = 1.0
+    ) -> None:
+        if physical_status == "near_singular":
+            _close_near_singular(
+                actual,
+                expected,
+                label,
+                condition=condition,
+                rate_scale=rate_scale,
+            )
+        else:
+            _close(actual, expected, label)
+
     if direction is None or (policy == "exact" and rank < 2):
         _equal(request["status"], "unavailable", "IK availability")
         _equal(request["result"], None, "unavailable IK result")
@@ -561,16 +611,17 @@ def _verify_ik_request(
         )
     _equal(result["solver_status"], solver_status, "IK solver status")
     _equal(result["solver_rank_policy"], rank_policy, "IK solver rank policy")
-    _close(result["solver_jacobian"], model, "IK solver Jacobian")
-    _close(result["requested_rates"], expected_rates, "requested IK rates")
+    compare(result["solver_jacobian"], model, "IK solver Jacobian")
+    rate_scale = float(np.linalg.norm(expected_rates)) + 1.0
+    compare(result["requested_rates"], expected_rates, "requested IK rates", rate_scale)
     requested = np.asarray(result["requested_rates"], dtype=float)
     peak = float(np.max(np.abs(requested)))
     scale = (
         min(1.0, 1.0 / peak) if rate_policy == "uniform_scale" and peak > 0.0 else 1.0
     )
-    _close(result["applied_scale"], scale, "uniform scale")
+    compare(result["applied_scale"], scale, "uniform scale", rate_scale)
     commanded = requested * scale
-    _close(result["commanded_rates"], commanded, "commanded IK rates")
+    compare(result["commanded_rates"], commanded, "commanded IK rates", rate_scale)
     _equal(
         result["residual_convention"],
         "target_minus_raw_stored_jacobian_command",
@@ -597,17 +648,23 @@ def _verify_ik_request(
         achieved = jacobian @ rates
         residual = direction - achieved
         utilization = np.abs(rates)
-        _close(result[achieved_key], achieved, achieved_key)
-        _close(result[residual_key], residual, residual_key)
-        _close(result[norm_key], np.linalg.norm(residual), norm_key)
-        _close(result[utilization_key], utilization, utilization_key)
-        _close(
+        compare(result[achieved_key], achieved, achieved_key, rate_scale)
+        compare(result[residual_key], residual, residual_key, rate_scale)
+        compare(result[norm_key], np.linalg.norm(residual), norm_key, rate_scale)
+        compare(result[utilization_key], utilization, utilization_key, rate_scale)
+        compare(
             result[prefix + "_weighted_rate_norm"],
             np.linalg.norm(rates),
             "weighted norm",
+            rate_scale,
         )
         peak = float(np.max(utilization))
-        _close(result[prefix + "_peak_utilization"], peak, "peak utilization")
+        compare(
+            result[prefix + "_peak_utilization"],
+            peak,
+            "peak utilization",
+            rate_scale,
+        )
         _equal(
             result[prefix + "_feasible"],
             peak <= 1.0 + RATE_TOLERANCE,

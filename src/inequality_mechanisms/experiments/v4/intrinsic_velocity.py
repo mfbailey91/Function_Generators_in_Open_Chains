@@ -10,7 +10,7 @@ import html
 from collections.abc import Mapping, Sequence
 from io import StringIO
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import numpy as np
 
@@ -185,9 +185,8 @@ def _review_svg(rows: Sequence[Mapping[str, Any]]) -> str:
             "scales differ between samples.",
             fontsize=13,
         )
-        for subfigure, pair in zip(
-            figure.subfigures(len(pairs), 1), pairs, strict=True
-        ):
+        subfigures = cast(Sequence[Any], figure.subfigures(len(pairs), 1))
+        for subfigure, pair in zip(subfigures, pairs, strict=True):
             subfigure.suptitle(
                 f"{pair[0]['case_id']} · grid {pair[0]['grid_index']}", fontsize=11
             )
